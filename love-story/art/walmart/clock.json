@@ -1,0 +1,15 @@
+{
+  "id": "clock",
+  "file": "clock.webp",
+  "w": 730,
+  "h": 740,
+  "feet": [
+    364.9,
+    715.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 0.55
+}

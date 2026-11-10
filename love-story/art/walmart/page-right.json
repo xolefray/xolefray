@@ -1,0 +1,15 @@
+{
+  "id": "page-right",
+  "file": "page-right.webp",
+  "w": 1024,
+  "h": 853,
+  "feet": [
+    512,
+    852
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 3
+}

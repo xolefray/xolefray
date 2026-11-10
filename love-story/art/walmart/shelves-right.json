@@ -1,0 +1,15 @@
+{
+  "id": "shelves-right",
+  "file": "shelves-right.webp",
+  "w": 1024,
+  "h": 563,
+  "feet": [
+    430.1,
+    541.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 1.18
+}
