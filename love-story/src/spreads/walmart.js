@@ -171,22 +171,24 @@ export default {
     if (himCard) himRig.add(himCard);
     if (herCard) herRig.add(herCard);
 
-    const hi = makeBubble(paper, FONT, 'hi', 280, 180, 3);
+    const hi = makeBubble(paper, FONT, 'hi', 280, 180, 3, 0.5);
     const hiCard = paper.card({ canvas: hi, width: 0.34, height: 0.22, anchor: 'center' });
     hiCard.name = 'hi';
     // Pivot sits on her head. Scaling the pivot collapses the bubble there while folded;
-    // open, the card itself floats just above her hair. −X is toward him.
+    // open, the card itself floats above her hair with the tail clear of her face.
+    // −X is toward him.
     const hiPivot = new THREE.Group();
     hiPivot.name = 'hi-pivot';
-    hiPivot.position.set(-0.02, 1.12, 0);
-    hiCard.position.set(0, 0.32, 0.02);
+    hiPivot.position.set(-0.02, 1.18, 0);
+    hiCard.position.set(0, 0.62, 0.02);
     hiPivot.add(hiCard);
     herRig.add(hiPivot);
 
-    // Knee-high, in the x-gap between her (outer ≈ 1.37) and him (gutter edge ≈ 1.82).
+    // Knee-high, in the x-gap between her (outer ≈ 1.37) and him (gutter edge ≈ 1.82),
+    // and in front of the "How we met" lettering so the whole heading stays readable.
     // The drawing hangs toward local −X, which is the outer side of the left page.
     const boxes = track(popup.standUp({
-      side: 'left', x: 1.50, z: 1.08, fold: 'back', width: 0.46, height: 0.48,
+      side: 'left', x: 1.34, z: 1.24, fold: 'back', width: 0.46, height: 0.48,
     }));
     if (has('boxes')) {
       const card = characterArt.characterCard(paper, art, 'boxes', { height: 0.48 });
@@ -271,9 +273,10 @@ export default {
       ha: placeBubble(paper, FONT, lunchRig, 'ha!', 300, 180, -0.52, 1.26, 5),
       dots: placeBubble(paper, FONT, lunchRig, '…', 240, 170, 0.22, 1.28, 6),
       heart: placeBubble(paper, FONT, lunchRig, '♥', 180, 160, -0.12, 1.34, 7),
-      payHer: placeBubble(paper, FONT, lunchRig, "I'll pay!", 420, 190, -0.48, 1.2, 8),
-      payHim: placeBubble(paper, FONT, lunchRig, "No, I'LL pay!", 460, 190, 0.16, 1.22, 9),
-      paid: placeStamp(paper, FONT, lunchRig, 0.46, 1.42),
+      // Above each speaker, separated, tail pointing down at the head — not over the eyes.
+      payHer: placeBubble(paper, FONT, lunchRig, "I'll pay!", 420, 190, -0.58, 1.68, 8, 0.5),
+      payHim: placeBubble(paper, FONT, lunchRig, "No, I'LL pay!", 460, 190, 0.32, 1.76, 9, 0.42),
+      paid: placeStamp(paper, FONT, lunchRig, 0.2, 1.72),
     };
 
     const steamTex = steamTexture(paper);
@@ -518,16 +521,8 @@ function paintLeftPage(ctx, w, h, FONT, C, rng) {
   const font = (size) => `${size}px ${FONT.display}`;
   const size = fitSize(ctx, 'How we met', font, Math.round(h * 0.075), w * 0.46);
   const colors = [C.tomato, C.mustard, C.teal, C.sky, C.leaf, C.blush];
-  // Front floor. The box stack covers only the tail of "met" (seen in the film frame).
-  cutWord(ctx, 'How we met', w * 0.46, h * 0.76, size, FONT, colors, rng);
-
-  const hand = (px) => `700 ${px}px ${FONT.hand}`;
-  const yes = fitSize(ctx, 'yes, really →', hand, Math.round(h * 0.055), w * 0.36);
-  ctx.font = hand(yes);
-  ctx.fillStyle = '#9d3a3a';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('yes, really →', w * 0.12, h * 0.62);
+  // Outer front floor, clear of the box stack (that stack sits nearer the gutter).
+  cutWord(ctx, 'How we met', w * 0.30, h * 0.74, size, FONT, colors, rng);
 
   // A blank price-tag doodle, far and away from the gutter.
   ctx.save();
@@ -603,7 +598,8 @@ function paintRightPage(ctx, w, h, FONT, C) {
   ctx.restore();
 }
 
-function makeBubble(paper, FONT, text, w, h, seed) {
+function makeBubble(paper, FONT, text, w, h, seed, tail) {
+  const tip = tail == null ? 0.36 : tail;
   return paper.paint(w, h, (ctx, W, H) => {
     const font = (size) => `700 ${size}px ${FONT.hand}`;
     const size = fitSize(ctx, text, font, Math.round(H * 0.34), W * 0.78);
@@ -615,9 +611,9 @@ function makeBubble(paper, FONT, text, w, h, seed) {
     ctx.fill();
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(W * 0.30, H * 0.70);
-    ctx.lineTo(W * 0.24, H * 0.96);
-    ctx.lineTo(W * 0.48, H * 0.70);
+    ctx.moveTo(W * (tip - 0.1), H * 0.70);
+    ctx.lineTo(W * tip, H * 0.96);
+    ctx.lineTo(W * (tip + 0.12), H * 0.70);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
@@ -629,8 +625,8 @@ function makeBubble(paper, FONT, text, w, h, seed) {
   }, { dieCut: 8, seed, grain: 0.04 });
 }
 
-function placeBubble(paper, FONT, parent, text, w, h, x, y, seed) {
-  const canvas = makeBubble(paper, FONT, text, w, h, seed);
+function placeBubble(paper, FONT, parent, text, w, h, x, y, seed, tail) {
+  const canvas = makeBubble(paper, FONT, text, w, h, seed, tail);
   const card = paper.card({
     canvas,
     width: 0.34 * (w / 300),

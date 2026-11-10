@@ -11,6 +11,10 @@ const COUPLE_X = 1.72;
 const COUPLE_Z = 0.6;
 // Her / pair pixel-x so each frame keeps her (or the hug) planted. Measured from the drawings.
 const ANCHOR_PX = [181, 185, 280];
+// Marlin stands in every frame. Crown-to-feet pixels (hair mass, not a stray wisp):
+// 867, 846, 889. The shared pixel scale (frame 0's canvas) leaves the kneel a little
+// short and the hug a little tall. These factors lock her crown to the hug.
+const FRAME_SCALE = [889 / 867, 889 / 846, 1];
 const OPEN = 0.985; // α/π above which free pieces (confetti, the photo's swing) may leave the card plane
 
 const FLAMES = [
@@ -445,7 +449,10 @@ export default {
           const breathe = 1 + Math.sin(t * 1.55) * 0.012;
           const sx = breathe * (1 - 0.07 * pop);
           const sy = breathe * (1 + 0.11 * pop);
-          for (let i = 0; i < frameCards.length; i++) frameCards[i].scale.set(sx, sy, 1);
+          for (let i = 0; i < frameCards.length; i++) {
+            const fs = FRAME_SCALE[i] || 1;
+            frameCards[i].scale.set(sx * fs, sy * fs, 1);
+          }
         } else if (frameCards.fallbackKneel) {
           const standing = frame === 0;
           for (let i = 0; i < 2; i++) if (frameCards[i]) frameCards[i].visible = standing;
@@ -519,9 +526,9 @@ function paintYesBanner(paper, FONT, C, rng) {
   const H = 360;
   const { canvas, ctx } = paper.makeCanvas(W, H);
   const ink = '#2b2622';
-  const top = 22;
-  const bot = 214;
-  const pennantColors = [C.tomato, C.cream, ink, C.blush, C.mustard, C.tomato, C.cream, ink, C.blush, C.mustard, C.tomato];
+  const top = 10;
+  const bot = 248;
+  const pennantColors = [C.tomato, C.cream, C.teal, C.blush, C.mustard, C.tomato, C.cream, C.leaf, C.blush, C.mustard, C.tomato];
   const count = pennantColors.length;
   const left = 118;
   const right = W - 118;
@@ -529,11 +536,11 @@ function paintYesBanner(paper, FONT, C, rng) {
   for (let i = 0; i < count; i++) {
     const x = left + i * step;
     const pw = 86;
-    const ph = 122;
+    const ph = 96;
     ctx.beginPath();
-    ctx.moveTo(x - pw / 2, bot - 18);
-    ctx.lineTo(x + pw / 2, bot - 18);
-    ctx.lineTo(x, bot - 18 + ph);
+    ctx.moveTo(x - pw / 2, bot - 8);
+    ctx.lineTo(x + pw / 2, bot - 8);
+    ctx.lineTo(x, bot - 8 + ph);
     ctx.closePath();
     ctx.fillStyle = pennantColors[i];
     ctx.fill();
@@ -567,8 +574,10 @@ function paintYesBanner(paper, FONT, C, rng) {
   ctx.lineWidth = 4;
   ctx.stroke();
   const font = (size) => `${size}px ${FONT.display}`;
-  const size = fitSize(ctx, 'YES!', font, 168, W * 0.62);
-  cutWord(ctx, 'YES!', W / 2, (top + bot) / 2 + 10, size, FONT, [C.tomato, ink, C.mustard, C.tomato], rng);
+  // 168 × 1.4. Wide enough that fitSize does not shrink the 40 % bump back down.
+  const size = fitSize(ctx, 'YES!', font, 235, W * 0.78);
+  // Four cut-letter colours, none dark: the E used to be near-black and read as a blob.
+  cutWord(ctx, 'YES!', W / 2, (top + bot) / 2 + 4, size, FONT, [C.tomato, C.teal, C.mustard, C.leaf], rng);
   paper.addGrain(ctx, W, H, { amount: 0.04, seed: 11, mottle: 0.6 });
   return canvas;
 }
@@ -623,9 +632,15 @@ function cutWord(ctx, text, cx, cy, px, FONT, colors, rng) {
     ctx.save();
     ctx.translate(x + w / 2, cy);
     ctx.rotate((rng.next() - 0.5) * 0.1);
-    ctx.lineWidth = px * 0.16;
-    ctx.strokeStyle = '#2b2622';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(2.5, px * 0.055);
+    ctx.strokeStyle = '#3a2f2a';
+    ctx.shadowColor = 'rgba(43, 30, 22, 0.5)';
+    ctx.shadowBlur = px * 0.13;
+    ctx.shadowOffsetX = px * 0.03;
+    ctx.shadowOffsetY = px * 0.065;
     ctx.strokeText(ch, -w / 2, 0);
+    ctx.shadowColor = 'transparent';
     ctx.fillStyle = colors[i % colors.length];
     ctx.fillText(ch, -w / 2, 0);
     ctx.restore();

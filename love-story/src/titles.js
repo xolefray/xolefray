@@ -67,8 +67,13 @@ const CSS = `
 
 .tt-veil { position: absolute; inset: 0; z-index: 5; background: #000; }
 .tt-scrim {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 36%; z-index: 2;
-  background: linear-gradient(to top, rgba(var(--tt-ink), .5), rgba(var(--tt-ink), .18) 46%, rgba(var(--tt-ink), 0));
+  position: absolute; left: 0; right: 0; bottom: 0; height: 40%; z-index: 2;
+  background: linear-gradient(to top,
+    rgba(var(--tt-ink), .84) 0%,
+    rgba(var(--tt-ink), .62) 22%,
+    rgba(var(--tt-ink), .32) 48%,
+    rgba(var(--tt-ink), .08) 74%,
+    rgba(var(--tt-ink), 0) 100%);
 }
 
 .tt-page {
@@ -103,17 +108,24 @@ const CSS = `
 }
 .tt-cap {
   grid-area: 1 / 1; position: relative; isolation: isolate;
-  max-width: min(34em, 100%); margin: 0; padding: 0.12em 0.35em;
-  font-style: italic; font-size: clamp(1.05rem, 0.5rem + 1.25vw, 3.5rem); line-height: 1.42;
+  max-width: min(38em, 100%); margin: 0; padding: 0.16em 0.55em 0.2em;
+  font-style: italic; font-size: clamp(1.67rem, 0.79rem + 1.99vw, 5.56rem); line-height: 1.28;
   letter-spacing: 0.004em; text-align: center; text-wrap: balance; overflow-wrap: break-word;
   text-shadow:
-    0 1px 1px rgba(var(--tt-ink), .85),
-    0 0 0.45em rgba(var(--tt-ink), .75),
-    0 0 1.15em rgba(var(--tt-ink), .45);
+    0 1px 2px rgba(var(--tt-ink), .95),
+    0 0 0.4em rgba(var(--tt-ink), .92),
+    0 0 1.15em rgba(var(--tt-ink), .78),
+    0 2px 12px rgba(var(--tt-ink), .7);
 }
 .tt-cap::before {
-  content: ""; position: absolute; z-index: -1; inset: -0.85em -1.5em;
-  background: radial-gradient(closest-side, rgba(var(--tt-ink), .62), rgba(var(--tt-ink), .4) 42%, rgba(var(--tt-ink), .12) 74%, rgba(var(--tt-ink), 0));
+  content: ""; position: absolute; z-index: -1; left: -0.35em; right: -0.35em; top: -0.28em; bottom: -0.42em;
+  border-radius: 0.85em;
+  background:
+    linear-gradient(to top,
+      rgba(var(--tt-ink), .78) 0%,
+      rgba(var(--tt-ink), .58) 42%,
+      rgba(var(--tt-ink), .28) 74%,
+      rgba(var(--tt-ink), 0) 100%);
 }
 
 .tt-end {
