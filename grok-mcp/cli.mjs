@@ -6,12 +6,18 @@
  *   node grok-mcp/cli.mjs chat "question" [--model id] [--system "…"]
  *   node grok-mcp/cli.mjs agent --brief-file brief.md [--root .] [--own a.js,dir/] [--scratch dir]
  *        [--allow-run tools/test.mjs,…] [--allow-images] [--model id] [--max-steps 80] [--log run.jsonl]
+ *        [--attach doc1.md,doc2.md] [--deny /private/path,…] [--backend cli|api]
+ *
+ * Backend: `cli` = xAI's `grok` command-line agent signed in with a Grok subscription (the worker runs
+ * in a sandboxed copy of the project; --attach/--deny apply), `api` = metered API key (--scratch,
+ * --allow-run, --allow-images apply). Picked automatically unless --backend or GROK_BACKEND is given.
  *
  * `agent` prints progress to stderr and a JSON result ({ ok, report, model, steps, filesWritten,
  * usage }) to stdout; exit code 0 when the worker finished with a report, 1 otherwise.
  */
 import fs from 'node:fs';
 import { listModels, chat, runAgent } from './grok.mjs';
+import { backendName, listModelsCli, chatCli, runAgentCli } from './subscription.mjs';
 
 const [command, ...rest] = process.argv.slice(2);
 const flags = {};
@@ -23,22 +29,26 @@ for (let i = 0; i < rest.length; i++) {
   } else positional.push(rest[i]);
 }
 const list = (v) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()).filter(Boolean) : []);
+if (typeof flags.backend === 'string') process.env.GROK_BACKEND = flags.backend;
+const cli = backendName() === 'cli';
 
 try {
   if (command === 'models') {
-    console.log((await listModels()).join('\n'));
+    console.log((await (cli ? listModelsCli() : listModels())).join('\n'));
   } else if (command === 'chat') {
-    const res = await chat({ prompt: positional.join(' '), system: flags.system, model: flags.model });
+    const res = await (cli ? chatCli : chat)({ prompt: positional.join(' '), system: typeof flags.system === 'string' ? flags.system : undefined, model: typeof flags.model === 'string' ? flags.model : undefined });
     console.log(res.text);
     console.error(`[model ${res.model}]`);
   } else if (command === 'agent') {
     if (!flags['brief-file'] && !flags.brief) throw new Error('agent needs --brief-file <path> (or --brief "text")');
     const brief = flags['brief-file'] ? fs.readFileSync(flags['brief-file'], 'utf8') : String(flags.brief);
     const log = flags.log ? fs.createWriteStream(flags.log, { flags: 'a' }) : null;
-    const result = await runAgent({
+    const result = await (cli ? runAgentCli : runAgent)({
       brief,
       root: flags.root || '.',
       own: list(flags.own),
+      attach: list(flags.attach),
+      deny: list(flags.deny),
       scratch: typeof flags.scratch === 'string' ? flags.scratch : null,
       allowRun: list(flags['allow-run']),
       allowImages: Boolean(flags['allow-images']),

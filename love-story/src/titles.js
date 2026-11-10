@@ -62,7 +62,7 @@ const CSS = `
   background: radial-gradient(ellipse 50% 40% at 50% 48%, rgba(var(--tt-ink), .6), rgba(var(--tt-ink), .3) 55%, rgba(var(--tt-ink), 0));
 }
 .tt-end-names {
-  font-family: ${FONT.display}; font-size: clamp(2.2rem, min(6.4vw, 12vh), 8rem); line-height: 1.08; letter-spacing: .02em;
+  text-transform: uppercase; font-family: ${FONT.display}; font-size: clamp(2.2rem, min(6.4vw, 12vh), 8rem); line-height: 1.08; letter-spacing: .02em;
   text-shadow: 0 .03em .08em rgba(var(--tt-ink), .8), 0 0 .5em rgba(var(--tt-ink), .5);
 }
 .tt-end-heart { width: clamp(22px, 2.4vw, 56px); margin: clamp(8px, 2vh, 32px) 0; fill: #e2574c; filter: drop-shadow(0 0 .3em rgba(var(--tt-ink), .7)); }

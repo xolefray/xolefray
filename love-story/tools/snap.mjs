@@ -17,12 +17,13 @@
  * `optionalMissing` in the summary and does not fail the run. Add --query "photos=0" for
  * privacy-safe frames that never touch the photos.
  *
- * Screenshots can show the private photos: write them to a scratch folder, never into the repo.
+ * PRIVACY GUARD: screenshots can show the private photos, so --out inside the git repository is
+ * refused unless the run has --query "photos=0". Write ordinary shots to a scratch folder.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { startServer } from './serve.mjs';
+import { ROOT, startServer } from './serve.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -59,8 +60,26 @@ const CHROMIUM_ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader',
 const OPTIONAL = /\/(photos\/[^/?#]+\.(jpe?g|png|webp)|audio\/narration\.[a-z0-9]+)([?#]|$)/i;
 const isOptional = (url) => typeof url === 'string' && OPTIONAL.test(url);
 
+/** The enclosing git work tree of the film folder (the folder itself if there is none). */
+function repoRoot() {
+  for (let dir = ROOT; ; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    if (path.dirname(dir) === dir) return ROOT;
+  }
+}
+
+function isInside(dir, parent) {
+  const rel = path.relative(parent, path.resolve(dir));
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
+  const photosOff = new URLSearchParams(opts.query).getAll('photos').at(-1) === '0';
+  if (!photosOff && isInside(opts.out, repoRoot())) {
+    throw new Error(`--out ${opts.out} is inside the repository: screenshots may show the couple's private photos. ` +
+      'Use a folder outside the repository, or add --query "photos=0".');
+  }
   fs.mkdirSync(opts.out, { recursive: true });
   const { chromium } = loadPlaywright();
   const { server, url: base } = await startServer(0);

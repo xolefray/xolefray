@@ -68,6 +68,34 @@ check('refuses a script that is not allowed', toolResults.c8.startsWith('ERROR')
 check('reports files written and usage', result.filesWritten.join() === 'out/result.txt' && result.usage.prompt === 20, JSON.stringify(result));
 check('sends a bearer token and no image tool unless enabled', seen.at(-1).auth.startsWith('Bearer ') && !seen.at(-1).parsed.tools.some((t) => t.function.name === 'view_image'));
 
+// ── subscription backend, with a stand-in for the `grok` command-line agent ──
+const fakeCli = path.join(tmp, 'fake-grok.mjs');
+fs.writeFileSync(fakeCli, `#!/usr/bin/env node
+import fs from 'node:fs';
+const a = process.argv.slice(2);
+if (a[0] === 'models') { console.log('Available models:\\n  * grok-4.7 (default)\\n  - grok-4.6'); process.exit(0); }
+const cwd = a[a.indexOf('--cwd') + 1];
+const prompt = fs.readFileSync(a[a.indexOf('--prompt-file') + 1], 'utf8');
+fs.mkdirSync(cwd + '/out', { recursive: true });
+fs.writeFileSync(cwd + '/out/owned.txt', 'from the worker');
+fs.writeFileSync(cwd + '/notes.txt', 'trampled');
+const seesPhotos = fs.existsSync(cwd + '/photos/private.txt');
+const sandbox = fs.readFileSync(cwd + '/.grok/sandbox.toml', 'utf8');
+console.log(JSON.stringify({ text: 'Report. photos=' + seesPhotos + ' brief=' + prompt.includes('do the thing') + ' attach=' + fs.existsSync(cwd + '/.brief/extra.md') + ' denied=' + sandbox.includes(${JSON.stringify(JSON.stringify(root))}.slice(1, -1)), num_turns: 3, usage: { input_tokens: 7, output_tokens: 2 }, total_cost_usd: 0.01, modelUsage: { 'grok-4.7-build': {} } }));
+`);
+fs.chmodSync(fakeCli, 0o755);
+fs.writeFileSync(path.join(tmp, 'extra.md'), 'extra');
+process.env.GROK_CLI = fakeCli;
+const sub = await import('./subscription.mjs');
+check('subscription backend is detected', sub.backendName() === 'cli' && (await sub.listModelsCli()).join() === 'grok-4.7,grok-4.6');
+const cliRun = await sub.runAgentCli({ brief: 'do the thing', root, own: ['out/'], attach: [path.join(tmp, 'extra.md')], keepWorkDir: false });
+check('subscription worker returns its report', cliRun.ok && cliRun.report.includes('brief=true') && cliRun.report.includes('attach=true'), JSON.stringify(cliRun));
+check('work copy has no photos/ and the sandbox denies the real project', cliRun.report.includes('photos=false') && cliRun.report.includes('denied=true'), cliRun.report);
+check('only owned files come back', cliRun.filesWritten.join() === 'out/owned.txt' && fs.readFileSync(path.join(root, 'out/owned.txt'), 'utf8') === 'from the worker');
+check('changes to files it does not own are discarded', cliRun.ignoredChanges.includes('notes.txt') && fs.readFileSync(path.join(root, 'notes.txt'), 'utf8') === 'a note', JSON.stringify(cliRun.ignoredChanges));
+delete process.env.GROK_CLI;
+process.env.GROK_BACKEND = 'api';
+
 // ── MCP server over stdio ──
 const server = spawn(process.execPath, [path.join(here, 'server.mjs')], { cwd: root, env: process.env, stdio: ['pipe', 'pipe', 'ignore'] });
 const replies = new Map();
