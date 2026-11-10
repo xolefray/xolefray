@@ -1,0 +1,412 @@
+<!doctype html>
+<!--
+  dev/paper.html (T-paper) — harness for src/paper.js. A two-page paper spread on a desk under a warm
+  shadow-casting spot light, with three die-cut cards painted by paper.paint() (tree, cloud, house),
+  a splitCard V-fold, the folded boat and the crane (wings mid-flap). Times the canvas helpers and
+  logs the results with console.info (and in an overlay with hud=1).
+  Query: cam=wide|close|boat|crane|back|top (default wide), solo=boat|crane (+ yaw, pitch, dist in deg/units),
+  flap=<-1..1>, hud=1 (timings overlay), free=1 (orbit controls).
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>paper.js harness</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root { --bg: #17110d; --fg: #f3ead8; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
+    #hud { position: fixed; left: 12px; top: 12px; margin: 0; padding: 8px 10px; font: 12px/1.45 ui-monospace, monospace;
+      color: var(--fg); background: rgb(0 0 0 / 0.55); border-radius: 6px; }
+  </style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <pre id="hud" hidden></pre>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import * as paper from '../src/paper.js';
+
+    const { PAPER, PALETTES } = paper;
+    const q = new URLSearchParams(location.search);
+
+    // ---------------------------------------------------------------- timings of the canvas helpers
+    function bench(label, make, run, runs = 7) {
+      const times = [];
+      for (let i = 0; i < runs; i++) {
+        const input = make();
+        const t0 = performance.now();
+        run(input, i);
+        times.push(performance.now() - t0);
+      }
+      times.sort((a, b) => a - b);
+      return `${label.padEnd(30)} median ${times[runs >> 1].toFixed(2)} ms  (min ${times[0].toFixed(2)})`;
+    }
+    function blob(size) {
+      const { canvas, ctx } = paper.makeCanvas(size, size);
+      ctx.fillStyle = PALETTES.forest.mid;
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size * 0.36, 0, Math.PI * 2);
+      ctx.fill();
+      return { canvas, ctx };
+    }
+    const lines = [
+      bench('addGrain 512²', () => blob(512), ({ ctx }, i) => paper.addGrain(ctx, 512, 512, { seed: i + 1 })),
+      bench('addGrain 1024²', () => blob(1024), ({ ctx }, i) => paper.addGrain(ctx, 1024, 1024, { seed: i + 1 })),
+      bench('dieCut 512² (margin 8)', () => blob(512), ({ canvas }) => paper.dieCut(canvas)),
+      bench('dieCut 1024² (margin 12)', () => blob(1024), ({ canvas }) => paper.dieCut(canvas, { margin: 12 })),
+      bench('cutoutTexture 512²', () => blob(512), ({ canvas }) => paper.cutoutTexture(canvas)),
+      bench('paint 512² (draw+cut+grain)', () => null, (_, i) => paper.paint(512, 512, (ctx) => {
+        ctx.fillStyle = PALETTES.sea.teal;
+        ctx.fillRect(60, 60, 392, 392);
+      }, { seed: i })),
+      bench('page 768x1024', () => null, (_, i) => paper.page(null, { seed: i })),
+    ];
+    for (const line of lines) console.info(`[paper] ${line}`);
+    if (q.get('hud') === '1') {
+      const hud = document.getElementById('hud');
+      hud.textContent = lines.join('\n');
+      hud.hidden = false;
+    }
+
+    // ---------------------------------------------------------------- artwork
+    function scallopTier(ctx, cx, top, base, half, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(cx, top);
+      ctx.quadraticCurveTo(cx + half * 0.45, top + (base - top) * 0.45, cx + half, base);
+      const n = 5;
+      for (let i = 0; i < n; i++) {
+        const x0 = cx + half - (2 * half * i) / n;
+        const x1 = cx + half - (2 * half * (i + 1)) / n;
+        ctx.quadraticCurveTo((x0 + x1) / 2, base + 22, x1, base);
+      }
+      ctx.quadraticCurveTo(cx - half * 0.45, top + (base - top) * 0.45, cx, top);
+      ctx.fill();
+      // sunlit left flank
+      ctx.save();
+      ctx.clip();
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = '#fff6d8';
+      ctx.beginPath();
+      ctx.moveTo(cx, top);
+      ctx.lineTo(cx - half * 1.1, base + 30);
+      ctx.lineTo(cx - half * 0.35, base + 30);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawTree(ctx, w, h) {
+      const P = PALETTES.forest;
+      const cx = w / 2;
+      ctx.fillStyle = P.moss;
+      ctx.beginPath();
+      ctx.ellipse(cx, h - 48, 150, 30, 0, Math.PI, 0);
+      ctx.lineTo(cx + 150, h - 30);
+      ctx.lineTo(cx - 150, h - 30);
+      ctx.fill();
+      ctx.fillStyle = P.bark;
+      ctx.beginPath();
+      ctx.moveTo(cx - 20, h - 40);
+      ctx.lineTo(cx - 11, h * 0.5);
+      ctx.lineTo(cx + 11, h * 0.5);
+      ctx.lineTo(cx + 22, h - 40);
+      ctx.fill();
+      scallopTier(ctx, cx, h * 0.3, h * 0.7, 140, P.deep);
+      scallopTier(ctx, cx, h * 0.17, h * 0.53, 112, P.mid);
+      scallopTier(ctx, cx, h * 0.05, h * 0.36, 82, P.light);
+      // mushroom
+      const mx = cx + 92;
+      const my = h - 58;
+      ctx.fillStyle = PAPER.cream;
+      ctx.fillRect(mx - 6, my - 26, 12, 30);
+      ctx.fillStyle = P.mushroom;
+      ctx.beginPath();
+      ctx.ellipse(mx, my - 26, 24, 18, 0, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = PAPER.white;
+      for (const [dx, dy, r] of [[-11, -34, 4], [4, -38, 3.5], [12, -29, 3]]) {
+        ctx.beginPath();
+        ctx.arc(mx + dx, my + dy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // fox-orange berries
+      ctx.fillStyle = P.fox;
+      for (const [x, y] of [[cx - 60, h * 0.6], [cx + 40, h * 0.46], [cx - 25, h * 0.3], [cx + 70, h * 0.64]]) {
+        ctx.beginPath();
+        ctx.arc(x, y, 7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawCloud(ctx, w, h) {
+      const P = PALETTES.sky;
+      const puffs = [[150, 200, 78], [250, 150, 98], [360, 185, 80], [430, 222, 52], [80, 236, 46]];
+      ctx.fillStyle = P.sun;
+      ctx.beginPath();
+      ctx.arc(390, 118, 62, 0, Math.PI * 2);
+      ctx.fill();
+      const cloud = new Path2D();
+      for (const [x, y, r] of puffs) {
+        cloud.moveTo(x + r, y);
+        cloud.arc(x, y, r, 0, Math.PI * 2);
+      }
+      cloud.rect(80, 220, 350, 52);
+      ctx.fillStyle = P.cloud;
+      ctx.fill(cloud);
+      ctx.save();
+      ctx.clip(cloud);
+      const g = ctx.createLinearGradient(0, 140, 0, 280);
+      g.addColorStop(0, 'rgba(248,201,160,0)');
+      g.addColorStop(1, P.peach);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    }
+
+    function drawHouse(ctx, w, h) {
+      const P = PALETTES.city;
+      ctx.fillStyle = P.slate;
+      ctx.fillRect(300, 80, 44, 110); // chimney
+      ctx.fillStyle = P.brick;
+      ctx.fillRect(90, 210, 268, 200);
+      ctx.fillStyle = P.night;
+      ctx.beginPath();
+      ctx.moveTo(60, 222);
+      ctx.lineTo(224, 70);
+      ctx.lineTo(388, 222);
+      ctx.fill();
+      ctx.strokeStyle = P.dusk;
+      ctx.lineWidth = 4;
+      for (let y = 110; y < 222; y += 24) {
+        const half = ((y - 70) / 152) * 164;
+        ctx.beginPath();
+        ctx.moveTo(224 - half, y);
+        ctx.lineTo(224 + half, y);
+        ctx.stroke();
+      }
+      ctx.fillStyle = P.window;
+      for (const [x, y] of [[118, 250], [270, 250]]) {
+        ctx.fillRect(x, y, 60, 62);
+        ctx.fillStyle = P.night;
+        ctx.fillRect(x + 27, y, 6, 62);
+        ctx.fillRect(x, y + 28, 60, 6);
+        ctx.fillStyle = P.window;
+      }
+      ctx.fillStyle = P.dusk;
+      ctx.fillRect(196, 318, 56, 92); // door
+      ctx.fillStyle = P.lantern;
+      ctx.beginPath();
+      ctx.arc(224, 160, 20, 0, Math.PI * 2); // round attic window
+      ctx.fill();
+      ctx.fillStyle = P.moon;
+      ctx.fillRect(60, 404, 328, 14); // doorstep line
+    }
+
+    function drawSeaPanel(ctx, w, h) {
+      const P = PALETTES.sea;
+      ctx.fillStyle = P.coral;
+      ctx.beginPath();
+      ctx.arc(250, 250, 110, 0, Math.PI * 2);
+      ctx.fill();
+      // island + lighthouse
+      ctx.fillStyle = P.sand;
+      ctx.beginPath();
+      ctx.ellipse(700, 360, 170, 70, 0, Math.PI, 0);
+      ctx.fill();
+      const lx = 700;
+      ctx.fillStyle = P.foam;
+      ctx.beginPath();
+      ctx.moveTo(lx - 40, 330);
+      ctx.lineTo(lx - 26, 110);
+      ctx.lineTo(lx + 26, 110);
+      ctx.lineTo(lx + 40, 330);
+      ctx.fill();
+      ctx.fillStyle = P.lighthouse;
+      for (const y of [140, 210, 280]) {
+        const t0 = (y - 110) / 220;
+        const t1 = (y + 32 - 110) / 220;
+        ctx.beginPath();
+        ctx.moveTo(lx - 26 - 14 * t0, y);
+        ctx.lineTo(lx + 26 + 14 * t0, y);
+        ctx.lineTo(lx + 26 + 14 * t1, y + 32);
+        ctx.lineTo(lx - 26 - 14 * t1, y + 32);
+        ctx.fill();
+      }
+      ctx.fillRect(lx - 34, 72, 68, 14);
+      ctx.fillStyle = PALETTES.city.window;
+      ctx.fillRect(lx - 22, 86, 44, 26);
+      ctx.fillStyle = P.lighthouse;
+      ctx.beginPath();
+      ctx.moveTo(lx - 30, 72);
+      ctx.lineTo(lx, 40);
+      ctx.lineTo(lx + 30, 72);
+      ctx.fill();
+      // waves: three rows, back to front
+      const rows = [[P.wave, 345, 18], [P.teal, 395, 22], [P.navy, 445, 24]];
+      for (const [col, y, amp] of rows) {
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.moveTo(24, h - 24);
+        const n = 8;
+        for (let i = 0; i <= n; i++) {
+          const x = 24 + ((w - 48) * i) / n;
+          ctx.lineTo(x, y + (i % 2 ? amp : -amp));
+        }
+        ctx.lineTo(w - 24, h - 24);
+        ctx.fill();
+        ctx.strokeStyle = P.foam;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        for (let i = 0; i <= n; i++) {
+          const x = 24 + ((w - 48) * i) / n;
+          ctx.lineTo(x, y + (i % 2 ? amp : -amp) + 6);
+        }
+        ctx.stroke();
+      }
+    }
+
+    function drawPage(side) {
+      return (ctx, w, h) => {
+        ctx.strokeStyle = 'rgba(43, 38, 34, 0.35)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(48, 48, w - 96, h - 96);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(60, 60, w - 120, h - 120);
+        ctx.fillStyle = 'rgba(43, 38, 34, 0.22)';
+        for (let i = 0; i < 6; i++) {
+          const y = h - 250 + i * 26;
+          ctx.fillRect(110, y, (w - 220) * (i === 5 ? 0.55 : 1), 8);
+        }
+        ctx.fillStyle = side ? 'rgba(106, 167, 189, 0.32)' : 'rgba(176, 183, 99, 0.3)';
+        ctx.beginPath();
+        ctx.arc(w / 2, h * 0.36, 150, 0, Math.PI * 2);
+        ctx.fill();
+      };
+    }
+
+    // ---------------------------------------------------------------- scene
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#1b130e');
+
+    const desk = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), paper.paperMaterial({ color: '#4a3121', roughness: 0.7 }));
+    desk.rotation.x = -Math.PI / 2;
+    desk.position.y = -0.01;
+    desk.receiveShadow = true;
+    scene.add(desk);
+
+    [0, 1].forEach((side) => {
+      const art = paper.page(drawPage(side), { seed: 40 + side });
+      const sheet = new THREE.Mesh(new THREE.PlaneGeometry(3, 4), paper.paperMaterial({ map: paper.texture(art) }));
+      sheet.rotation.x = -Math.PI / 2;
+      sheet.position.set(side ? 1.5 : -1.5, 0, 0);
+      sheet.receiveShadow = true;
+      scene.add(sheet);
+    });
+
+    const spot = new THREE.SpotLight('#ffd6a3', 230, 0, 0.62, 0.6, 2);
+    spot.position.set(-3.2, 7, 4.6);
+    spot.target.position.set(0.2, 0, -0.2);
+    spot.castShadow = true;
+    spot.shadow.mapSize.set(2048, 2048);
+    spot.shadow.bias = -0.0004;
+    spot.shadow.normalBias = 0.01;
+    spot.shadow.camera.near = 3;
+    spot.shadow.camera.far = 16;
+    scene.add(spot, spot.target);
+    scene.add(new THREE.HemisphereLight('#ffe9cf', '#5a4030', 0.8));
+
+    const tree = paper.card({ canvas: paper.paint(384, 512, drawTree, { dieCut: 10, seed: 3 }), width: 0.9, height: 1.2 });
+    tree.position.set(-2.0, 0, -0.1);
+    tree.rotation.y = 0.3;
+
+    const house = paper.card({ canvas: paper.paint(448, 448, drawHouse, { dieCut: 10, seed: 5 }), width: 1.0, height: 1.0, anchor: 'bottom-right' });
+    house.position.set(2.55, 0, 0.0);
+    house.rotation.y = -0.35;
+
+    const cloud = paper.card({ canvas: paper.paint(512, 320, drawCloud, { dieCut: 10, seed: 7 }), width: 1.1, height: 0.69, anchor: 'center' });
+    cloud.position.set(-0.75, 1.85, -1.1);
+
+    const panel = paper.splitCard({ canvas: paper.paint(1024, 512, drawSeaPanel, { dieCut: 12, seed: 9 }), width: 2.4, height: 1.2 });
+    const vfold = new THREE.Group();
+    vfold.position.set(0.1, 0, -1.25);
+    panel.left.rotation.y = 0.4;
+    panel.right.rotation.y = -0.4;
+    vfold.add(panel.left, panel.right);
+
+    const boat = paper.boat({ scale: 1.5 });
+    boat.position.set(-0.35, 0.075, 0.95);
+    boat.rotation.y = 0.4;
+
+    const crane = paper.crane({ scale: 1.5 });
+    crane.position.set(1.25, 1.3, 1.05);
+    crane.rotation.y = -0.3;
+    crane.rotation.z = 0.1;
+    crane.userData.setFlap(Number(q.get('flap') ?? 0.45));
+
+    scene.add(tree, house, cloud, vfold, boat, crane);
+
+    // solo=boat|crane: only that model, centred and enlarged, for close inspection.
+    const solo = { boat, crane }[q.get('solo')];
+    if (solo) {
+      for (const o of [tree, house, cloud, vfold, boat, crane]) o.visible = o === solo;
+      solo.position.set(0, solo === boat ? 0.15 : 0.9, 0);
+      solo.rotation.set(0, 0, 0);
+      solo.scale.setScalar(3);
+    }
+
+    // ---------------------------------------------------------------- camera
+    const VIEWS = {
+      wide: [[0.4, 4.3, 7.6], [0.1, 0.45, -0.1]],
+      close: [[-1.15, 1.5, 2.3], [-1.6, 0.6, -0.5]],
+      boat: [[0.2, 1.0, 2.6], [-0.1, 0.25, 0.9]],
+      crane: [[1.3, 1.75, 3.0], [1.25, 1.2, 1.05]],
+      back: [[1.2, 2.6, -6.2], [0, 0.5, -0.4]],
+      top: [[0.0, 9.5, 0.6], [0, 0, 0]],
+    };
+    let [eye, target] = VIEWS[q.get('cam')] ?? VIEWS.wide;
+    if (solo) {
+      // orbit around the model: yaw/pitch in degrees (yaw 0 = looking from +Z), dist in units
+      const yaw = THREE.MathUtils.degToRad(Number(q.get('yaw') ?? 30));
+      const pitch = THREE.MathUtils.degToRad(Number(q.get('pitch') ?? 20));
+      const dist = Number(q.get('dist') ?? 4.2);
+      target = solo.position.toArray();
+      eye = [
+        target[0] + dist * Math.cos(pitch) * Math.sin(yaw),
+        target[1] + dist * Math.sin(pitch),
+        target[2] + dist * Math.cos(pitch) * Math.cos(yaw),
+      ];
+    }
+    const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 100);
+    camera.position.fromArray(eye);
+    camera.lookAt(new THREE.Vector3().fromArray(target));
+    if (q.get('free') === '1') {
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.fromArray(target);
+      controls.update();
+    }
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    let frames = 0;
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+      if (++frames >= 2) window.__ready = true;
+    });
+  </script>
+</body>
+</html>
