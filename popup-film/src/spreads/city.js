@@ -1834,7 +1834,7 @@ export default {
     const LAST = BOAT_PATH.length - 1;
 
     // ── the quiet light ────────────────────────────────────────────────────────────────────
-    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.02, 16, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff1cf').multiplyScalar(2.4) }));
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff1cf').multiplyScalar(2.4) }));
     group.add(orb);
     const quietLight = new THREE.PointLight('#ffd49a', 0, 2.2, 2);
     const garlandLight = new THREE.PointLight('#ffad62', 0, 3.8, 2);
@@ -2061,10 +2061,10 @@ export default {
     }
 
     function quietPath(t, out) {
-      // From just in front of the window, out toward the reader, then down into the bow.
+      // From just in front of the window, out and across toward the gutter, then down into the bow.
       const u = ease.inOutSine(seg(t, ORB_FROM, ORB_TO));
       const v = 1 - u;
-      _a.copy(winPos).addScaledVector(winNormal, 0.42).add(_s.set(0.12, -0.12, 0));
+      _a.copy(winPos).addScaledVector(winNormal, 0.32).add(_s.set(0.3, -0.22, 0));
       _b.copy(bowPos).add(_s.set(-0.28, 0.5, 0.12));
       out.copy(winPos).addScaledVector(winNormal, 0.04).multiplyScalar(v * v * v);
       out.addScaledVector(_a, 3 * v * v * u).addScaledVector(_b, 3 * v * u * u).addScaledVector(bowPos, u * u * u);
@@ -2167,7 +2167,7 @@ export default {
         fromMount(railFront.mount, (k ? 1 : -1) * RAIL_LAMP.x, RAIL_LAMP.y, 0.03, _v, deckLayer.frame);
         halos.set(HALO.rail + k, _v, 0.3, haloColors.lamp, open * 0.55);
       }
-      halos.set(HALO.orb, orbPos, 0.36 - 0.08 * carried, haloColors.orb, orbVis * (0.75 + 0.25 * Math.sin(t * 2.6)));
+      halos.set(HALO.orb, orbPos, 0.42 - 0.14 * carried, haloColors.orb, orbVis * (0.75 + 0.25 * Math.sin(t * 2.6)));
       const flying = t > ORB_FROM && t < ORB_TO + 0.3 ? Math.sin(PI * seg(t, ORB_FROM, ORB_TO + 0.3)) : 0;
       for (let k = 0; k < TRAIL; k++) {
         quietPath(t - (k + 1) * 0.13, trailPos);
