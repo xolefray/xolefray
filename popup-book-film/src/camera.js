@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { SEGMENTS } from './timeline.js';
 import { clamp01, lerp, ramp, smoothstep } from './util.js';
-import { SPREAD_LAYOUT, PAGE_SURFACE_Y, foxWorld, focusWorld } from './layout.js';
+import { SPREAD_LAYOUT, PAGE_SURFACE_Y, focusWorld } from './layout.js';
 
 const D2R = Math.PI / 180;
 const TAU = Math.PI * 2;
@@ -48,12 +48,28 @@ function boxPoints(x0, x1, y0, y1, z0, z1) {
   return out;
 }
 
+/**
+ * The heroine as staged in each scene (world box of the fox, her lantern and, on
+ * the sea, her boat; measured from the real scenes): x0, x1, y0 (feet), y1 (ears), z.
+ * The close shots keep this whole box in frame.
+ */
+const HERO = [
+  [0.44, 1.68, 0.18, 1.13, 0.9],    // forest: sitting, lantern beside her
+  [-2.05, -0.58, 0.11, 0.89, 0.97], // village: walking left, long tail
+  [-1.36, -0.06, 0.14, 1.2, 0.52],  // sea: in the paper boat
+  [0.18, 1.25, 0.58, 1.61, 0.74],   // mountain: up on the snowy ledge
+  [0.28, 1.75, 0.08, 0.84, 0.92],   // night: walking home
+];
+
+/** Portrait-ness of a viewport: 0 at landscape (>= 1.05), 1 at tall phones (<= 0.5). */
+const tallness = (aspect) => smoothstep(1.05, 0.5, aspect);
+
 /** The subject of a close shot on spread k: the fox and the area around focus. */
 function subjectPoints(k, spanX = 0.9) {
-  const [fx, , fz] = foxWorld(k);
+  const [x0, x1, y0, y1, z] = HERO[k];
   const [cx, cy, cz] = focusWorld(k);
   return [
-    [fx, 0.25, fz], [fx, 1.05, fz],
+    [x0, y0, z], [x1, y0, z], [x0, y1, z], [x1, y1, z],
     [cx - spanX, cy, cz], [cx + spanX, cy, cz],
   ];
 }
@@ -89,16 +105,32 @@ function fitDistance(target, yaw, pitch, fovDeg, aspect, pts, margin) {
   return hard + TEMP * Math.log(sum);
 }
 
-/** Apply the viewport: adapt the lens, then dolly back until `fit` points are in frame. */
+/**
+ * Apply the viewport: adapt the lens, then dolly back until `fit` points are in frame.
+ * Portrait viewports also look a little more steeply down (the depth of the page,
+ * not empty desk, fills the tall frame), get a little more side margin, and (for
+ * shots with `drop`, the open-book shots) slide the picture down toward the
+ * caption band, into the desk area a tall frame leaves empty. All three depend on
+ * the aspect only, so they never move the camera by themselves.
+ */
+const PORTRAIT_PITCH = 9;       // degrees added at full tallness
+const PORTRAIT_MARGIN = 1.05;   // fit margin factor at full tallness
+const PORTRAIT_DROP = 0.07;     // fraction of the frame height the picture slides down
 function resolve(pose, aspect) {
   const fov = adaptFov(pose.fov, aspect);
+  const tall = tallness(aspect);
+  const pitch = pose.pitch + PORTRAIT_PITCH * tall;
   let dist = pose.dist;
   if (pose.fit) {
     // smooth max (>= both): no velocity kink when the fit takes over from the design distance
-    const need = fitDistance(pose.t, pose.yaw, pose.pitch, fov, aspect, pose.fit, pose.margin ?? 1.06);
+    const margin = (pose.margin ?? 1.06) * lerp(1, PORTRAIT_MARGIN, tall);
+    const need = fitDistance(pose.t, pose.yaw, pitch, fov, aspect, pose.fit, margin);
     dist = 0.5 * (dist + need + Math.hypot(dist - need, 0.5));
   }
-  return { t: pose.t, yaw: pose.yaw, pitch: pose.pitch, dist, fov, roll: pose.roll ?? 0 };
+  let t = pose.t;
+  const drop = PORTRAIT_DROP * tall * (pose.drop ?? 0);
+  if (drop > 0) t = aboveInFrame(t, pose.yaw, pitch, 2 * drop * dist * Math.tan((fov * D2R) / 2));
+  return { t, yaw: pose.yaw, pitch, dist, fov, roll: pose.roll ?? 0 };
 }
 
 function mix(a, b, w) {
@@ -144,7 +176,7 @@ function shotIntro(t, aspect) {
 function shotCover(t, aspect) {
   const u = easeSine(ramp(t, COVER.start - 1, COVER.end + 2));
   return resolve(P([0, 1.05, -0.15], lerp(8, 3, u), lerp(33, 31, u), 9, 34,
-    { fit: turnPoints(SPREAD_LAYOUT[0].peak), margin: 1.05 }), aspect);
+    { fit: turnPoints(SPREAD_LAYOUT[0].peak), margin: 1.05, drop: 1 }), aspect);
 }
 
 /** A page turn: wider, higher three-quarter view centred on the spine. */
@@ -155,19 +187,31 @@ function shotTurn(k) {
   return (t, aspect) => {
     const u = easeSine(ramp(t, seg.start - 1.5, seg.end + 1.5));
     return resolve(P([0, 1.1, -0.15], TURN_YAW[k] * lerp(1.1, 0.9, u), lerp(37, 35, u), 9, 34,
-      { fit: turnPoints(peak), margin: 1.05 }), aspect);
+      { fit: turnPoints(peak), margin: 1.05, drop: 1 }), aspect);
   };
 }
 
 /** Wide framing of a flat-open spread (used where a hold begins or ends wide). */
 function widePose(k, yaw, pitch, extra = {}) {
-  return P([0, 0.95, -0.1], yaw, pitch, 9, 34, { fit: openBookPoints(SPREAD_LAYOUT[k].peak), margin: 1.05, ...extra });
+  return P([0, 0.95, -0.1], yaw, pitch, 9, 34, { fit: openBookPoints(SPREAD_LAYOUT[k].peak), margin: 1.05, drop: 1, ...extra });
 }
 
-/** A close framing that keeps spread k's subject in frame on narrow screens. */
-function closePose(k, target, yaw, pitch, dist, fov, extra = {}) {
-  return P(target, yaw, pitch, dist, fov, { fit: subjectPoints(k), margin: 1.08, ...extra });
+/**
+ * A close framing that keeps spread k's subject in frame on narrow screens.
+ * In portrait only the fox and a narrower strip around the focus must fit, so
+ * the spread sits larger in the tall frame.
+ */
+function closePose(k, aspect, target, yaw, pitch, dist, fov, extra = {}) {
+  const span = lerp(0.9, 0.35, tallness(aspect));
+  return P(target, yaw, pitch, dist, fov, { fit: subjectPoints(k, span), margin: 1.08, drop: 1, ...extra });
 }
+
+/**
+ * `pts` shifted down the frame (along the camera's -up by s): fitting these
+ * instead of the real points keeps the real ones that much higher in frame,
+ * clear of the caption band.
+ */
+const lowered = (pts, yaw, pitch, s) => pts.map((p) => aboveInFrame(p, yaw, pitch, -s));
 
 /** Hold progress: an unhurried ease from just before the hold to just before its end. */
 function holdU(k, t, lead = 0.6, tail = 0.5) {
@@ -175,41 +219,64 @@ function holdU(k, t, lead = 0.6, tail = 0.5) {
   return easeSine(ramp(t, seg.start - lead, seg.end - tail));
 }
 
+/** The bottom corners of spread k's hero box (her feet / lantern / boat). */
+const heroFeet = (k) => { const [x0, x1, y0, , z] = HERO[k]; return [[x0, y0, z], [x1, y0, z]]; };
+
+// Mountain landmarks (world, flat-open spread 3): the moon disc and the summit flag.
+const MOON_PTS = [[1.18, 2.78, -1.27], [0.7, 2.25, -1.27], [1.66, 2.25, -1.27], [1.18, 1.72, -1.27]];
+const SUMMIT = [0.05, 3.1, -0.5];
+// Village: the clock tower's spire tip and foot (centre V-fold).
+const TOWER_PTS = [[0, 2.72, -1.3], [0, 0.2, -0.8]];
+// Sea: the lighthouse lamp room (it flashes at 37.5, 40 and 42.5).
+const LIGHTHOUSE_PTS = [[1.75, 2.58, -1.15], [2.05, 2.3, -1.15]];
+
 const HOLD_SHOTS = [
   // forest: low, from the left, looking through the trees toward the fox.
   (t, aspect) => {
     const u = holdU(0, t);
     const a = resolve(widePose(0, -8, 27), aspect);
-    const b = resolve(closePose(0, [0.55, 0.95, 0.35], -30, 12, 6.1, 30), aspect);
+    const b = resolve(closePose(0, aspect, [0.55, 0.85, 0.35], -31, 11, 6.1, 30), aspect);
     const m = mix(a, b, u);
     m.yaw += 4 * Math.sin(Math.PI * u);                 // a gentle arc on the way in
     return m;
   },
-  // village: a slow lateral track across the street, ending on the fox.
+  // village: a slow lateral track along the street (the camera slides, barely
+  // turning), from the clock tower to the fox; she ends well above the caption.
   (t, aspect) => {
     const u = holdU(1, t, 0.4, 0.3);
-    const a = resolve(closePose(1, [1.15, 0.95, 0.1], 5, 21, 7.0, 31), aspect);
-    const b = resolve(closePose(1, [-0.75, 0.95, 0.3], -3, 18, 6.2, 31), aspect);
+    const a = resolve(closePose(1, aspect, [0.4, 0.92, -0.15], 4, 19, 5.5, 31,
+      { fit: [...subjectPoints(1, 0.6), ...TOWER_PTS, ...lowered(heroFeet(1), 4, 19, 0.95 * (1 - 0.7 * tallness(aspect)))] }), aspect);
+    const b = resolve(closePose(1, aspect, [-0.95, 0.68, 0.4], -1, 17, 6.0, 31,
+      { fit: [...subjectPoints(1, lerp(0.9, 0.35, tallness(aspect))), ...lowered(heroFeet(1), -1, 17, 0.3)] }), aspect);
     return mix(a, b, u);
   },
   // sea: low angle, afloat (barely perceptible bob and roll).
   (t, aspect) => {
     const u = holdU(2, t);
-    const a = resolve(closePose(2, [0.15, 0.85, 0.1], 12, 20, 8.2, 32), aspect);
-    const b = resolve(closePose(2, [-0.05, 0.9, 0.25], -6, 11, 6.6, 30), aspect);
+    const a = resolve(closePose(2, aspect, [0.15, 0.85, 0.1], 12, 20, 8.2, 32), aspect);
+    const b = resolve(closePose(2, aspect, [-0.05, 0.9, 0.25], -6, 11, 6.6, 30,
+      { fit: [...subjectPoints(2, lerp(0.9, 0.35, tallness(aspect))), ...LIGHTHOUSE_PTS] }), aspect);
     const m = mix(a, b, u);
     m.t = [m.t[0], m.t[1] + 0.035 * Math.sin(TAU * t / 4.3), m.t[2]];
     m.pitch += 0.3 * Math.sin(TAU * t / 5.1 + 1.0);
     m.roll += 0.5 * Math.sin(TAU * t / 4.7 + 0.4);
     return m;
   },
-  // mountain: starts low on the slope, tilts up toward the moon.
+  // mountain: starts on the slope, sinks low and tilts up at the summit and the
+  // moon, then (before the sliver comes loose at 52) settles back into a framing
+  // that holds the moon, the sliver's whole arc, the fox and her lantern, all
+  // above the caption band.
   (t, aspect) => {
-    const u = holdU(3, t, 0.3, 0.6);
-    const a = resolve(closePose(3, [0.35, 0.75, 0.05], 13, 16, 8.6, 32), aspect);
-    const b = resolve(P([0.3, 1.95, -0.45], 6, 5, 7.6, 32,
-      { fit: [[0.3, PAGE_SURFACE_Y + SPREAD_LAYOUT[3].peak + 0.1, -0.4], ...subjectPoints(3, 0.7)], margin: 1.08 }), aspect);
-    return mix(a, b, u);
+    const seg = HOLDS[3];
+    const u1 = easeSine(ramp(t, seg.start - 0.3, seg.start + 3.6));
+    const u2 = easeSine(ramp(t, seg.start + 2.7, seg.start + 4.9));
+    const a = resolve(closePose(3, aspect, [0.35, 0.75, 0.05], 13, 16, 8.6, 32), aspect);
+    const b = resolve(P([0.35, 1.75, -0.45], 8, 4, 7.6, 32,
+      { fit: [MOON_PTS[0], SUMMIT, ...subjectPoints(3, 0.7)], margin: 1.08, drop: 1 }), aspect);
+    const cy = 8, cp = 12;
+    const c = resolve(P([0.8, 1.3, -0.15], cy, cp, 7.6, 32,
+      { fit: [...MOON_PTS, SUMMIT, ...subjectPoints(3, 0.5), ...lowered(heroFeet(3), cy, cp, 0.35)], margin: 1.06, drop: 1 }), aspect);
+    return mix(mix(a, b, u1), c, u2);
   },
   // night: push toward the fox and lantern; when the lantern lights (61.5-64),
   // pull back and rise to reveal the whole glowing spread.
@@ -217,8 +284,8 @@ const HOLD_SHOTS = [
     const seg = HOLDS[4];
     const u1 = easeSine(ramp(t, seg.start - 0.4, seg.start + 4.1));
     const u2 = easeSine(ramp(t, seg.start + 3.5, seg.end - 1.3));
-    const a = resolve(closePose(4, [0.25, 0.85, 0.2], 10, 24, 8.0, 32), aspect);
-    const b = resolve(closePose(4, [0.8, 0.85, 0.8], 15, 17, 5.4, 30), aspect);
+    const a = resolve(closePose(4, aspect, [0.25, 0.85, 0.2], 10, 24, 8.0, 32), aspect);
+    const b = resolve(closePose(4, aspect, [0.8, 0.85, 0.8], 15, 17, 5.4, 30), aspect);
     const c = resolve(widePose(4, 2, 34, { margin: 1.03 }), aspect);
     const m = mix(mix(a, b, u1), c, u2);
     return m;
@@ -228,7 +295,7 @@ const HOLD_SHOTS = [
 /** The book closes: pull back and crane up, sliding over to the closed book. */
 function shotClose(t, aspect) {
   const u = easeSine(ramp(t, CLOSE.start - 0.6, CLOSE.end + 0.6));
-  const a = resolve(P([0, 1.05, -0.15], 4, 36, 9, 34, { fit: turnPoints(1.0), margin: 1.08 }), aspect);
+  const a = resolve(P([0, 1.05, -0.15], 4, 36, 9, 34, { fit: turnPoints(1.0), margin: 1.08, drop: 1 }), aspect);
   const b = resolve(P(aboveInFrame([1.55, 0.35, 0], -4, 48, 0.6), -4, 48, 8.4, 32, { fit: CLOSED_BOX, margin: 1.25 }), aspect);
   return mix(a, b, u);
 }

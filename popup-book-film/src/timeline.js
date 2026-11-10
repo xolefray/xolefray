@@ -45,6 +45,8 @@ const CUES = {
   endCardIn: [0.5, 2.0],   // relative to outro start: in 74-75.5, hold to the end
   glowDelay: 3.0,          // lantern lights this long after spread 4 starts (61.5)
   glowLen: 2.5,            // ... ramping over 2.5 s (61.5-64)
+  lampUp: [-0.7, 2.5],     // relative to bookClose end (72.8-76): once the book has nearly shut, `night` eases back down ...
+  lampNight: 0.3,          // ... to this, so the closed book is lit warmly under "The End"
 };
 
 /** Frozen list of segments: { name, index, to?, start, end, order }. */
@@ -135,7 +137,11 @@ export function getFilmState(t) {
   const [ti0, ti1, to0, to1] = CUES.titleCard;
   const titleCard = envelope(t, ti0, ti1, to0, to1);
   const endCard = smoothstep(OUTRO.start + CUES.endCardIn[0], OUTRO.start + CUES.endCardIn[1], t);
-  const night = smoothstep(TURN_SEGS[3].start, TURN_SEGS[3].end, t);
+  // Night falls over the turn into spread 4; once the book has nearly shut (the
+  // glow has gone into it in the dark) a warm desk lamp comes back up a little.
+  const lampIn0 = CLOSE.end + CUES.lampUp[0], lampIn1 = CLOSE.end + CUES.lampUp[1];
+  const night = smoothstep(TURN_SEGS[3].start, TURN_SEGS[3].end, t)
+    * (1 - (1 - CUES.lampNight) * smoothstep(lampIn0, lampIn1, t));
   const glowStart = SPREAD_SEGS[4].start + CUES.glowDelay;
   const glow = smoothstep(glowStart, glowStart + CUES.glowLen, t);
 
