@@ -56,7 +56,7 @@ async function main() {
   page.on('console', (msg) => {
     const type = msg.type();
     if (type === 'error') problems.push(`console.error: ${msg.text()}`);
-    else if (type === 'warning') warnings.push(`console.warn: ${msg.text()}`);
+    else if (type === 'warning' && !/GPU stall due to ReadPixels/.test(msg.text())) warnings.push(`console.warn: ${msg.text()}`); // the stall is our own timing readback
   });
   page.on('pageerror', (err) => problems.push(`pageerror: ${err.stack || err.message}`));
   page.on('requestfailed', (req) => problems.push(`request failed: ${req.url()} (${req.failure()?.errorText})`));
@@ -84,12 +84,20 @@ async function main() {
   const wallMs = [];
   for (const t of times) {
     const w0 = Date.now();
-    seekMs.push(await seekTimed(t));
+    let ms = null;
+    try {
+      ms = await seekTimed(t);
+      seekMs.push(ms);
+    } catch (err) {
+      // Keep going so every broken time is reported; the saved frame may be stale.
+      problems.push(`seek(${t}) threw: ${String(err.message || err).split('\n')[0]}`);
+    }
     await nextFrame();
     const file = path.join(outDir, `t-${fmtTime(t)}.png`);
     await page.screenshot({ path: file });
     wallMs.push(Date.now() - w0);
-    console.log(`  t=${fmtTime(t).padEnd(6)} seek+render ${seekMs.at(-1).toFixed(0).padStart(5)} ms   -> ${path.relative(process.cwd(), file) || file}`);
+    const msText = ms === null ? '  THREW' : `${ms.toFixed(0).padStart(5)} ms`;
+    console.log(`  t=${fmtTime(t).padEnd(6)} seek+render ${msText}   -> ${path.relative(process.cwd(), file) || file}`);
   }
   const avg = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
   console.log(`average seek+render (in page): ${avg(seekMs).toFixed(1)} ms;  incl. screenshot: ${avg(wallMs).toFixed(0)} ms`);
