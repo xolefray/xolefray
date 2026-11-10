@@ -918,9 +918,12 @@ export async function renderOffline(fromT, toT, sampleRate = 22050, { layers = n
     const plan = (k) => {
       if (k * OFFLINE_STEP >= span) return;
       ctx.suspend(k * OFFLINE_STEP).then(() => {
-        pumpTo(k + 1);
-        plan(k + 1);
-        ctx.resume();
+        try {
+          pumpTo(k + 1);
+          plan(k + 1);
+        } finally {
+          ctx.resume();
+        }
       });
     };
     plan(1);
