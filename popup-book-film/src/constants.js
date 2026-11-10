@@ -6,8 +6,8 @@
 
 export const PAGE_W = 3.0;          // x extent of one page
 export const PAGE_H = 4.0;          // z extent of one page
-export const LEAF_T = 0.06;         // inner card leaf thickness
-export const COVER_T = 0.09;        // cover board thickness
+export const LEAF_T = 0.03;         // inner card leaf thickness
+export const COVER_T = 0.07;        // cover board thickness
 export const COVER_OVERHANG = 0.1;  // cover board extends past the pages (outer edge, top, bottom)
 export const NUM_SPREADS = 5;
 export const NUM_LEAVES = 6;        // 0 = front cover, 1..4 inner leaves, 5 = back cover (never moves)
@@ -44,7 +44,7 @@ export function leafBottomTurned(j) {
 // Each leaf's slab sits at a fixed offset from that hinge, along its own local +Y,
 // chosen so both rest positions (unturned / turned) match the stacking above
 // exactly. Solving  hinge + off = bottomUnturned  and  hinge - off - T = bottomTurned
-// gives the same hinge height for every leaf (0.21), so the stack turns like a
+// gives the same hinge height for every leaf (0.13), so the stack turns like a
 // rigid bound book and leaves never interpenetrate, even when all of them swing
 // together during bookClose. The leaf's bottom/spine edge therefore moves smoothly
 // with the turn from (0, bottomUnturned) to (0, bottomTurned + T).
