@@ -27,16 +27,20 @@
  *
  * Aspect: framed for 16:9; wider frames (21:9) keep the vertical view and show more desk at the
  * sides. Below REF_ASPECT the rig keeps the horizontal coverage a REF_ASPECT frame has at the
- * target: it widens the vertical fov (up to MAX_FOV) and dollies back along the line of sight for
- * the rest, so the 6-unit open book and the action stay in frame down to portrait phones.
+ * target (REF_ASPECT_CLOSE for close-ups): it widens the vertical fov (up to MAX_FOV) and dollies
+ * back along the line of sight for the rest, so the 6-unit open book and the action stay in frame
+ * down to portrait phones. The
+ * extra height of such a frame is placed by a per-key `band` (vertical lens shift): e.g. the
+ * closed book sits low under the opening title card.
  *
  * Imports no three.js (uses only the camera's own API) and allocates nothing per frame.
  */
-import { clamp } from './timeline.js';
+import { clamp, smoothstep } from './timeline.js';
 
 const DEG = Math.PI / 180;
 const LEAD = 0.45; // follow shots aim where the boat will be this many seconds later
-const REF_ASPECT = 1.5;
+const REF_ASPECT = 1.5; // narrower frames keep this aspect's horizontal coverage (wide shots) …
+const REF_ASPECT_CLOSE = 1.1; // … easing to this one's for close-ups (camera-target distance ≤ 3.5)
 const MAX_FOV = 62;
 const WIDEN_SHARE = 0.5; // portrait: this power of the coverage deficit goes to the lens, the rest to dolly
 const DRIFT_AIM = 0.006; // handheld aim wander × camera-target distance × shake
@@ -86,7 +90,7 @@ const JOURNEY = {
     [83.5, 0.6, 2.2, -0.5],
     [86, 1.4, 2.8, 0.2],
     [89, 1.2, 3.4, 1.0],
-    [96, 0.6, 5.5, 2.2],
+    [93.4, 0.6, 5.5, 2.2], // sky.js reaches the last waypoint early and climbs on out of frame
   ],
 };
 /** Which spread's path subjectPosition() reports: it switches halfway through each page turn. */
@@ -200,14 +204,16 @@ const SHOTS = [
   // 7–10 the cover opens: swing round to the reader's centred view as the forest rises.
   key(8.6, [1.4, 5.6, 7.9], [0.4, 0.9, -0.4], { shake: 0.8 }),
   key(10.4, [0, 5.4, 7.7], [0, 0.85, -0.45], { shake: 0.8 }),
-  // Forest: glide low from the left past the cottage and settle on the boat being folded (15.5–20)...
+  // Forest: glide low from the left past the cottage; watch the boat being folded at the spring
+  // (15.5–18) from the front-left, clear of the cottage (a standUp at (−1.85, 0, 0.62))...
   key(13.0, [-4.0, 2.8, 5.0], [-1.4, 0.95, -0.2], { fov: 33, shake: 0.6 }),
-  key(15.6, [-3.25, 2.1, 2.0], [-1.85, 0.45, -1.05], { fov: 31, shake: 0.35 }),
-  key(19.2, [-3.1, 1.9, 1.7], [-1.85, 0.42, -1.1], { fov: 30, shake: 0.3 }),
-  // ...track it downstream from its left bank...
-  key(21.8, [-1.85, 1.7, 2.75], [0, 0.2, 0], { on: 'forest', fov: 31, shake: 0.35 }),
-  key(24.0, [-1.6, 1.6, 2.7], [0, 0.2, 0], { on: 'forest', fov: 32, shake: 0.4 }),
-  key(26.0, [-1.1, 2.4, 3.4], [0, 0.2, 0], { on: 'forest', fov: 33, shake: 0.5 }),
+  key(15.6, [-3.7, 2.05, 1.85], [-1.9, 0.42, -1.05], { fov: 31, shake: 0.35 }),
+  key(18.6, [-3.5, 2.25, 1.75], [-1.88, 0.4, -1.1], { fov: 30, shake: 0.3 }),
+  // ...crane up over the cottage as it slips into the stream, then ride along in front of it.
+  key(20.8, [-1.6, 3.0, 2.2], [-1.75, 0.4, -1.0], { fov: 31, shake: 0.35 }),
+  key(22.6, [0.4, 1.9, 2.8], [0, 0.2, 0], { on: 'forest', fov: 31, shake: 0.35 }),
+  key(24.2, [-0.4, 1.7, 2.8], [0, 0.2, 0], { on: 'forest', fov: 32, shake: 0.4 }),
+  key(26.0, [-0.9, 2.4, 3.4], [0, 0.2, 0], { on: 'forest', fov: 33, shake: 0.5 }),
   // ...and rise out wide for the page turn 28–31, drifting with the sweep of the page.
   key(28.8, [1.8, 6.0, 8.8], [0.2, 1.15, -0.35], { shake: 0.9 }),
   key(31.0, [-0.5, 5.7, 8.6], [-0.2, 1.0, -0.3], { shake: 0.9 }),
@@ -220,25 +226,26 @@ const SHOTS = [
   // Page turn 49–52.
   key(49.5, [1.8, 6.0, 8.8], [0.2, 1.15, -0.35], { shake: 0.9 }),
   key(52.0, [-0.5, 5.7, 8.6], [-0.2, 1.0, -0.3], { shake: 0.9 }),
-  // City: down to the canal, push in through the lanterns to the quiet window, then the bridge.
-  key(55.0, [-2.7, 2.0, 4.6], [-1.35, 0.5, 0.25], { fov: 33, shake: 0.6 }),
+  // City: down to the canal, push in through the lanterns to the quiet window, then follow the
+  // boat under the arched bridge, seen from the front-left.
+  key(55.0, [-3.0, 2.3, 5.2], [-1.3, 0.66, 0.35], { fov: 33, shake: 0.6 }),
   key(58.5, [-1.6, 1.75, 5.0], [-0.9, 0.62, -0.1], { fov: 31, shake: 0.45 }),
   key(62.0, [-0.9, 1.45, 4.6], [-0.8, 0.6, -0.1], { fov: 29, shake: 0.3 }),
   key(65.5, [-0.75, 1.35, 4.3], [-0.75, 0.5, 0.0], { fov: 29, shake: 0.3 }),
-  key(67.2, [-0.6, 1.2, 3.6], [0.1, 0.3, 0], { on: 'city', fov: 30, shake: 0.35 }),
-  key(68.5, [-0.5, 1.15, 3.4], [0.1, 0.3, 0], { on: 'city', fov: 31, shake: 0.4 }),
+  key(67.2, [-1.2, 1.2, 3.3], [0.1, 0.3, 0], { on: 'city', fov: 30, shake: 0.35 }),
+  key(68.5, [-1.7, 1.15, 2.8], [0.1, 0.3, 0], { on: 'city', fov: 31, shake: 0.4 }),
   // Page turn 70–73.
-  key(71.5, [1.5, 5.4, 8.6], [0.2, 1.15, -0.35], { shake: 0.9 }),
+  key(71.5, [-0.9, 5.4, 8.6], [0.1, 1.15, -0.35], { shake: 0.9 }),
   key(73.2, [-0.4, 3.6, 6.0], [-0.9, 0.85, 0.0], { shake: 0.7 }),
   // Sky: close on the boat on its cloud (unfold 75.5–77, crane 77–78.5), rise with the crane...
   key(75.3, [-0.95, 1.55, 3.0], [-1.6, 0.85, 0.55], { fov: 31, shake: 0.3 }),
   key(78.0, [-1.05, 1.45, 2.7], [-1.65, 0.95, 0.6], { fov: 30, shake: 0.25 }),
   key(80.5, [0.9, 0.55, 3.0], [0, 0.1, 0], { on: 'sky', fov: 32, shake: 0.35 }),
-  key(83.5, [0.3, 0.3, 3.8], [0, 0.1, 0], { on: 'sky', fov: 33, shake: 0.45 }),
+  key(83.5, [0.3, 0.85, 3.7], [0, -0.3, 0], { on: 'sky', fov: 33, shake: 0.45 }),
   // ...and end wide and majestic: sun, balloons, crane.
-  key(86.5, [0.4, 3.0, 8.8], [0.2, 2.0, -0.6], { fov: 36, shake: 0.8 }),
+  key(86.5, [0.4, 2.8, 8.0], [0.25, 1.7, -0.5], { fov: 36, shake: 0.8 }),
   // Epilogue 89–96: slow pull back and up over the whole book while the lamp fades.
-  key(89.5, [0.3, 3.5, 9.8], [0.15, 2.0, -0.5], { fov: 36, shake: 0.9 }),
+  key(89.5, [0.3, 3.3, 9.2], [0.2, 1.8, -0.4], { fov: 36, shake: 0.9 }),
   key(96, [0, 4.6, 15.2], [0, 1.45, -0.2], { fov: 36, shake: 1, band: -0.5 }),
 ];
 
@@ -371,10 +378,12 @@ export function createCameraRig(camera) {
       const roll = DRIFT_ROLL * shake * wander(t * 0.79, 4.1, 0.9, 2.7);
       fov += BREATH * shake * Math.sin(0.17 * t + 1.1);
 
-      // Narrow frames: keep REF_ASPECT's horizontal coverage — widen the lens, dolly back for the
-      // rest — and slide the composition (a REF_ASPECT band of the taller frame) by lens shift.
+      // Narrow frames: keep a reference aspect's horizontal coverage (the whole book in wide shots,
+      // a little less around the subject in close-ups) — widen the lens, dolly back for the rest —
+      // and slide the composition (a reference-aspect band of the taller frame) by lens shift.
       let halfTan = Math.tan(0.5 * fov * DEG);
-      const deficit = REF_ASPECT / (camera.aspect || REF_ASPECT);
+      const ref = REF_ASPECT_CLOSE + (REF_ASPECT - REF_ASPECT_CLOSE) * smoothstep(3.5, 6.5, dist);
+      const deficit = ref / (camera.aspect || ref);
       let shift = 0;
       if (deficit > 1) {
         shift = 0.5 * band * (1 - 1 / deficit);
