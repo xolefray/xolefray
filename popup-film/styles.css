@@ -1,0 +1,45 @@
+/* STUB (T0) — replaced by T-main. Minimal full-screen film layout. */
+:root {
+  --bg: #0d0b0a;
+  --fg: #f3ead8;
+  --accent: #d9a35f;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: Georgia, serif;
+}
+
+#stage,
+#stage canvas,
+#overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#overlay {
+  pointer-events: none;
+}
+
+.begin {
+  position: fixed;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  padding: 12px 28px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: rgba(13, 11, 10, 0.6);
+  color: var(--fg);
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
