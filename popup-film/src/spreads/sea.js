@@ -16,7 +16,7 @@
  *     turns throughout and brightens for its caption 37–42.
  *   - The boat (paper.boat) on the shared waypoints (SPREADS.md; same C1 Hermite path as the
  *     camera rig), rocking on a small carrier swell between rows 3 and 4. 42–46 the big wave
- *     rises out of its slot under the boat; the boat climbs it (summit y = 0.5 at t = 44, x = 1.0)
+ *     rises out of its slot under the boat; the boat climbs it (summit y ≈ 0.5 at t = 44, x = 1.0)
  *     and rides down the far side, pitching with the wave's slope.
  *   - Three paper gulls fly in 31–34, circle the lighthouse, and leave 47.6–49; a fish leaps
  *     between rows 2 and 3 on the left page at 33.6, 39.9 and 46.2.
@@ -92,7 +92,7 @@ const WAYPOINTS = [
   [44, 1.0, 0.4],
   [48.5, 2.1, 0.8],
 ];
-const BOAT_SCALE = 0.74;
+const BOAT_SCALE = 0.6; // same as the other spreads
 const BOAT_Y = 0.165; // resting waterline on the carrier swell
 const CARRIER_Z = 0.14; // carrier swell / big wave planes, in front of the boat (lane coordinates)
 const WAVE = { x: 1.0, z: 0.17, peak: 0.55, half: 0.92, depth: 0.66, sink: 0.04 };
@@ -176,7 +176,7 @@ function band(ctx, f, x0, x1, yb) {
   ctx.closePath();
 }
 
-/** Strokes y = f(x) with a varying width (thick in the middle, thin at the ends). */
+/** Strokes the curve y = f(x) from x0 to x1 with round joins and caps. */
 function strokeLine(ctx, f, x0, x1, width, style) {
   ctx.beginPath();
   ctx.moveTo(x0, f(x0));
