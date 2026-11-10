@@ -1,0 +1,145 @@
+<!doctype html>
+<!--
+  dev/spread-forest.html (T-forest) — harness for src/spreads/forest.js, "The Whispering Forest".
+  The spread alone in its spread frame (lifted to y = 0.14 on a stand-in book block) under the real
+  environment (env.update(t) gives the right lamp for the film time): the right page is fixed on
+  y = 0, the left page is posed at α; both carry the spread's leftArt/rightArt; the spread group
+  is updated with (α, t, t − 7).
+  Query: alpha=<0..1> (×π, default 1) · t=<film seconds> (default 19) · play=1 (advance t in real
+  time) · free=1 (orbit controls) · view=front|wide|low|top|left|boat|birth
+  (boat follows the boat / the folding page; birth is a close-up of the spring).
+  Sets window.__ready once two frames have been rendered.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forest spread harness</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root { --bg: #0b0908; --fg: #e8e4da; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); }
+    #hud { position: fixed; left: 10px; top: 8px; font: 12px/1.4 system-ui, sans-serif; opacity: 0.7; pointer-events: none; }
+  </style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <div id="hud"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import * as paper from '../src/paper.js';
+    import * as popup from '../src/popup.js';
+    import { createEnvironment } from '../src/environment.js';
+    import { makeRng } from '../src/util/rng.js';
+    import forest from '../src/spreads/forest.js';
+
+    const PI = Math.PI;
+    const START = 7;
+    const BOOK = { PAGE_W: 3, PAGE_D: 4, BOARD_T: 0.035, LEAVES: 5 };
+    const LIFT = 0.14; // spread frame height above the desk (book stack)
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => (params.has(k) && Number.isFinite(Number(params.get(k))) ? Number(params.get(k)) : d);
+    const alpha = PI * Math.min(1, Math.max(0, num('alpha', 1)));
+    const t0 = num('t', 19);
+    const view = params.get('view') ?? 'front';
+    const play = params.get('play') === '1';
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 100);
+    const env = createEnvironment({ scene, renderer });
+
+    // ---- stand-in book: a block under the right page, the left page + its board on a hinge
+    const frame = new THREE.Group();
+    frame.position.y = LIFT;
+    scene.add(frame);
+    const cloth = new THREE.MeshStandardMaterial({ color: '#6e2a26', roughness: 0.8 });
+    const edges = new THREE.MeshStandardMaterial({ color: '#efe6d2', roughness: 0.95 });
+    const block = new THREE.Mesh(new THREE.BoxGeometry(3.06, LIFT, 4.12), [edges, cloth, edges, cloth, edges, edges]);
+    block.position.set(1.53, -LIFT / 2 - 0.003, 0);
+    block.castShadow = block.receiveShadow = true;
+    frame.add(block);
+    const api = forest.build({ THREE, paper, popup, rng: makeRng(1001), BOOK });
+    const pageGeo = (x) => new THREE.PlaneGeometry(3, 4).rotateX(-PI / 2).translate(x, 0, 0);
+    const right = new THREE.Mesh(pageGeo(1.5), paper.paperMaterial({ map: paper.texture(api.rightArt) }));
+    right.receiveShadow = true;
+    frame.add(right);
+    const hinge = new THREE.Group();
+    hinge.rotation.z = alpha - PI;
+    frame.add(hinge);
+    const left = new THREE.Mesh(pageGeo(-1.5), paper.paperMaterial({ map: paper.texture(api.leftArt) }));
+    left.receiveShadow = true;
+    const board = new THREE.Mesh(new THREE.BoxGeometry(3.06, 0.04, 4.12), [edges, cloth, edges, edges, edges, edges]);
+    board.position.set(-1.53, -0.0235, 0);
+    board.castShadow = board.receiveShadow = true;
+    hinge.add(left, board);
+    if (alpha > 0.98 * PI) {
+      const leftBlock = block.clone();
+      leftBlock.position.x = -1.53;
+      frame.add(leftBlock);
+    }
+    frame.add(api.group);
+
+    // ---- cameras
+    const VIEWS = {
+      front: [[0, 6.2, 7.6], [0, 0.6, -0.2]],
+      wide: [[5.5, 7, 10.5], [0, 0.5, 0]],
+      low: [[0.3, 1.5, 6.6], [0, 0.75, -0.3]],
+      top: [[0, 11.5, 1.2], [0, 0, 0]],
+      left: [[-6.2, 2.3, 3.4], [-1.4, 0.55, -0.5]],
+      birth: [[-2.75, 1.0, 0.3], [-1.9, 0.22, -1.2]],
+    };
+    const target = new THREE.Vector3();
+    const boatPos = new THREE.Vector3();
+    let controls = null;
+    function aim(t) {
+      if (view === 'boat') {
+        const b = api.group.getObjectByName('forest-boat');
+        const s = api.group.getObjectByName('forest-sheet');
+        (b.visible ? b : s).getWorldPosition(boatPos);
+        camera.position.set(boatPos.x + 0.9, boatPos.y + 0.85, boatPos.z + 2.1);
+        target.set(boatPos.x, boatPos.y + 0.12, boatPos.z);
+      } else {
+        const [p, q] = VIEWS[view] ?? VIEWS.front;
+        camera.position.set(p[0], p[1] + LIFT, p[2]);
+        target.set(q[0], q[1] + LIFT, q[2]);
+      }
+      camera.lookAt(target);
+    }
+    if (params.get('free') === '1') {
+      aim(t0);
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.copy(target);
+      controls.update();
+    }
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    const hud = document.getElementById('hud');
+    hud.hidden = params.get('ui') === '0';
+    const clock0 = performance.now();
+    let frames = 0;
+    renderer.setAnimationLoop(() => {
+      const t = play ? t0 + (performance.now() - clock0) / 1000 : t0;
+      env.update(t);
+      api.update(alpha, t, t - START);
+      if (!controls) aim(t);
+      renderer.render(scene, camera);
+      hud.textContent = `t ${t.toFixed(2)}  α ${(alpha / PI).toFixed(2)}π  view ${view}`;
+      if (++frames >= 2) window.__ready = true;
+    });
+  </script>
+</body>
+</html>
