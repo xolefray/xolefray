@@ -1,0 +1,15 @@
+{
+  "id": "school",
+  "file": "school.webp",
+  "w": 851,
+  "h": 908,
+  "feet": [
+    450.0,
+    883
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "dates",
+  "units": 2.05
+}
