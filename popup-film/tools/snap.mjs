@@ -45,7 +45,7 @@ function parseArgs(argv) {
   return opts;
 }
 
-export const CHROMIUM_ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+const CHROMIUM_ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
