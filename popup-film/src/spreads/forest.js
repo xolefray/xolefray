@@ -61,6 +61,9 @@ const RING_LIFE = 3;
 const RINGS = Math.ceil(RING_LIFE / RING_PERIOD);
 const FIREFLIES = 46;
 const ART_LIFT = 0.2; // emissive share of the printed colour on upright cards
+/** Falling-leaf lanes [x, z, time offset] in clear air between the grove and the reader. */
+const LEAF_LANES = [[-0.55, 0.45, 0], [0.35, 0.95, 2.1], [1.15, -0.05, 3.7], [-1.25, -0.1, 5.3]];
+const LEAF_PERIOD = 6.5;
 
 const C = {
   ink: 'rgba(43, 38, 34, 0.62)',
@@ -1798,7 +1801,7 @@ export default {
     headPivot.position.set(-0.125, 0.43, 0.004);
     headPivot.add(liftArt(paper.card({ canvas: cardCanvas(paper, 0.3, 0.29, 640, (ctx, px) => drawFoxHead(ctx, px), { seed: 35 }), width: 0.3, height: 0.29 })));
     flat.fox.mount.add(headPivot);
-    const HEAD = { x: LAYOUT.flats.fox.x - 0.125, y: 0.55, z: LAYOUT.flats.fox.z };
+    const HEAD = { x: LAYOUT.flats.fox.x - 0.125, z: LAYOUT.flats.fox.z }; // spread position of the fox's neck
 
     putCard('log', drawLog, 36);
     putCard('ferns', drawFerns, 37);
@@ -1888,13 +1891,14 @@ export default {
     const lamp = new THREE.Vector3(-5, 9, 1.5);
     const foot = new THREE.Vector3();
     const dir = new THREE.Vector3();
-    const side = new THREE.Vector3();
+    const across = new THREE.Vector3();
+    const zAxis = new THREE.Vector3(0, 0, 1);
     for (const [x, z, w, len] of [[SPX, SPZ, 0.42, 1.75], [0.55, -0.15, 0.34, 1.6], [1.75, -0.55, 0.38, 1.7]]) {
       foot.set(x, 0, z);
       dir.subVectors(lamp, foot).normalize();
-      side.crossVectors(dir, new THREE.Vector3(0, 0, 1)).normalize().multiplyScalar(w / 2);
+      across.crossVectors(dir, zAxis).normalize().multiplyScalar(w / 2);
       const top = foot.clone().addScaledVector(dir, len);
-      const quad = [foot.clone().sub(side), foot.clone().add(side), top.clone().add(side), top.clone().sub(side)];
+      const quad = [foot.clone().sub(across), foot.clone().add(across), top.clone().add(across), top.clone().sub(across)];
       for (const k of [0, 1, 2, 0, 2, 3]) {
         beamPos.push(quad[k].x, quad[k].y, quad[k].z);
         beamUv.push(k === 1 || k === 2 ? 1 : 0, k >= 2 ? 1 : 0);
@@ -1964,7 +1968,6 @@ export default {
       ctx.stroke();
     }, { dieCut: 3, seed: 41 }));
     const leafMat = new THREE.MeshStandardMaterial({ map: leafTex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.9 });
-    const LEAF_LANES = [[-0.55, 0.45, 0], [0.35, 0.95, 2.1], [1.15, -0.05, 3.7], [-1.25, -0.1, 5.3]];
     const leaves = LEAF_LANES.map(() => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.11), leafMat);
       m.castShadow = true;
@@ -1972,8 +1975,6 @@ export default {
       group.add(m);
       return m;
     });
-
-    const PERIOD = 6.5;
 
     return {
       group,
@@ -2069,14 +2070,14 @@ export default {
 
         // falling leaves
         for (let i = 0; i < leaves.length; i++) {
-          const [lx, lz, off] = LEAF_LANES[i];
-          const ph = (t + off) / PERIOD;
+          const lane = LEAF_LANES[i];
+          const ph = (t + lane[2]) / LEAF_PERIOD;
           const k = Math.floor(ph);
           const u = ph - k;
           const jx = Math.sin(k * 12.9898 + i * 78.233) * 0.35;
           const m = leaves[i];
           const sway = Math.sin(u * TAU * 2.2 + i);
-          m.position.set(lx + jx + sway * 0.16, 2.1 * (1 - u) + 0.02, lz + Math.cos(u * TAU * 1.3 + i) * 0.1);
+          m.position.set(lane[0] + jx + sway * 0.16, 2.1 * (1 - u) + 0.02, lane[1] + Math.cos(u * TAU * 1.3 + i) * 0.1);
           m.rotation.set(-PI / 2 + 0.9 * sway, u * 5 + i, 0.4 * sway);
           m.scale.setScalar(Math.max(0.001, open * Math.min(1, (1 - u) * 12)));
         }

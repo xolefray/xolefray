@@ -8,7 +8,9 @@
   Query: alpha=<0..1> (×π, default 1) · t=<film seconds> (default 19) · play=1 (advance t in real
   time) · free=1 (orbit controls) · view=front|wide|low|top|left|boat|birth
   (boat follows the boat / the folding page; birth is a close-up of the spring).
-  Sets window.__ready once two frames have been rendered.
+  On load it runs a layout self-test of every V-fold half and standUp over 360 opening angles
+  (no crossings, nothing outside the book; failures go to console.error) and shows it with the
+  mesh count in the HUD. Sets window.__ready once two frames have been rendered.
 -->
 <html lang="en">
 <head>
@@ -32,7 +34,7 @@
     import * as popup from '../src/popup.js';
     import { createEnvironment } from '../src/environment.js';
     import { makeRng } from '../src/util/rng.js';
-    import forest from '../src/spreads/forest.js';
+    import forest, { LAYOUT } from '../src/spreads/forest.js';
 
     const PI = Math.PI;
     const START = 7;
@@ -127,6 +129,73 @@
       renderer.setSize(innerWidth, innerHeight);
     });
 
+    // ---- layout self-test: every card's bounding rectangle (V-fold halves, standUps) is posed at
+    // 360 opening angles; no rectangle may cross another mechanism's or leave the wedge between
+    // the pages, and closed (small α) everything must lie within the page. Failures → console.error.
+    function layoutSelfTest() {
+      const pieces = [];
+      for (const [name, f] of Object.entries(LAYOUT.folds)) {
+        const m = popup.vFold({ z0: f.z0, gamma: LAYOUT.gamma });
+        pieces.push({ name: `${name}.R`, mech: m, mount: m.right, rect: [0, f.halfWidth, 0, f.height] });
+        pieces.push({ name: `${name}.L`, mech: m, mount: m.left, rect: [-(f.leftReach ?? f.halfWidth), 0, 0, f.height] });
+      }
+      for (const [name, f] of Object.entries(LAYOUT.flats)) {
+        const m = popup.standUp({ side: f.side, x: f.x, z: f.z, fold: f.fold });
+        pieces.push({ name, mech: m, mount: m.mount, rect: [-f.width / 2, f.width / 2, 0, f.height] });
+      }
+      const root = new THREE.Group();
+      for (const p of pieces) if (!p.mech.object.parent) root.add(p.mech.object);
+      const corners = pieces.map(() => [0, 1, 2, 3].map(() => new THREE.Vector3()));
+      const d = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+      const h = new THREE.Vector3(), sv = new THREE.Vector3(), q = new THREE.Vector3();
+      const EPS = 1e-4;
+      const segTri = (a, b, p0, p1, p2) => {
+        d.subVectors(b, a);
+        e1.subVectors(p1, p0);
+        e2.subVectors(p2, p0);
+        h.crossVectors(d, e2);
+        const det = e1.dot(h);
+        if (Math.abs(det) < 1e-12) return false;
+        sv.subVectors(a, p0);
+        const u = sv.dot(h) / det;
+        if (u < EPS || u > 1 - EPS) return false;
+        q.crossVectors(sv, e1);
+        const w = d.dot(q) / det;
+        if (w < EPS || u + w > 1 - EPS) return false;
+        const t = e2.dot(q) / det;
+        return t > EPS && t < 1 - EPS;
+      };
+      const crosses = (A, B) => A.some((a, i) => {
+        const b = A[(i + 1) % 4];
+        return segTri(a, b, B[0], B[1], B[2]) || segTri(a, b, B[0], B[2], B[3]);
+      });
+      const problems = new Set();
+      for (let i = 0; i <= 360; i++) {
+        const al = 0.03 + (PI - 0.03) * (i / 360);
+        for (const p of pieces) p.mech.update(al);
+        root.updateMatrixWorld(true);
+        pieces.forEach((p, k) => {
+          const [x0, x1, y0, y1] = p.rect;
+          [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].forEach(([x, y], j) => corners[k][j].set(x, y, 0).applyMatrix4(p.mount.matrixWorld));
+          for (const c of corners[k]) {
+            const ang = Math.atan2(c.y, c.x);
+            if (ang < -1e-3 || ang > al + 1e-3 || Math.abs(c.z) > 2.001 || (al < 0.1 && Math.hypot(c.x, c.y) > 3.001)) problems.add(`${p.name} leaves the book`);
+          }
+        });
+        for (let a = 0; a < pieces.length; a++) {
+          for (let b = a + 1; b < pieces.length; b++) {
+            if (pieces[a].mech === pieces[b].mech) continue;
+            if (crosses(corners[a], corners[b]) || crosses(corners[b], corners[a])) problems.add(`${pieces[a].name} × ${pieces[b].name}`);
+          }
+        }
+      }
+      for (const p of problems) console.error(`forest layout: ${p}`);
+      return problems.size ? `layout: ${problems.size} problem(s)` : 'layout: clean';
+    }
+    const selfTest = layoutSelfTest();
+    let meshes = 0;
+    api.group.traverse((o) => { if (o.isMesh || o.isPoints) meshes++; });
+
     const hud = document.getElementById('hud');
     hud.hidden = params.get('ui') === '0';
     const clock0 = performance.now();
@@ -137,7 +206,7 @@
       api.update(alpha, t, t - START);
       if (!controls) aim(t);
       renderer.render(scene, camera);
-      hud.textContent = `t ${t.toFixed(2)}  α ${(alpha / PI).toFixed(2)}π  view ${view}`;
+      hud.textContent = `t ${t.toFixed(2)}  α ${(alpha / PI).toFixed(2)}π  view ${view}  ·  ${meshes} meshes  ·  ${selfTest}`;
       if (++frames >= 2) window.__ready = true;
     });
   </script>
