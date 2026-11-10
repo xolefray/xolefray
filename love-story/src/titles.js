@@ -1,84 +1,168 @@
-// STUB (T-scaffold) — replaced by the titles owner (T-titles-env).
-//
-// Plain but complete enough to watch the film: the narrator's lines as bottom-centre captions
-// (timeline.NARRATION), a small page title during each page turn (SPREADS[k].title), the end card
-// (COUPLE.names + COUPLE.weddingDate) and the final fade to black — all pure functions of film
-// time t (no CSS transitions, no timers; the DOM is written only when a rounded value changes).
-//
-// API (contract): createTitles(container, { captions = <from the page> } = {}) -> { update(t) }
-//   Captions are hidden with `?captions=0`: main.js sets  <html data-captions="0">  (and passes
-//   { captions: false }); this module reads either. Only the narration captions are hidden — the
-//   page titles, the end card and the fade stay.
-//   The container must be a full-screen box above the canvas and below the player controls; set
-//   `--tt-caption-bottom` on it to move the caption baseline (styles.css does, to clear the controls).
-import { COUPLE, END_CARD, LEAF_TURNS, NARRATION, SPREADS, seg, smoothstep } from './timeline.js';
+/**
+ * titles.js — narration captions, scrapbook page titles, and the end card.
+ *
+ * DOM type over the WebGL canvas. There is no opening title card: the book's cover is the title.
+ * Captions come from timeline.NARRATION (bottom-centre, storybook italic). A line fades in and out
+ * over 0.5 s and stays up until 0.6 s after it ends, or until the next line starts, whichever is
+ * sooner. During each page turn, from LEAF_TURNS[i].start + 0.4 s to the turn's end, the spread
+ * that turn opens shows SPREADS[k].title as a hand-lettered label on a strip of washi tape. Nothing
+ * else is titled during the cover. From END_CARD.start the names, a small heart and the wedding
+ * date fade in over 1.2 s and stay through DURATION; a black veil fades from END_CARD.fadeStart to
+ * END_CARD.end underneath them.
+ *
+ * Every opacity and drift is a pure function of film time t — no CSS transitions, no timers — so
+ * scrubbing matches in both directions. The DOM is written only when a rounded value changes.
+ * prefers-reduced-motion: fades only (the tape keeps its fixed tilt). pointer-events: none.
+ *
+ * `?captions=0` hides the narration captions only. main.js passes `{ captions: false }` and sets
+ * <html data-captions="0">; either is honoured. Page titles, the end card and the veil stay.
+ * The container must be a full-screen box above the canvas and below the player controls. Set
+ * `--tt-caption-bottom` on it to move the caption baseline (styles.css does, to clear the controls).
+ */
+import { COUPLE, END_CARD, LEAF_TURNS, NARRATION, SPREADS, ease, seg, smoothstep } from './timeline.js';
 import { FONT } from './fonts.js';
 
-const CAPTION_FADE = 0.45;
+const CAPTION_FADE = 0.5;
+const CAPTION_HOLD = 0.6;
+const PAGE_FADE = 0.42;
+const END_FADE = 1.2;
 
-/** One small title per spread, riding the leaf turn that opens it (gone when the spread is open). */
-const PAGE_TITLES = SPREADS.map((s) => {
+/** One washi strip per spread, in scrapbook order. Tilt is fixed (not animated). */
+const TAPES = [
+  { tilt: '-2.4deg', color: '#a33d38' },
+  { tilt: '1.75deg', color: '#7a5322' },
+  { tilt: '-1.55deg', color: '#1e6a66' },
+  { tilt: '2.15deg', color: '#2c5476' },
+  { tilt: '-1.9deg', color: '#3d663c' },
+  { tilt: '1.4deg', color: '#7a3b50' },
+];
+
+/** Spread k's label rides the leaf turn that opens it: turn start + 0.4 s → turn end. */
+const PAGE_TITLES = SPREADS.map((s, i) => {
   const turn = LEAF_TURNS.find((tr) => tr.leaf === s.k - 1);
-  return { start: turn.start + 0.3, end: turn.end + 0.2, text: s.title };
+  const tape = TAPES[i % TAPES.length];
+  return { start: turn.start + 0.4, end: turn.end, text: s.title, tilt: tape.tilt, color: tape.color };
+});
+
+/** Hold each spoken line 0.6 s past its end, but never into the next line. */
+const LINES = NARRATION.map((n, i) => {
+  const next = NARRATION[i + 1];
+  const showEnd = Math.min(n.end + CAPTION_HOLD, next ? next.start : n.end + CAPTION_HOLD);
+  return { text: n.text, start: n.start, showEnd };
 });
 
 const CSS = `
 .tt-root {
   --tt-cream: #f6eedc;
-  --tt-gold: #e6c27a;
+  --tt-gold: #f0d7a6;
   --tt-ink: 14, 9, 6;
   position: absolute; inset: 0; overflow: hidden; isolation: isolate; contain: layout paint style;
   pointer-events: none; user-select: none; -webkit-user-select: none;
   font-family: ${FONT.serif}; font-weight: 400; color: var(--tt-cream);
-  text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
+  font-kerning: normal; text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
 .tt-root * { box-sizing: border-box; }
 .tt-l { visibility: hidden; opacity: 0; }
-.tt-veil { position: absolute; inset: 0; z-index: 1; background: #000; }
+
+.tt-veil { position: absolute; inset: 0; z-index: 5; background: #000; }
 .tt-scrim {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 38%; z-index: 2;
-  background: linear-gradient(to top, rgba(var(--tt-ink), .55), rgba(var(--tt-ink), .25) 45%, rgba(var(--tt-ink), 0));
+  position: absolute; left: 0; right: 0; bottom: 0; height: 36%; z-index: 2;
+  background: linear-gradient(to top, rgba(var(--tt-ink), .5), rgba(var(--tt-ink), .18) 46%, rgba(var(--tt-ink), 0));
 }
+
 .tt-page {
-  position: absolute; left: 0; right: 0; z-index: 3; padding: 0 16px; text-align: center;
-  top: calc(env(safe-area-inset-top, 0px) + clamp(16px, 5.5vh, 90px));
-  font-family: ${FONT.hand}; font-weight: 700; font-size: clamp(1.5rem, .9rem + 1.9vw, 3.6rem); line-height: 1.1;
-  text-shadow: 0 1px 1px rgba(var(--tt-ink), .8), 0 0 .5em rgba(var(--tt-ink), .75), 0 0 1.2em rgba(var(--tt-ink), .5);
+  position: absolute; left: 0; right: 0; z-index: 4;
+  top: calc(env(safe-area-inset-top, 0px) + clamp(14px, 4.6vh, 80px));
+  display: flex; justify-content: center; padding: 0 14px;
 }
+.tt-tag {
+  display: inline-block; max-width: min(18em, calc(100vw - 32px));
+  padding: 0.14em 0.82em 0.18em; text-align: center;
+  font-family: ${FONT.hand}; font-weight: 700; font-style: normal;
+  font-size: clamp(1.4rem, 0.55rem + 1.7vw, 4.6rem); line-height: 1.12;
+  letter-spacing: 0.005em; color: var(--tt-cream);
+  overflow-wrap: break-word; transform: rotate(var(--tt-tilt, -2deg));
+  background-color: var(--tt-tape, #8a4038);
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,.3), rgba(255,255,255,0) 40%, rgba(0,0,0,.16)),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.09) 0 1px, transparent 1px 4px);
+  border-radius: 2px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.38) inset,
+    0 -1px 0 rgba(0,0,0,.22) inset,
+    0 0.4em 0.85em rgba(var(--tt-ink), .34);
+  text-shadow: 0 1px 1px rgba(var(--tt-ink), .55), 0 0 0.4em rgba(var(--tt-ink), .28);
+}
+
 .tt-caps {
-  position: absolute; left: 0; right: 0; z-index: 3; padding: 0 16px;
-  bottom: var(--tt-caption-bottom, calc(env(safe-area-inset-bottom, 0px) + clamp(30px, 9vh, 150px)));
+  position: absolute; left: 0; right: 0; z-index: 3;
+  padding: 0 clamp(14px, 4vw, 72px);
+  bottom: var(--tt-caption-bottom, calc(env(safe-area-inset-bottom, 0px) + clamp(28px, 8vh, 140px)));
   display: grid; justify-items: center; align-items: end;
 }
 .tt-cap {
-  grid-area: 1 / 1; max-width: min(34em, 100%); margin: 0;
-  font-style: italic; font-size: clamp(1.05rem, .62rem + 1.12vw, 2.6rem); line-height: 1.4;
-  text-align: center; text-wrap: balance; overflow-wrap: break-word;
-  text-shadow: 0 1px 1px rgba(var(--tt-ink), .8), 0 0 .5em rgba(var(--tt-ink), .75), 0 0 1.2em rgba(var(--tt-ink), .5);
+  grid-area: 1 / 1; position: relative; isolation: isolate;
+  max-width: min(34em, 100%); margin: 0; padding: 0.12em 0.35em;
+  font-style: italic; font-size: clamp(1.05rem, 0.5rem + 1.25vw, 3.5rem); line-height: 1.42;
+  letter-spacing: 0.004em; text-align: center; text-wrap: balance; overflow-wrap: break-word;
+  text-shadow:
+    0 1px 1px rgba(var(--tt-ink), .85),
+    0 0 0.45em rgba(var(--tt-ink), .75),
+    0 0 1.15em rgba(var(--tt-ink), .45);
 }
+.tt-cap::before {
+  content: ""; position: absolute; z-index: -1; inset: -0.85em -1.5em;
+  background: radial-gradient(closest-side, rgba(var(--tt-ink), .62), rgba(var(--tt-ink), .4) 42%, rgba(var(--tt-ink), .12) 74%, rgba(var(--tt-ink), 0));
+}
+
 .tt-end {
-  position: absolute; inset: 0; z-index: 4; padding: 0 16px 4vh;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
-  background: radial-gradient(ellipse 50% 40% at 50% 48%, rgba(var(--tt-ink), .6), rgba(var(--tt-ink), .3) 55%, rgba(var(--tt-ink), 0));
+  position: absolute; inset: 0; z-index: 6; padding: 0 4vw 3vh;
+  display: flex; align-items: center; justify-content: center; text-align: center;
 }
+.tt-end-glow {
+  position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(ellipse 46% 38% at 50% 46%, rgba(var(--tt-ink), .62), rgba(var(--tt-ink), .3) 46%, rgba(var(--tt-ink), 0) 74%);
+}
+.tt-end-stack { display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.7vh, 30px); max-width: 100%; }
 .tt-end-names {
-  text-transform: uppercase; font-family: ${FONT.display}; font-size: clamp(2.2rem, min(6.4vw, 12vh), 8rem); line-height: 1.08; letter-spacing: .02em;
-  text-shadow: 0 .03em .08em rgba(var(--tt-ink), .8), 0 0 .5em rgba(var(--tt-ink), .5);
+  margin: 0; max-width: 100%;
+  font-family: ${FONT.display}; font-weight: 400; font-style: normal;
+  font-size: clamp(1.55rem, min(7.2vw, 12vh), 10rem); line-height: 1.02; letter-spacing: 0.005em;
+  text-wrap: balance; overflow-wrap: break-word;
+  text-shadow: 0 0.035em 0.1em rgba(var(--tt-ink), .55), 0 0 0.4em rgba(var(--tt-ink), .32);
 }
-.tt-end-heart { width: clamp(22px, 2.4vw, 56px); margin: clamp(8px, 2vh, 32px) 0; fill: #e2574c; filter: drop-shadow(0 0 .3em rgba(var(--tt-ink), .7)); }
+.tt-heart {
+  width: clamp(18px, min(2.6vw, 3.6vh), 58px); height: auto; display: block;
+  fill: #e15a4e; filter: drop-shadow(0 0.12em 0.2em rgba(var(--tt-ink), .45));
+}
 .tt-end-date {
-  font-family: ${FONT.hand}; font-weight: 700; font-size: clamp(1.5rem, min(3.4vw, 7vh), 4.4rem); line-height: 1.1; color: var(--tt-gold);
-  text-shadow: 0 1px 1px rgba(var(--tt-ink), .8), 0 0 .5em rgba(var(--tt-ink), .7);
+  margin: 0; max-width: 100%;
+  font-family: ${FONT.hand}; font-weight: 700; font-style: normal; color: var(--tt-gold);
+  font-size: clamp(1.35rem, min(3.6vw, 6vh), 4rem); line-height: 1.15;
+  text-wrap: balance; overflow-wrap: break-word;
+  text-shadow: 0 1px 1px rgba(var(--tt-ink), .6), 0 0 0.45em rgba(var(--tt-ink), .35);
 }
 `;
 
 const HEART_SVG =
-  '<svg class="tt-end-heart" viewBox="0 0 24 22" aria-hidden="true"><path d="M12 21C5 15.5 1 11.6 1 7.2 1 3.8 3.6 1.5 6.6 1.5c2 0 3.9 1 5.4 3 1.5-2 3.4-3 5.4-3 3 0 5.6 2.3 5.6 5.7 0 4.4-4 8.3-11 13.8z"/></svg>';
+  '<svg class="tt-heart" viewBox="0 0 32 30" aria-hidden="true"><path d="M16 27.6C7.4 20.6 2.2 15.8 2.2 10 2.2 5.8 5.4 2.8 9.1 2.8c2.5 0 4.6 1.2 6.9 3.7 2.3-2.5 4.4-3.7 6.9-3.7 3.7 0 6.9 3 6.9 7.2 0 5.8-5.2 10.6-13.8 17.6z"/></svg>';
 
-/** Fade envelope: 0 outside [start, end], smooth ramps of `fade` seconds inside. */
-function envelope(t, start, end, fade) {
+/** 0 outside [start, end]; smooth ramps inside, shortened if the window is brief. */
+function envelope(t, start, end, fadeIn, fadeOut = fadeIn) {
   if (t <= start || t >= end) return 0;
-  return smoothstep(start, start + fade, t) * (1 - smoothstep(end - fade, end, t));
+  const span = end - start;
+  const fin = fadeIn < span * 0.5 ? fadeIn : span * 0.5;
+  const fout = fadeOut < span * 0.5 ? fadeOut : span * 0.5;
+  return smoothstep(start, start + fin, t) * (1 - smoothstep(end - fout, end, t));
+}
+
+/** vh offset: settles upward from `rise`, then lifts `lift` across the last 0.5 s. */
+function drift(t, start, end, rise, lift) {
+  const settle = Math.min(1.15, (end - start) * 0.5);
+  const up = rise * (1 - ease.outCubic(seg(t, start, start + settle)));
+  const out = lift * ease.inQuad(seg(t, Math.max(start, end - 0.5), end));
+  return up - out;
 }
 
 function el(tag, className, text) {
@@ -88,65 +172,112 @@ function el(tag, className, text) {
   return node;
 }
 
-/** A DOM node whose opacity writes are cached: only changed values reach the DOM. */
+/** Caches style writes so an unchanged frame does not touch the DOM. */
 class Layer {
   constructor(node) {
     this.node = node;
     this.opacity = -1;
+    this.y = Number.NaN;
+    this.vis = '';
   }
 
-  set(opacity) {
+  /** Opacity plus a vertical offset in vh. Hidden at 0. Returns whether it is visible. */
+  set(opacity, offsetVh = 0) {
     const o = Math.round(opacity * 1000) / 1000;
-    if (o === this.opacity) return;
-    this.opacity = o;
-    this.node.style.visibility = o > 0 ? 'visible' : 'hidden';
-    this.node.style.opacity = String(o);
+    const vis = o > 0 ? 'visible' : 'hidden';
+    if (vis !== this.vis) {
+      this.vis = vis;
+      this.node.style.visibility = vis;
+    }
+    if (o <= 0) return false;
+    if (o !== this.opacity) {
+      this.opacity = o;
+      this.node.style.opacity = String(o);
+    }
+    const y = Math.round(offsetVh * 1000) / 1000;
+    if (y !== this.y) {
+      this.y = y;
+      this.node.style.transform = Math.abs(y) < 5e-4 ? 'none' : `translate3d(0,${y.toFixed(3)}vh,0)`;
+    }
+    return true;
   }
 }
 
+function injectStyle() {
+  if (document.getElementById('tt-style')) return;
+  const style = document.createElement('style');
+  style.id = 'tt-style';
+  style.textContent = CSS;
+  document.head.appendChild(style);
+}
+
 export function createTitles(container, { captions } = {}) {
-  if (!document.getElementById('tt-style')) {
-    const style = document.createElement('style');
-    style.id = 'tt-style';
-    style.textContent = CSS;
-    document.head.appendChild(style);
-  }
+  injectStyle();
   const showCaptions = captions ?? document.documentElement.dataset.captions !== '0';
 
   const root = el('div', 'tt-root');
   if (getComputedStyle(container).position === 'static') root.style.position = 'fixed';
+
   const veil = new Layer(el('div', 'tt-veil tt-l'));
   const scrim = new Layer(el('div', 'tt-scrim tt-l'));
-  const pages = PAGE_TITLES.map((p) => ({ ...p, layer: new Layer(el('div', 'tt-page tt-l', p.text)) }));
-  const caps = el('div', 'tt-caps');
-  const lines = NARRATION.map((n) => {
-    const layer = new Layer(el('p', 'tt-cap tt-l', n.text));
-    caps.appendChild(layer.node);
-    return { start: n.start, end: n.end, layer };
+  const pages = PAGE_TITLES.map((p) => {
+    const tag = el('span', 'tt-tag', p.text);
+    tag.style.setProperty('--tt-tilt', p.tilt);
+    tag.style.setProperty('--tt-tape', p.color);
+    const node = el('div', 'tt-page tt-l');
+    node.appendChild(tag);
+    return { start: p.start, end: p.end, layer: new Layer(node) };
   });
-  const endNode = el('div', 'tt-end tt-l');
-  endNode.append(el('div', 'tt-end-names', COUPLE.names));
-  endNode.insertAdjacentHTML('beforeend', HEART_SVG);
-  endNode.append(el('div', 'tt-end-date', COUPLE.weddingDate));
-  const end = new Layer(endNode);
+
+  const caps = el('div', 'tt-caps');
+  const lines = LINES.map((c) => {
+    const layer = new Layer(el('p', 'tt-cap tt-l', c.text));
+    caps.appendChild(layer.node);
+    return { start: c.start, showEnd: c.showEnd, layer };
+  });
   if (!showCaptions) caps.hidden = true;
+
+  const endNode = el('div', 'tt-end tt-l');
+  const glow = el('div', 'tt-end-glow');
+  const stack = el('div', 'tt-end-stack');
+  stack.append(el('div', 'tt-end-names', COUPLE.names));
+  stack.insertAdjacentHTML('beforeend', HEART_SVG);
+  stack.append(el('div', 'tt-end-date', COUPLE.weddingDate));
+  endNode.append(glow, stack);
+  const end = new Layer(endNode);
 
   root.append(veil.node, scrim.node, ...pages.map((p) => p.layer.node), caps, endNode);
   container.appendChild(root);
 
+  const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+
   return {
     update(t) {
-      veil.set(seg(t, END_CARD.fadeStart, END_CARD.end - 0.4));
-      for (const p of pages) p.layer.set(envelope(t, p.start, p.end, 0.7));
-      let dim = 0;
-      for (const c of lines) {
-        // lines are spoken back to back: hold each caption a little past its end, never into the next
-        const o = envelope(t, c.start - 0.15, c.end + 0.3, CAPTION_FADE);
-        c.layer.set(showCaptions ? o : 0);
-        if (o > dim) dim = o;
+      const motion = motionQuery && motionQuery.matches ? 0 : 1;
+
+      veil.set(smoothstep(END_CARD.fadeStart, END_CARD.end, t));
+
+      for (const p of pages) {
+        const o = envelope(t, p.start, p.end, PAGE_FADE);
+        p.layer.set(o, motion ? drift(t, p.start, p.end, 0.4, 0.18) : 0);
       }
-      scrim.set(showCaptions ? dim * (1 - smoothstep(END_CARD.start - 0.5, END_CARD.start + 0.5, t)) : 0);
-      end.set(smoothstep(END_CARD.start, END_CARD.start + 1.6, t));
+
+      if (showCaptions) {
+        let dim = 0;
+        for (const c of lines) {
+          const o = envelope(t, c.start, c.showEnd, CAPTION_FADE);
+          c.layer.set(o, motion ? drift(t, c.start, c.showEnd, 0.55, 0.26) : 0);
+          if (o > dim) dim = o;
+        }
+        const endIn = smoothstep(END_CARD.start, END_CARD.start + END_FADE, t);
+        scrim.set(dim * (1 - endIn));
+      }
+
+      const es = END_CARD.start;
+      end.set(
+        smoothstep(es, es + END_FADE, t),
+        motion ? 1.05 * (1 - ease.outCubic(seg(t, es, es + 1.7))) : 0,
+      );
     },
   };
 }

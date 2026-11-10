@@ -1,82 +1,90 @@
-// STUB (T-scaffold) — replaced by the environment owner (T-titles-env). The room, desk, lamp and
-// dust are the engine's (unchanged); only the light SCHEDULE was swapped for a placeholder: lamp
-// ignites BEATS.lampOn → 2.8 s, then stays steady and warm, and fades out 147.5 → 152.5 s. The
-// per-spread moods of the contract (rosy party glow on spread 5, golden spread 6) are not done here.
 /**
  * environment.js — the room the film is shot in.
  *
  * - Desk: a 40 × 40 dark-walnut top at y = 0. Its colour and roughness maps are painted
  *   procedurally on canvas (tileable flowing grain, glued-up boards, pores, colour drift) under a
- *   thin varnish clearcoat. The desk fades radially into the room colour, and the room colour is
- *   also the fog colour and the backdrop's horizon colour, so no edge or horizon line ever shows.
+ *   thin varnish clearcoat. The desk fades radially into the room colour — a wide, soft pool,
+ *   because the open album is 7.2 across — and the room colour is also the fog colour and the
+ *   backdrop's horizon colour, so no edge or horizon line ever shows.
  * - Room: an inverted sphere with a gradient shader: a very dark warm wall, a faint warm spill of
- *   the lamp high on the far wall, and an out-of-focus window to the back right that glows cool at
- *   night and warm pink at dawn.
- * - Lights: a warm SpotLight "desk lamp" high on the left, slightly toward the reader so the
- *   upright pop-up faces catch light and shadows fall back-right (the ONLY shadow caster, 2048
- *   map); a hemisphere fill; a front-right directional fill (soft warm bounce by day, cool teal
- *   moonlight at night); a low warm-pink "dawn" directional from the right. None of them is ever
- *   hidden or removed (only intensities/colours change), so shader light counts stay constant.
+ *   the lamp high on the far wall, and an out-of-focus window to the back right. No night scene.
+ * - Lights: a warm SpotLight "desk lamp" high on the left, moved toward the reader (z = 4) so
+ *   upright pieces facing +Z are lit and shadows fall back-right (the ONLY shadow caster, 2048
+ *   map; the shadow frustum covers the landscape spread, 7.2 × 3.0, pop-ups to ~2.4); a hemisphere
+ *   fill; a front-right directional fill; a low directional from the right that stays at intensity
+ *   0 (kept so the light count never changes). Only intensities and colours change.
  * - Dust motes: a few hundred soft additive points drifting in the lamp beam. The drift is a pure
  *   function of t in the vertex shader, and each mote only glows while it is inside the cone.
  *
- * Everything in update(t) is a pure function of film time (contract §5 light schedule) and
- * allocates nothing. Physical light units (decay 2), tuned for ACESFilmic at exposure 1.
+ * Light, from the timeline (no hard-coded film times): the lamp ignites BEATS.lampOn → ~2.8 s
+ * with a small flicker; warm level 1 through spreads 1–4; spread 5 eases to a dimmer rosier 0.85
+ * across its opening turn, with a soft swell at BEATS.yes; spread 6 eases to a bright gold 1.15
+ * across its opening turn; the room fades to near black over 147.5–152.5.
+ *
+ * Everything in update(t) is a pure function of film time and allocates nothing. Physical light
+ * units (decay 2), tuned for ACESFilmic at exposure 1.
  */
 import * as THREE from 'three';
-import { BEATS, seg, smoothstep, ease } from './timeline.js';
+import { BEATS, END_CARD, SPREADS, seg, smoothstep, ease } from './timeline.js';
 import { makeRng } from './util/rng.js';
 
-// STUB: moved toward the reader (z 1.5 -> 4) so upright cards that face the reader — the paper-doll
-// figures on standUps — are lit by the lamp instead of grazed by it (N·L was ~0.07).
+// Moved toward the reader (z 1.5 → 4) so upright cards that face the reader are lit by the lamp
+// instead of grazed by it (a +Z face had N·L ≈ 0.07 at the old spot; here it is about 0.2–0.5).
 const LAMP_POS = new THREE.Vector3(-5, 9, 4);
 const LAMP_AIM = new THREE.Vector3(0.3, 0.4, -0.3);
-const LAMP_CANDELA = 400; // ≈ 3 lux-equivalent on the pages at full level
-const NIGHT_LAMP = 0.35;
-const LAMP_ANGLE = [0.82, 0.45]; // cone half-angle by day / at night (a tighter, softer pool)
-const LAMP_PENUMBRA = [0.75, 0.85];
-const SHADOW_HALF_ANGLE = 0.51; // shadow frustum half-angle (rad), constant: the book + pop-ups
-const DAWN_LAMP = 1.1;
-// STUB schedule (film seconds): ignition window and final fade.
-const LAMP_ON = BEATS.lampOn; // 0.4
-const LAMP_FULL = 2.8;
-const FADE_OUT = [147.5, 152.5];
+const LAMP_CANDELA = 400; // ≈ 3 lux on the pages at warm level 1
+const LAMP_ANGLE = 0.82; // cone half-angle (rad); the open album sits well inside it
+const LAMP_PENUMBRA = 0.75;
+// The farthest album corner (pop-up ~2.4 at a page corner) is ~0.41 rad off this lamp's axis.
+const SHADOW_HALF_ANGLE = 0.56;
+const LAMP_ON = BEATS.lampOn;
+const LAMP_FULL = BEATS.lampOn + 2.4; // contract: filament fully warm ~2.8 s
+// Contract: fade to ~0 over 147.5–152.5 (the last ~5 s, ending just before the film does).
+const FADE_OUT = [END_CARD.fadeStart - 3, END_CARD.end - 0.5];
+const PROPOSAL_LEVEL = 0.85;
+const WEDDING_LEVEL = 1.15;
+const YES_SWELL = 0.18; // added to the proposal level at BEATS.yes, then let go
+
+const PROPOSAL = SPREADS.find((s) => s.k === 5);
+const WEDDING = SPREADS.find((s) => s.k === 6);
 
 const DESK_SIZE = 40;
 const TILE_X = 12; // world units covered by one wood texture tile (grain runs along X)
 const TILE_Z = 6;
-const FADE_RADII = [4.5, 12]; // desk fades into the room colour between these radii
+// Inner radius clears the 7.2 × 3 album; the outer radius finishes before the plane's edge.
+const FADE_RADII = [6.2, 13.2];
 
-/** Room/fill "looks" blended by the schedule. Colours are display (sRGB) hex values. */
+/** Room/fill "looks" blended by the schedule. Colours are display (sRGB) hex values. No night look. */
 const LOOKS = {
   off: {
-    top: '#030304', horizon: '#060507', spill: '#000000', window: '#1f2a3d', windowAmt: 0.5,
-    hemiSky: '#8a9ac0', hemiGround: '#140f0d', hemi: 0.08, fillColor: '#8fb0ff', fill: 0.2, dawn: 0,
+    top: '#070605', horizon: '#0a0807', spill: '#000000', window: '#1a1614', windowAmt: 0.12,
+    hemiSky: '#c4b4a4', hemiGround: '#14100e', hemi: 0.06, fillColor: '#d8c4b0', fill: 0.08, dawn: 0,
   },
   day: {
-    top: '#050404', horizon: '#0c0908', spill: '#2e1d12', window: '#2a3346', windowAmt: 0.3,
-    hemiSky: '#ffe3c2', hemiGround: '#3a2417', hemi: 0.55, fillColor: '#ffd8b0', fill: 0.7, dawn: 0, // STUB: fuller front fill
+    top: '#050404', horizon: '#0c0908', spill: '#2e1d12', window: '#3a3028', windowAmt: 0.22,
+    hemiSky: '#ffe3c2', hemiGround: '#3a2417', hemi: 0.55, fillColor: '#ffd8b0', fill: 0.7, dawn: 0,
   },
-  night: {
-    top: '#03050a', horizon: '#05080d', spill: '#140e0b', window: '#5a8cb8', windowAmt: 0.75,
-    hemiSky: '#5a88bc', hemiGround: '#10141a', hemi: 0.25, fillColor: '#6aa8f0', fill: 1.1, dawn: 0,
+  proposal: {
+    top: '#0c080a', horizon: '#120c0e', spill: '#5c2c34', window: '#4a3034', windowAmt: 0.26,
+    hemiSky: '#ffd2c8', hemiGround: '#3a221c', hemi: 0.5, fillColor: '#ffc8b8', fill: 0.62, dawn: 0,
   },
-  dawn: {
-    top: '#150f16', horizon: '#1f1617', spill: '#5a3628', window: '#ffb59c', windowAmt: 0.95,
-    hemiSky: '#ffb4b4', hemiGround: '#4a2e26', hemi: 0.9, fillColor: '#ffa8a8', fill: 0.8, dawn: 2.2,
+  wedding: {
+    top: '#0e0b08', horizon: '#14110c', spill: '#6a481c', window: '#4a3c28', windowAmt: 0.3,
+    hemiSky: '#ffe6c2', hemiGround: '#463218', hemi: 0.68, fillColor: '#ffe2b6', fill: 0.82, dawn: 0,
   },
   end: {
-    top: '#010101', horizon: '#020202', spill: '#000000', window: '#06070a', windowAmt: 0.2,
-    hemiSky: '#ffe3c2', hemiGround: '#140f0d', hemi: 0, fillColor: '#8fb0ff', fill: 0, dawn: 0,
+    top: '#010101', horizon: '#020202', spill: '#000000', window: '#050505', windowAmt: 0,
+    hemiSky: '#ffe3c2', hemiGround: '#100e0c', hemi: 0, fillColor: '#ffd8b0', fill: 0, dawn: 0,
   },
 };
 const LOOK_COLORS = ['top', 'horizon', 'spill', 'window', 'hemiSky', 'hemiGround', 'fillColor'];
 const LOOK_SCALARS = ['windowAmt', 'hemi', 'fill', 'dawn'];
 
-const LAMP_AMBER = new THREE.Color('#ff8a3c'); // filament still warming / dimmed
-const LAMP_WARM = new THREE.Color('#ffd3a3'); // warm incandescent at full
-const LAMP_NIGHT = new THREE.Color('#ffae5c'); // turned down for the night: golden, not red
-const LAMP_DAWN = new THREE.Color('#ffe0c0');
+const LAMP_AMBER = new THREE.Color('#ff8a3c'); // filament still warming
+const LAMP_WARM = new THREE.Color('#ffd3a3'); // warm incandescent, spreads 1–4
+const LAMP_ROSE = new THREE.Color('#ffb0a2'); // proposal: rosier party light
+const LAMP_YES = new THREE.Color('#ffd2b4'); // the soft swell when she says yes
+const LAMP_GOLD = new THREE.Color('#ffe0a6'); // wedding: bright gold
 
 export function createEnvironment({ scene, renderer }) {
   const looks = Object.fromEntries(
@@ -102,7 +110,7 @@ export function createEnvironment({ scene, renderer }) {
   scene.add(desk.mesh);
 
   // -------------------------------------------------------------------------------- lights
-  const keyLight = new THREE.SpotLight(LAMP_WARM, 0, 0, LAMP_ANGLE[0], LAMP_PENUMBRA[0], 2);
+  const keyLight = new THREE.SpotLight(LAMP_WARM, 0, 0, LAMP_ANGLE, LAMP_PENUMBRA, 2);
   keyLight.name = 'desk-lamp';
   keyLight.position.copy(LAMP_POS);
   keyLight.target.position.copy(LAMP_AIM);
@@ -112,22 +120,24 @@ export function createEnvironment({ scene, renderer }) {
   keyLight.shadow.camera.far = 22;
   keyLight.shadow.bias = -0.0002;
   keyLight.shadow.normalBias = 0.012;
+  keyLight.shadow.focus = SHADOW_HALF_ANGLE / LAMP_ANGLE;
   scene.add(keyLight, keyLight.target);
 
   const hemi = new THREE.HemisphereLight(looks.day.hemiSky, looks.day.hemiGround, 0);
   hemi.name = 'room-fill';
   scene.add(hemi);
 
-  // Front-right fill: a soft warm bounce by day that becomes the cool moonlight at night.
+  // Front-right fill: a soft warm bounce, so faces turned toward the reader are never left dark.
   const fill = new THREE.DirectionalLight('#ffd8b0', 0);
-  fill.name = 'front-fill-moonlight';
+  fill.name = 'front-fill';
   fill.position.set(6, 7, 7);
   scene.add(fill, fill.target);
 
-  const dawnLight = new THREE.DirectionalLight('#ff8f86', 0);
-  dawnLight.name = 'dawn-light';
-  dawnLight.position.set(9, 3, 2.5); // low sunrise from the right
-  scene.add(dawnLight, dawnLight.target);
+  // Kept at intensity 0 for the whole film (no night, no dawn). Present so the light count is fixed.
+  const sideLight = new THREE.DirectionalLight('#ffd0b0', 0);
+  sideLight.name = 'side-fill';
+  sideLight.position.set(9, 3, 2.5);
+  scene.add(sideLight, sideLight.target);
 
   // --------------------------------------------------------------------------------- motes
   const motes = makeMotes();
@@ -135,49 +145,62 @@ export function createEnvironment({ scene, renderer }) {
 
   const lampDir = new THREE.Vector3();
 
-  function blendLooks(night, dawn, warm, fade) {
-    const { off, day, night: nl, dawn: dl, end } = looks;
+  function blendLooks(warm, proposal, wedding, fade) {
+    const { off, day, proposal: rose, wedding: gold, end } = looks;
     for (const key of LOOK_COLORS) {
-      const c = cur[key].copy(day[key]).lerp(nl[key], night).lerp(dl[key], dawn);
-      c.lerp(off[key], 1 - warm).lerp(end[key], 1 - fade);
+      cur[key].copy(day[key]).lerp(rose[key], proposal).lerp(gold[key], wedding);
+      cur[key].lerp(off[key], 1 - warm).lerp(end[key], 1 - fade);
     }
     for (const key of LOOK_SCALARS) {
-      let v = day[key] + (nl[key] - day[key]) * night;
-      v += (dl[key] - v) * dawn;
+      let v = day[key] + (rose[key] - day[key]) * proposal;
+      v += (gold[key] - v) * wedding;
       v = off[key] + (v - off[key]) * warm;
       cur[key] = end[key] + (v - end[key]) * fade;
     }
   }
 
+  /** 0..1 bump centred on BEATS.yes, inside the proposal spread, flat at the peak. */
+  function yesSwell(t) {
+    const spanOpen = PROPOSAL.close - PROPOSAL.open;
+    const rise = spanOpen * 0.16;
+    const fall = (PROPOSAL.close - BEATS.yes) * 0.72;
+    const a = BEATS.yes - rise;
+    const b = BEATS.yes + fall;
+    if (t <= a || t >= b) return 0;
+    return t < BEATS.yes ? smoothstep(a, BEATS.yes, t) : 1 - smoothstep(BEATS.yes, b, t);
+  }
+
   function update(t) {
-    const night = 0; // STUB: no night scene in this film
-    const dawn = 0;
-    const warm = ease.inOutSine(seg(t, LAMP_ON, LAMP_FULL)); // the room "settles" as the lamp warms up
+    const warm = ease.inOutSine(seg(t, LAMP_ON, LAMP_FULL));
     const fade = 1 - ease.inOutSine(seg(t, FADE_OUT[0], FADE_OUT[1]));
+    // Moods ease across the page turn that opens the spread, and hold while it is open.
+    const proposalIn = ease.inOutSine(seg(t, PROPOSAL.start, PROPOSAL.open));
+    const weddingIn = ease.inOutSine(seg(t, WEDDING.start, WEDDING.open));
+    const proposalW = proposalIn * (1 - weddingIn);
+    const weddingW = weddingIn;
+    const swell = yesSwell(t) * (1 - weddingW);
     const ign = lampIgnition(t);
+    const mood = 1 + (PROPOSAL_LEVEL - 1) * proposalW + (WEDDING_LEVEL - 1) * weddingW + YES_SWELL * swell;
+    const level = ign * mood * fade;
 
-    // Key light: level, and colour temperature (amber while warming or dimmed for the night).
-    const level = ign * (1 + (NIGHT_LAMP - 1) * night + (DAWN_LAMP - 1) * dawn) * fade;
     keyLight.intensity = LAMP_CANDELA * level;
-    keyLight.angle = LAMP_ANGLE[0] + (LAMP_ANGLE[1] - LAMP_ANGLE[0]) * night;
-    keyLight.penumbra = LAMP_PENUMBRA[0] + (LAMP_PENUMBRA[1] - LAMP_PENUMBRA[0]) * night;
-    keyLight.shadow.focus = SHADOW_HALF_ANGLE / keyLight.angle;
-    keyLight.color.copy(LAMP_AMBER).lerp(LAMP_WARM, Math.sqrt(ign)).lerp(LAMP_NIGHT, 0.7 * night);
-    keyLight.color.lerp(LAMP_DAWN, 0.5 * dawn);
+    keyLight.color.copy(LAMP_AMBER).lerp(LAMP_WARM, Math.sqrt(ign));
+    keyLight.color.lerp(LAMP_ROSE, 0.72 * proposalW);
+    keyLight.color.lerp(LAMP_YES, 0.45 * swell);
+    keyLight.color.lerp(LAMP_GOLD, 0.78 * weddingW);
 
-    blendLooks(night, dawn, warm, fade);
+    blendLooks(warm, proposalW, weddingW, fade);
     hemi.color.copy(cur.hemiSky);
     hemi.groundColor.copy(cur.hemiGround);
-    hemi.intensity = cur.hemi;
-    fill.color.copy(cur.fillColor);
-    fill.intensity = cur.fill;
-    dawnLight.intensity = cur.dawn;
+    hemi.intensity = cur.hemi * (1 + 0.12 * swell);
+    fill.color.copy(cur.fillColor).lerp(LAMP_YES, 0.28 * swell);
+    fill.intensity = cur.fill * (1 + 0.14 * swell);
+    sideLight.intensity = cur.dawn;
 
     // Room: background clear colour, fog and desk falloff all share the horizon colour.
     roomColor.copy(cur.horizon);
     scene.fog.color.copy(cur.horizon);
-    const lampGlow = level / DAWN_LAMP;
-    sky.set(cur, lampGlow);
+    sky.set(cur, level / WEDDING_LEVEL);
     desk.setEdge(cur.horizon);
 
     lampDir.subVectors(keyLight.target.position, keyLight.position).normalize();
@@ -318,7 +341,7 @@ function makeDesk(renderer) {
       .replace(
         '#include <fog_fragment>',
         [
-          'float deskR = length((vDeskXZ - vec2(-0.6, -0.8)) * vec2(0.9, 1.0));',
+          'float deskR = length((vDeskXZ - vec2(0.15, -0.05)) * vec2(0.72, 1.12));',
           'gl_FragColor.rgb = mix(gl_FragColor.rgb, uDeskEdge, smoothstep(uDeskFade.x, uDeskFade.y, deskR));',
           '#include <fog_fragment>',
         ].join('\n\t'),
@@ -502,8 +525,8 @@ function makeMotes() {
   for (let i = 0; i < MOTE_COUNT; i++) {
     // rejection-sample the volume above the book, keeping points inside the beam cone
     do {
-      p.set(rng.range(-4.5, 3.5), rng.range(0.35, 4.8), rng.range(-3.2, 2.8));
-    } while (dir.subVectors(p, LAMP_POS).normalize().dot(axis) < Math.cos(0.42));
+      p.set(rng.range(-4.6, 4.4), rng.range(0.28, 4.4), rng.range(-2.0, 2.3));
+    } while (dir.subVectors(p, LAMP_POS).normalize().dot(axis) < Math.cos(0.5));
     p.toArray(positions, i * 3);
     for (let j = 0; j < 4; j++) rand[i * 4 + j] = rng.next();
   }
