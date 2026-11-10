@@ -23,7 +23,7 @@
  *
  * Handheld: deterministic overlaid slow sines on position, aim and roll, scaled by the key's
  * shake and by the camera-target distance (wide shots float a little, close-ups stay steady),
- * plus a slight lens breathing.
+ * plus a slight lens breathing. All of it is off under prefers-reduced-motion (read live).
  *
  * Aspect: framed for 16:9; wider frames (21:9) keep the vertical view and show more desk at the
  * sides. Below REF_ASPECT the rig keeps the horizontal coverage a REF_ASPECT frame has at the
@@ -330,6 +330,7 @@ function wander(t, a, b, c) {
 export function createCameraRig(camera) {
   const out = new Float64Array(CH);
   const sub = new Float64Array(6);
+  const reduced = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 
   /** Every channel at film time t into `out`. */
   function evaluate(t) {
@@ -362,7 +363,7 @@ export function createCameraRig(camera) {
       let ty = out[4];
       let tz = out[5];
       let fov = out[6];
-      const shake = out[7];
+      const shake = reduced?.matches ? 0 : out[7];
       const band = out[8];
 
       // Handheld drift: aim and position wander in proportion to the framing distance.

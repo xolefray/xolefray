@@ -737,6 +737,11 @@ export function createBook({ title = 'The Little Paper Boat', coverColor = '#7a2
   });
   const edgeTex = tiledTexture(paintEdge(23), true);
   const edgeMat = new THREE.MeshStandardMaterial({ map: edgeTex, roughness: 0.93, bumpMap: edgeTex, bumpScale: 0.5 });
+  // The boards' gutter-side faces: where two pages meet, their rounded edges show a sliver of this
+  // face, which would catch the lamp / lantern light as a bright seam line; inside a real gutter it
+  // is in the shade of the fold.
+  const gutterEdgeMat = edgeMat.clone();
+  gutterEdgeMat.color.setScalar(0.3);
   const grainTex = tiledTexture(paintGrain(37), false);
   grainTex.repeat.set(W / 0.35, D / 0.35);
   const goldEnv = new THREE.CanvasTexture(paintGoldEnv());
@@ -776,7 +781,7 @@ export function createBook({ title = 'The Little Paper Boat', coverColor = '#7a2
       front[i] = pageMaterial(0, grainTex);
       back[i] = pageMaterial(1, grainTex);
       const geo = slab(W, t, D, BOARD_R, boardUV(t));
-      pivot.add(shadowed(new THREE.Mesh(geo, [edgeMat, edgeMat, front[i], back[i], edgeMat, edgeMat])));
+      pivot.add(shadowed(new THREE.Mesh(geo, [edgeMat, gutterEdgeMat, front[i], back[i], edgeMat, edgeMat])));
     }
     group.add(pivot);
     leaves.push(pivot);

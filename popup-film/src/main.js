@@ -13,7 +13,10 @@
  * environment; titles; audio.sync(t, playing); render. The scene is re-posed and re-rendered only
  * when t changes or something asks for a redraw (seek, resize, free-camera motion), so a paused
  * film costs nothing. Each module call is guarded: a failure is logged once and the film goes on.
- * Per-frame allocations: none here (timeline.leafAngles returns a fresh 5-element array).
+ * Spread point lights are mirrored by always-visible proxies (adoptLights), so the scene's light
+ * count — and with it every shader program — never changes at a page turn. A lost WebGL context
+ * pauses the film behind a short notice until the browser restores it.
+ * Per-frame allocations: none here (timeline.leafAngles fills a reused array).
  *
  * URL: t=<sec> seek there and pause · play=1 play (from t, else 0) · ui=0 no controls / intro
  * (clean frames; for any parameter the LAST occurrence wins, so a later ui=1 re-enables) ·
@@ -68,7 +71,10 @@ const beginBtn = intro.querySelector('.intro__begin');
 const player = new Player(DURATION);
 /** @type {{ k: number, id: string, start: number, group: THREE.Object3D, api: object, failed: boolean }[]} */
 const spreads = [];
+/** Always-visible stand-ins for the spreads' point lights: { src, proxy, group } (see adoptLights). */
+const spreadLights = [];
 const reported = new Set();
+const phis = [0, 0, 0, 0, 0]; // leaf angles, refilled every pose (no per-frame allocation)
 let renderer = null;
 let scene;
 let camera;
@@ -84,6 +90,8 @@ let dirty = 0;
 let lastT = NaN;
 let framesRendered = 0;
 let introSettled = false;
+let resumeOnRestore = false;
+let lostNote = null;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 /** Resolves after the browser has had a chance to paint (falls back to a timeout in hidden tabs). */
@@ -165,11 +173,68 @@ function createRenderer() {
   r.shadowMap.type = THREE.PCFSoftShadowMap;
   r.domElement.setAttribute('role', 'img');
   r.domElement.setAttribute('aria-label', 'A pop-up book on a desk, telling the story of a little paper boat');
-  r.domElement.addEventListener('webglcontextrestored', () => {
-    dirty = 2;
-  });
+  r.domElement.addEventListener('webglcontextlost', onContextLost);
+  r.domElement.addEventListener('webglcontextrestored', onContextRestored);
   stage.appendChild(r.domElement);
   return r;
+}
+
+/**
+ * The GPU dropped the WebGL context (driver reset, too many contexts, a backgrounded phone…):
+ * three.js keeps it restorable, so pause and say so instead of leaving a frozen frame.
+ */
+function onContextLost() {
+  resumeOnRestore ||= player.playing;
+  player.pause();
+  if (lostNote) return;
+  lostNote = document.createElement('p');
+  lostNote.className = 'film-note';
+  lostNote.setAttribute('role', 'status');
+  lostNote.textContent = 'The picture was interrupted by the graphics driver. Folding it back together… (reload the page if it does not return)';
+  document.body.appendChild(lostNote);
+}
+
+function onContextRestored() {
+  lostNote?.remove();
+  lostNote = null;
+  dirty = 2;
+  if (resumeOnRestore) player.play();
+  resumeOnRestore = false;
+}
+
+/**
+ * A hidden spread group takes its lights out of the render, so the scene's light count would
+ * change at every page turn and every lit material would switch (or compile) shader programs.
+ * Instead each spread point light is mirrored by a proxy that always stays in the scene: the
+ * spread keeps driving its own (now never rendered) light, and syncSpreadLights() copies its
+ * world position, colour and falloff to the proxy every pose — intensity 0 while it is hidden.
+ */
+function adoptLights(group) {
+  group.traverse((src) => {
+    if (!src.isPointLight) return;
+    const proxy = src.clone(false);
+    proxy.intensity = 0;
+    src.visible = false;
+    scene.add(proxy);
+    spreadLights.push({ src, proxy, group });
+  });
+}
+
+function syncSpreadLights() {
+  for (const { src, proxy, group } of spreadLights) {
+    let o = src.parent;
+    while (o && o !== group.parent && o.visible) o = o.parent;
+    if (o !== group.parent) {
+      proxy.intensity = 0; // the spread (or the light's own branch) is hidden
+      continue;
+    }
+    src.updateWorldMatrix(true, false);
+    proxy.position.setFromMatrixPosition(src.matrixWorld);
+    proxy.color.copy(src.color);
+    proxy.intensity = src.intensity;
+    proxy.distance = src.distance;
+    proxy.decay = src.decay;
+  }
 }
 
 function buildSpread(mod, info) {
@@ -185,6 +250,7 @@ function buildSpread(mod, info) {
     return;
   }
   api.group.visible = false;
+  adoptLights(api.group);
   spreads.push({ k, id: info.id, start: info.start, group: api.group, api, failed: false });
 }
 
@@ -233,7 +299,7 @@ function initialMute() {
 // ---------------------------------------------------------------- per frame
 
 function pose(t) {
-  const phis = leafAngles(t);
+  leafAngles(t, phis);
   try {
     book.setLeafAngles(phis);
   } catch (err) {
@@ -252,6 +318,7 @@ function pose(t) {
       console.error(`[film] spread ${s.k} (${s.id}) update failed; hiding it:`, err);
     }
   }
+  syncSpreadLights();
   if (!controls) tick('camera rig', rig, t);
   tick('environment', env, t);
   if (book.update) tick('book', book, t);

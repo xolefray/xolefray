@@ -3,7 +3,9 @@
   index.html — page shell of "The Little Paper Boat".
   Layers, bottom to top: #stage (WebGL canvas), #overlay (titles.js captions), #ui (player
   controls, ui.js) and #intro (static loading card that becomes the poster / "Begin" screen;
-  main.js drives its data-state: loading -> poster -> leaving -> gone, or error).
+  main.js drives its data-state: loading -> poster -> leaving -> gone, or error; the module
+  script's onerror also shows the error state when the code cannot load at all, e.g. modules blocked
+  by CORS in an opaque-origin sandboxed iframe).
   No external resources: vendored three.js via the import map, system fonts, inline SVG.
 -->
 <html lang="en">
@@ -18,7 +20,16 @@
   <link rel="stylesheet" href="styles.css">
   <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/addons/"}}</script>
   <link rel="modulepreload" href="vendor/three.module.js">
-  <script type="module" src="src/main.js"></script>
+  <script type="module" src="src/main.js" onerror="(function () {
+    var show = function () {
+      var intro = document.getElementById('intro');
+      if (!intro) return;
+      intro.dataset.state = 'error';
+      intro.querySelector('.intro__status-text').textContent = 'The pages could not be loaded here. Please reload, or open the film in its own tab.';
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+    else show();
+  })()"></script>
 </head>
 <body>
   <div id="stage" class="stage"></div>

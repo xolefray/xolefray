@@ -67,13 +67,16 @@ export const ease = {
   },
 };
 
-/** Leaf angles [φ0..φ4] at film time t. φ4 (back cover) is always 0. */
-export function leafAngles(t) {
-  const phis = [0, 0, 0, 0, 0];
+/**
+ * Leaf angles [φ0..φ4] at film time t. φ4 (back cover) is always 0. Pass `out` (an array of ≥ 5
+ * numbers) to fill and return it instead of allocating a new array (per-frame use).
+ */
+export function leafAngles(t, out = [0, 0, 0, 0, 0]) {
+  out.fill(0, 0, 5);
   for (const turn of LEAF_TURNS) {
-    phis[turn.leaf] = Math.PI * ease.inOutCubic(seg(t, turn.start, turn.end));
+    out[turn.leaf] = Math.PI * ease.inOutCubic(seg(t, turn.start, turn.end));
   }
-  return phis;
+  return out;
 }
 
 /** Opening angle α_k of spread k (1..4) for the given leaf angles. */

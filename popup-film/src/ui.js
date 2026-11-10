@@ -197,10 +197,14 @@ export function createUI({ root, surface = null, player, audio, chapters, durati
   function toggleFullscreen() {
     if (!canFullscreen) return;
     const el = doc.documentElement;
-    const request = isFullscreen()
-      ? (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc)
-      : (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
-    request?.catch?.(() => {});
+    try {
+      const request = isFullscreen()
+        ? (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc)
+        : (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+      request?.catch?.(() => {});
+    } catch {
+      /* refused (e.g. a sandboxed iframe without allowfullscreen): stay windowed */
+    }
   }
 
   function syncFullscreen() {

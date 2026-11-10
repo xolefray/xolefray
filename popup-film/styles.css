@@ -141,6 +141,25 @@ body {
   --tt-caption-bottom: max(calc(env(safe-area-inset-bottom, 0px) + clamp(30px, 9vh, 150px)), calc(var(--ui-safe-bottom) + 14px));
 }
 
+/* main.js: a short notice while the WebGL context is lost (until the browser restores it). */
+.film-note {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 5;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 12px 18px;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--glass-tip);
+  color: var(--cream);
+  font: italic 1rem/1.45 var(--font-display);
+  text-align: center;
+}
+
 .noscript {
   position: fixed;
   inset: 0;
