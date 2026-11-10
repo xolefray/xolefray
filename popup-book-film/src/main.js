@@ -94,8 +94,9 @@ function init() {
 
   const cameraRig = createCameraRig(ctx);
   const captions = createCaptions(ctx);
-  const ui = createUI(ctx, film);
   const audio = createAudio(ctx, film);
+  film.audio = audio; // the player UI calls film.audio.setMuted()
+  const ui = createUI(ctx, film);
 
   film.debug = { THREE, renderer, scene, book, stage, scenes, cameraRig };
 
