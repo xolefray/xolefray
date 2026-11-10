@@ -3,12 +3,15 @@
  *
  * Boot (while the static intro card in index.html says "gluing in the photos…"): renderer + camera;
  * then the things every painter needs — the vendored fonts (fonts.js; nothing may paint a canvas
- * before them), the couple's photos (photos.js; each may be null → illustrated fallbacks) and the
- * paper-doll figures module (imported defensively: if figures.js is missing or incomplete it is
- * logged once and plain stand-ins are passed instead); then environment, the scrapbook
- * (createBook({ photos, fonts })) and the six spreads. Spread k is built with makeRng(1000 + k) and
- * the context { THREE, paper, popup, rng, BOOK, photos, figures, FONT, timeline }; its group is
- * mounted on book.getSpreadAnchor(k) and its art goes to book.setPageArt(k, …); a spread whose
+ * before them), the couple's photos (photos.js; each may be null → illustrated fallbacks), the
+ * hand-drawn characters (characters.js; a missing poses folder yields an empty set, and scenes
+ * fall back to the paper dolls) and the paper-doll figures module (imported defensively: if
+ * figures.js is missing or incomplete it is logged once and plain stand-ins are passed instead);
+ * then environment, the scrapbook (createBook({ photos, fonts })) and the six spreads. Spread k is
+ * built with makeRng(1000 + k) and the context { THREE, paper, popup, rng, BOOK, photos, figures,
+ * characters, characterArt, FONT, timeline } (`characters` is the loaded set, `characterArt` the
+ * module: characterCard, characterFlip, actor); its group is mounted on book.getSpreadAnchor(k)
+ * and its art goes to book.setPageArt(k, …); a spread whose
  * build() throws is logged and skipped. The spreads' camera cues (spread-frame points) are then
  * converted to WORLD space through each spread anchor at its full-open pose and handed to the camera
  * rig as getCues(). Finally titles, audio, camera rig, and a warm-up pass that renders the key
@@ -29,7 +32,8 @@
  * (clean frames; for any parameter the LAST occurrence wins, so a later ui=1 re-enables) ·
  * mute=1 · captions=0 hide the narration captions (sets <html data-captions="0">, which titles.js
  * reads) · photos=0 never load the couple's photos: every print shows its illustrated fallback
- * (privacy-safe frames) · free=1 OrbitControls debug camera instead of the rig. No t / play:
+ * (privacy-safe frames) · chars=0 never load the hand-drawn characters: actor() uses the paper
+ * dolls · free=1 OrbitControls debug camera instead of the rig. No t / play:
  * poster frame at t = 22 behind the intro card, whose "Begin" (a user gesture) starts audio and
  * plays from 0.
  * Hooks: window.__film = { seek(t), play(), pause(), time, playing, duration, cues }; window.__ready.
@@ -43,6 +47,7 @@ import { makeRng } from './util/rng.js';
 import { resolveFigures } from './util/figures-fallback.js';
 import { FONT, loadFonts } from './fonts.js';
 import { loadPhotos } from './photos.js';
+import * as characterArt from './characters.js';
 import * as paper from './paper.js';
 import * as popup from './popup.js';
 import { BOOK, createBook } from './book.js';
@@ -72,6 +77,7 @@ const showUI = param('ui') !== '0';
 const freeCam = param('free') === '1';
 const showCaptions = param('captions') !== '0';
 const usePhotos = param('photos') !== '0';
+const useChars = param('chars') !== '0';
 const posterMode = showUI && !hasT && !autoplay;
 const stillFrame = !showUI && hasT && !autoplay;
 const startT = hasT ? clamp(tParam, 0, DURATION) : autoplay ? 0 : POSTER_T;
@@ -99,6 +105,8 @@ const reported = new Set();
 const phis = new Array(LEAVES).fill(0); // leaf angles, refilled every pose (no per-frame allocation)
 let photos = { cover: null, proposal: null, dog: null };
 let figures = null;
+let characters = null;
+const sceneArt = {}; // spread id -> loaded art set (same API as `characters`)
 let renderer = null;
 let scene;
 let camera;
@@ -269,7 +277,11 @@ function buildSpread(mod, info) {
   const { k } = info;
   let api = null;
   try {
-    api = mod.build({ THREE, paper, popup, rng: makeRng(1000 + k), BOOK, photos, figures, FONT, timeline });
+    api = mod.build({
+      THREE, paper, popup, rng: makeRng(1000 + k), BOOK,
+      photos, figures, characters, characterArt, FONT, timeline,
+      art: sceneArt[mod?.id ?? info.id] ?? null,
+    });
     book.getSpreadAnchor(k).add(api.group);
     book.setPageArt(k, { left: api.leftArt, right: api.rightArt });
   } catch (err) {
@@ -547,9 +559,19 @@ async function boot() {
   await afterPaint();
 
   // Fonts first: nothing may paint a canvas before they are usable. Neither loader ever rejects.
-  const [, loadedPhotos, loadedFigures] = await Promise.all([loadFonts(), loadPhotos({ disabled: !usePhotos }), loadFigures()]);
+  const artIds = timeline.SPREADS.map((sp) => sp.id);
+  const [, loadedPhotos, loadedFigures, loadedCharacters, ...loadedArt] = await Promise.all([
+    loadFonts(),
+    loadPhotos({ disabled: !usePhotos }),
+    loadFigures(),
+    characterArt.loadCharacters({ disabled: !useChars }),
+    // Scene art (set pieces and page backgrounds) uses the same manifest format and loader.
+    ...artIds.map((id) => characterArt.loadCharacters({ disabled: false, base: `./art/${id}/`, override: window.__ART?.[id] })),
+  ]);
+  artIds.forEach((id, i) => { sceneArt[id] = loadedArt[i]; });
   photos = loadedPhotos;
   figures = loadedFigures;
+  characters = loadedCharacters;
   setLoadProgress(0.12);
   await afterPaint();
 
