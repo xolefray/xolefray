@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0b0a">
+  <meta name="color-scheme" content="dark">
+  <title>The Fox and the Paper Moon</title>
+  <meta name="description" content="An 80-second pop-up-book film made of paper, played in the browser.">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="film" aria-label="The Fox and the Paper Moon, a pop-up film"></canvas>
+  <div id="overlay">
+    <div id="vignette" aria-hidden="true"></div>
+    <div id="fade" aria-hidden="true"></div>
+    <div id="captions" aria-live="polite"></div>
+    <div id="ui"></div>
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

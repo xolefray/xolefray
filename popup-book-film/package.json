@@ -1,0 +1,17 @@
+{
+  "name": "popup-book-film",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Fox and the Paper Moon: an 80-second 3D pop-up-book film for the browser (three.js, plain ES modules; an optional single-file build).",
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/serve.mjs --port=8080",
+    "smoke": "node tools/smoke.mjs",
+    "build": "node tools/build.mjs",
+    "render": "node tools/render.mjs",
+    "stills": "node tools/stills.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

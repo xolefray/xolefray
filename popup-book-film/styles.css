@@ -1,0 +1,439 @@
+/* The Fox and the Paper Moon: page, film overlays and player chrome.
+ *
+ * Film overlays (#fade, cards, captions) get their opacity/transform from
+ * captions.js every frame: never put transitions or animations on them.
+ * Only the player chrome (#ui) animates with CSS. */
+
+:root {
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, Charter, "Bitstream Charter", serif;
+  --ui-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ink: #f7efdc;            /* warm off-white */
+  --ink-soft: rgba(247, 239, 220, 0.78);
+  --gold: #e3c48a;
+  --shade: rgba(14, 9, 6, 0.62);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --gutter: clamp(16px, 3vw, 40px);
+  --bar-h: 76px;             /* player bar footprint the caption keeps clear of */
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0d0b0a;
+  color: var(--ink);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#film {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: manipulation;
+}
+body.ui-idle, body.ui-idle #film { cursor: none; }
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* ---- film frame ------------------------------------------------------------ */
+
+#vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 85% 80% at 50% 46%, rgba(0, 0, 0, 0) 58%, rgba(8, 5, 3, 0.34) 84%, rgba(6, 4, 2, 0.62) 100%),
+    linear-gradient(to bottom, rgba(6, 4, 2, 0.22), rgba(0, 0, 0, 0) 14%, rgba(0, 0, 0, 0) 84%, rgba(6, 4, 2, 0.26));
+}
+
+#fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 1;
+}
+
+#captions { position: absolute; inset: 0; }
+
+/* ---- title and end cards ---------------------------------------------------- */
+
+#captions .card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: calc(var(--safe-t) + 16px) calc(var(--safe-r) + var(--gutter)) calc(var(--safe-b) + 16px) calc(var(--safe-l) + var(--gutter));
+  opacity: 0;
+  visibility: hidden;
+}
+/* The opening title sits in the upper part of the frame, clear of the cover. */
+#captions .title-card { justify-content: flex-start; padding-top: calc(var(--safe-t) + clamp(24px, 8vh, 130px)); }
+/* "The End" sits above the closed book, which the camera frames low. */
+#captions .end-card { justify-content: flex-start; padding-top: calc(var(--safe-t) + clamp(36px, 17vh, 240px)); }
+
+#captions .card-inner {
+  position: relative;
+  max-width: min(92vw, 1400px);
+  will-change: transform;
+}
+/* soft dark halo behind the type: reads on cream pages, cloth and night alike */
+#captions .card-inner::before {
+  content: "";
+  position: absolute;
+  inset: -1.6em -2.4em;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgba(10, 6, 3, 0.5), rgba(10, 6, 3, 0.22) 60%, rgba(10, 6, 3, 0) 100%);
+}
+
+#captions .card-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.12;
+  text-wrap: balance;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 0 24px rgba(0, 0, 0, 0.45);
+}
+#captions .title-card .card-title {
+  font-size: clamp(28px, min(4.6vw, 8.6vh) + 6px, 112px);
+  letter-spacing: 0.04em;
+  max-width: 9.6em;
+  margin: 0 auto;
+}
+#captions .end-card .card-title {
+  font-size: clamp(32px, min(4.2vw, 8vh) + 8px, 104px);
+  font-style: italic;
+  letter-spacing: 0.06em;
+  padding: 0.12em 0 0.18em;
+}
+#captions .card-sub {
+  margin: 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(15px, min(1.25vw, 2.3vh) + 8px, 36px);
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 0, 0, 0.5);
+}
+
+/* thin rule - small diamond - thin rule */
+#captions .ornament {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7em;
+  margin: clamp(10px, 1.6vh, 22px) auto;
+  font-size: clamp(11px, 0.6vw + 7px, 20px);
+  color: var(--gold);
+}
+#captions .ornament .rule {
+  display: block;
+  width: clamp(36px, 7vw, 150px);
+  height: 1px;
+  background: linear-gradient(to var(--dir, right), rgba(227, 196, 138, 0), rgba(227, 196, 138, 0.9));
+}
+#captions .ornament .rule:last-child { --dir: left; }
+#captions .ornament .diamond {
+  display: block;
+  width: 0.5em;
+  height: 0.5em;
+  transform: rotate(45deg);
+  border: 1px solid currentColor;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+}
+#captions .end-card .ornament { margin: 0.2em auto; }
+#captions .end-card .ornament .rule { width: clamp(28px, 4.5vw, 110px); }
+
+/* ---- captions --------------------------------------------------------------- */
+
+#captions .caption-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: clamp(160px, 34vh, 520px);
+  background: linear-gradient(to top, rgba(8, 5, 3, 0.5), rgba(8, 5, 3, 0.28) 45%, rgba(8, 5, 3, 0));
+  opacity: 0;
+  visibility: hidden;
+}
+
+#captions .caption {
+  position: absolute;
+  left: calc(var(--safe-l) + var(--gutter));
+  right: calc(var(--safe-r) + var(--gutter));
+  bottom: calc(var(--safe-b) + max(var(--bar-h), 9.5vh));
+  margin: 0 auto;
+  max-width: 30em;
+  text-align: center;
+  font-family: var(--serif);
+  font-size: clamp(17px, min(1.55vw, 2.9vh) + 9px, 48px);
+  line-height: 1.38;
+  letter-spacing: 0.012em;
+  color: var(--ink);
+  text-wrap: balance;
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.7),
+    0 2px 10px rgba(0, 0, 0, 0.55),
+    0 0 28px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform, opacity;
+}
+
+/* ---- player ------------------------------------------------------------------ */
+
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;          /* only the bar and the replay button take input */
+  font-family: var(--ui-font);
+  font-size: 14px;
+  color: #fff;
+  transition: opacity 0.35s ease;
+}
+/* Hidden bar: fade the bar and replay button (not #ui itself, so the
+   "for sound" pill can stay while sound is still locked). */
+#ui.is-hidden .ui-bar, #ui.is-hidden .ui-replay { opacity: 0; }
+#ui.is-hidden .ui-bar { transform: translateY(8px); }
+
+.ui-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 26px calc(var(--safe-r) + 12px) calc(var(--safe-b) + 6px) calc(var(--safe-l) + 12px);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.32) 55%, rgba(0, 0, 0, 0));
+  pointer-events: auto;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+#ui.is-hidden .ui-bar, #ui.is-hidden .ui-replay { pointer-events: none; }
+
+.ui-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+}
+
+.ui-btn {
+  appearance: none;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+.ui-btn:hover { background: rgba(255, 255, 255, 0.12); opacity: 1; }
+.ui-btn:active { background: rgba(255, 255, 255, 0.2); }
+.ui-btn svg { display: block; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.ui-btn[hidden] { display: none; }
+
+.ui-btn:focus-visible,
+.ui-scrub:focus-visible,
+.ui-replay:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.ui-time {
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0.92;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.ui-chapter {
+  flex: 1;
+  min-width: 0;
+  margin: 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: right;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  opacity: 0.75;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* Scrubber: 28px tall hit area around a 4px track. */
+.ui-scrub {
+  position: relative;
+  height: 28px;
+  margin: 0 10px;
+  cursor: pointer;
+  touch-action: none;
+  border-radius: 6px;
+}
+.ui-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.28);
+  transition: height 0.15s ease, margin-top 0.15s ease;
+}
+.ui-scrub:hover .ui-track, .ui-scrub.is-dragging .ui-track { height: 6px; margin-top: -3px; }
+.ui-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--gold);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+.ui-ticks { position: absolute; inset: 0; }
+.ui-tick {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 2px;
+  margin-left: -1px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.ui-tick.is-chapter { top: -3px; bottom: -3px; background: rgba(20, 12, 6, 0.75); }
+.ui-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: #fff8ea;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  transform: scale(0.85);
+  transition: transform 0.15s ease;
+}
+.ui-scrub:hover .ui-thumb, .ui-scrub.is-dragging .ui-thumb, .ui-scrub:focus-visible .ui-thumb { transform: scale(1.1); }
+.ui-tip {
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  transform: translateX(-50%);
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: rgba(16, 12, 9, 0.88);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.ui-scrub.show-tip .ui-tip { opacity: 1; }
+
+/* Replay affordance, shown once the film has ended (below "The End"). */
+.ui-replay {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--safe-t) + clamp(36px, 17vh, 240px) + clamp(110px, 8vw + 90px, 300px));
+  transform: translateX(-50%);
+  display: none;
+  width: auto;
+  height: 46px;
+  padding: 0 22px 0 16px;
+  gap: 8px;
+  grid-auto-flow: column;
+  border: 1px solid rgba(227, 196, 138, 0.7);
+  border-radius: 23px;
+  background: rgba(14, 10, 7, 0.55);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  pointer-events: auto;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+.ui-replay:hover { background: rgba(40, 28, 18, 0.75); }
+#ui.is-ended .ui-replay { display: inline-grid; }
+
+/* ---- sound: locked until a user gesture ------------------------------------ */
+
+.ui-sound-label { white-space: nowrap; font-size: 13px; letter-spacing: 0.01em; }
+.ui-sound-label .for-mouse { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .ui-sound-label .for-touch { display: none; }
+  .ui-sound-label .for-mouse { display: inline; }
+}
+/* in the bar: the sound button grows into a labelled pill */
+.ui-btn.ui-mute.is-locked {
+  width: auto;
+  height: 34px;
+  margin: 0 4px;
+  padding: 0 12px 0 8px;
+  gap: 6px;
+  grid-auto-flow: column;
+  border: 1px solid rgba(227, 196, 138, 0.75);
+  border-radius: 17px;
+  background: rgba(14, 10, 7, 0.45);
+  opacity: 1;
+}
+.ui-btn.ui-mute.is-locked svg { width: 20px; height: 20px; }
+.ui-btn.ui-mute.is-locked:hover { background: rgba(40, 28, 18, 0.7); }
+/* while the bar is hidden: the same offer as a small pill in the corner */
+.ui-btn.ui-sound-hint {
+  position: absolute;
+  right: calc(var(--safe-r) + 14px);
+  bottom: calc(var(--safe-b) + 14px);
+  width: auto;
+  height: 34px;
+  padding: 0 12px 0 8px;
+  gap: 6px;
+  grid-auto-flow: column;
+  border: 1px solid rgba(227, 196, 138, 0.55);
+  border-radius: 17px;
+  background: rgba(14, 10, 7, 0.5);
+  color: var(--ink);
+  opacity: 0;
+  visibility: hidden;              /* (visibility, not pointer-events: it stays tappable while fading) */
+  pointer-events: auto;
+  transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+}
+.ui-btn.ui-sound-hint svg { width: 20px; height: 20px; }
+#ui.is-hidden.is-sound-locked .ui-sound-hint {
+  opacity: 0.85;
+  visibility: visible;
+  transition: opacity 0.35s ease 0.2s, visibility 0s;
+}
+#ui.is-hidden.is-sound-locked .ui-sound-hint:hover { opacity: 1; background: rgba(40, 28, 18, 0.7); }
+
+@media (max-width: 480px) {
+  :root { --bar-h: 84px; }
+  .ui-chapter { display: none; }
+  .ui-row { justify-content: flex-start; }
+  .ui-time { flex: 1; }
+  .ui-scrub { margin: 0 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ui, .ui-bar, .ui-btn, .ui-thumb, .ui-track, .ui-replay,
+  .ui-btn.ui-sound-hint, #ui.is-hidden.is-sound-locked .ui-sound-hint { transition: none; }
+}

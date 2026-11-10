@@ -1,0 +1,9 @@
+node_modules/
+.smoke/
+# render output and its (resumable) frame folders
+out/
+.frames-*/
+*.tmp.mp4
+# single stills left by `node tools/stills.mjs --keep`
+docs/stills/
+# dist/ is NOT ignored: the single-file build is committed.
