@@ -339,7 +339,7 @@ export function createTitles(container) {
 
       // "The End" fades in and stays to the last frame, above the black veil.
       const es = END.start;
-      L.endGlow.set(smoothstep(es, es + 1.5, t) * (1 - seg(t, FADE_TO_BLACK[0], FADE_TO_BLACK[1])));
+      L.endGlow.set(smoothstep(es, es + 1.5, t) * (1 - smoothstep(FADE_TO_BLACK[0] - 0.5, FADE_TO_BLACK[0] + 1.2, t)));
       L.endText.set(smoothstep(es, es + 1.8, t), m * 1.2 * (1 - ease.outCubic(seg(t, es, es + 3))));
       if (L.flourish.set(smoothstep(es + 0.6, es + 2.0, t), m * 0.9 * (1 - ease.outCubic(seg(t, es + 0.6, es + 3.4))))) {
         L.flourish.draw(m ? ease.inOutSine(seg(t, es + 0.6, es + 2.9)) : 1);
