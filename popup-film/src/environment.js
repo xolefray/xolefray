@@ -5,13 +5,14 @@
  *   procedurally on canvas (tileable flowing grain, glued-up boards, pores, colour drift) under a
  *   thin varnish clearcoat. The desk fades radially into the room colour, and the room colour is
  *   also the fog colour and the backdrop's horizon colour, so no edge or horizon line ever shows.
- * - Room: an inverted sphere with a gradient shader: a very dark warm wall, a faint spill of the
- *   lamp on the wall behind it, and an out-of-focus window to the back right that glows cool at
+ * - Room: an inverted sphere with a gradient shader: a very dark warm wall, a faint warm spill of
+ *   the lamp high on the far wall, and an out-of-focus window to the back right that glows cool at
  *   night and warm pink at dawn.
- * - Lights: a warm SpotLight "desk lamp" above-left-behind the book (the ONLY shadow caster,
- *   2048 map), a hemisphere fill, a cool "moonlight" directional fill from the front right and a
- *   low warm-pink "dawn" directional from the right. None of them is ever hidden or removed (only
- *   their intensities change), so shader light counts stay constant.
+ * - Lights: a warm SpotLight "desk lamp" high on the left, slightly toward the reader so the
+ *   upright pop-up faces catch light and shadows fall back-right (the ONLY shadow caster, 2048
+ *   map); a hemisphere fill; a front-right directional fill (soft warm bounce by day, cool teal
+ *   moonlight at night); a low warm-pink "dawn" directional from the right. None of them is ever
+ *   hidden or removed (only intensities/colours change), so shader light counts stay constant.
  * - Dust motes: a few hundred soft additive points drifting in the lamp beam. The drift is a pure
  *   function of t in the vertex shader, and each mote only glows while it is inside the cone.
  *
@@ -64,6 +65,7 @@ const LOOK_SCALARS = ['windowAmt', 'hemi', 'fill', 'dawn'];
 
 const LAMP_AMBER = new THREE.Color('#ff8a3c'); // filament still warming / dimmed
 const LAMP_WARM = new THREE.Color('#ffd3a3'); // warm incandescent at full
+const LAMP_NIGHT = new THREE.Color('#ffae5c'); // turned down for the night: golden, not red
 const LAMP_DAWN = new THREE.Color('#ffe0c0');
 
 export function createEnvironment({ scene, renderer }) {
@@ -150,7 +152,7 @@ export function createEnvironment({ scene, renderer }) {
     keyLight.angle = LAMP_ANGLE[0] + (LAMP_ANGLE[1] - LAMP_ANGLE[0]) * night;
     keyLight.penumbra = LAMP_PENUMBRA[0] + (LAMP_PENUMBRA[1] - LAMP_PENUMBRA[0]) * night;
     keyLight.shadow.focus = SHADOW_HALF_ANGLE / keyLight.angle;
-    keyLight.color.copy(LAMP_AMBER).lerp(LAMP_WARM, Math.sqrt(ign)).lerp(LAMP_AMBER, 0.4 * night);
+    keyLight.color.copy(LAMP_AMBER).lerp(LAMP_WARM, Math.sqrt(ign)).lerp(LAMP_NIGHT, 0.7 * night);
     keyLight.color.lerp(LAMP_DAWN, 0.5 * dawn);
 
     blendLooks(night, dawn, warm, fade);
@@ -229,7 +231,7 @@ function makeBackdrop() {
         float up = max(d.y, 0.0);
         float above = smoothstep(0.0, 0.35, d.y);
         vec3 col = mix(uHorizon, uTop, smoothstep(0.0, 0.75, up));
-        // lamp light spilling onto the wall behind the lamp
+        // warm lamp light spilling onto the far wall, up and to the left
         float s = max(dot(d, uSpillDir), 0.0);
         col += uSpill * pow(s, 3.0) * above;
         // out-of-focus window: gnomonic projection around its centre direction
@@ -409,6 +411,12 @@ function paintWalnut(seed) {
   const rd = rimg.data;
   const TAU = Math.PI * 2;
 
+  // Fields that vary slowly along the grain are sampled every STRIDE px per row and interpolated.
+  const STRIDE = 4;
+  const SW = W / STRIDE;
+  const fields = Array.from({ length: 5 }, () => new Float32Array(SW + 1));
+  const [fWarp, fContrast, fStreak, fFine, fDrift] = fields;
+
   for (let y = 0; y < H; y++) {
     const v = y / H;
     const bv = v * BOARDS;
@@ -417,24 +425,34 @@ function paintWalnut(seed) {
     const board = boards[bi];
     const seamPx = Math.min(zl, 1 - zl) * (H / BOARDS);
     const seam = 1 - 0.4 * Math.exp(-seamPx * seamPx * 0.6);
-    for (let x = 0; x < W; x++) {
-      const u = x / W;
+    const archAcross = board.arch * (0.6 + 0.4 * Math.cos(TAU * zl));
+    for (let xs = 0; xs <= SW; xs++) {
+      const u = xs / SW;
       // long, slowly meandering ring lines with gentle cathedral arches
       const warp =
         pnoise(u * 2, v * 6, 2, 6, board.seed) +
         0.4 * pnoise(u * 5, v * 15, 5, 15, board.seed + 1) +
         0.12 * pnoise(u * 16, v * 40, 16, 40, board.seed + 2);
-      const arch = board.arch * Math.cos(TAU * (u * 2 + board.archPhase)) * (0.6 + 0.4 * Math.cos(TAU * zl));
-      const ring = (zl * boardUnits + board.warp * warp + arch) * board.freq + board.offset;
+      fWarp[xs] = board.warp * warp + archAcross * Math.cos(TAU * (u * 2 + board.archPhase));
+      fContrast[xs] = 0.55 + 0.6 * pnoise(u * 5, v * 9, 5, 9, s1);
+      // fibre streaks and fine figure, stretched along the grain
+      fStreak[xs] = pnoise(u * 6, v * 220, 6, 220, s2);
+      fFine[xs] = pnoise(u * 48, v * 640, 48, 640, s3);
+      fDrift[xs] = pnoise(u * 2, v * 4, 2, 4, s1 + 7) + 0.5 * pnoise(u * 4, v * 8, 4, 8, s2 + 7);
+    }
+    for (let x = 0; x < W; x++) {
+      const xs = (x / STRIDE) | 0;
+      const m = (x - xs * STRIDE) / STRIDE;
+      const warp = fWarp[xs] + (fWarp[xs + 1] - fWarp[xs]) * m;
+      const contrast = fContrast[xs] + (fContrast[xs + 1] - fContrast[xs]) * m;
+      const streak = fStreak[xs] + (fStreak[xs + 1] - fStreak[xs]) * m;
+      const fine = fFine[xs] + (fFine[xs + 1] - fFine[xs]) * m;
+      const drift = fDrift[xs] + (fDrift[xs + 1] - fDrift[xs]) * m;
+      const ring = (zl * boardUnits + warp) * board.freq + board.offset;
       const f = ring - Math.floor(ring);
       const late = sstep(0.5, 0.95, f) * (1 - sstep(0.95, 1, f));
-      const contrast = 0.55 + 0.6 * pnoise(u * 5, v * 9, 5, 9, s1);
-      // fibre streaks and fine figure, stretched along the grain
-      const streak = pnoise(u * 6, v * 220, 6, 220, s2);
-      const fine = pnoise(u * 48, v * 640, 48, 640, s3);
       // pores: short dark dashes along the grain
-      const pore = sstep(0.32, 0.55, pnoise(u * 170, v * 1000, 170, 1000, s4));
-      const drift = pnoise(u * 2, v * 4, 2, 4, s1 + 7) + 0.5 * pnoise(u * 4, v * 8, 4, 8, s2 + 7);
+      const pore = sstep(0.32, 0.55, pnoise((x / W) * 170, v * 1000, 170, 1000, s4));
 
       let tone = 0.5 + 0.4 * drift + 0.1 * board.tone + 0.26 * streak + 0.1 * fine;
       tone = tone < 0 ? 0 : tone > 1 ? 1 : tone;
