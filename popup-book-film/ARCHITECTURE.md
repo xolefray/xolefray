@@ -116,7 +116,7 @@ never import three.js: Node tools import them directly.
   centred on z = 0. The viewer/camera is on the **+Z** side looking toward −Z and
   down. Units are arbitrary (1 unit ≈ 7 cm).
 - `PAGE_W = 3.0` (x extent of one page), `PAGE_H = 4.0` (z extent),
-  `LEAF_T = 0.06` (inner card leaf thickness), `COVER_T = 0.09`,
+  `LEAF_T = 0.03` (inner card leaf thickness), `COVER_T = 0.07`,
   `COVER_OVERHANG = 0.1`, `NUM_SPREADS = 5`, `NUM_LEAVES = 6`.
 - Leaves are **rigid thick card**: leaf 0 = front cover board, leaves 1–4 = inner
   leaves, leaf 5 = back cover board, which never moves and lies on the desk at
@@ -134,24 +134,40 @@ never import three.js: Node tools import them directly.
   between the two pages is **θ = π·spreadOpen[k]**.
 - Stacking at rest (no interpenetration): back cover slab y ∈ [0, COVER_T];
   unturned inner leaf j has its bottom at `COVER_T + (4−j)·LEAF_T`; the closed
-  front cover sits on top of them (bottom at 0.33); the turned front cover lies at
+  front cover sits on top of them (bottom at 0.19); the turned front cover lies at
   y ∈ [0, COVER_T] on the left; turned inner leaf j has its bottom at
   `COVER_T + (j−1)·LEAF_T`.
 - **How the pivot height is interpolated:** all leaves rotate about one fixed
-  hinge line (x = 0, y = `HINGE_Y` = 0.21, parallel to Z). Each leaf's slab sits
+  hinge line (x = 0, y = `HINGE_Y` = 0.13, parallel to Z). Each leaf's slab sits
   at a fixed offset `leafOffset(j)` from the hinge along the leaf's own local +Y
-  (0.12, 0.06, 0, −0.06, −0.12, −0.21 for j = 0..5). That one rigid hinge
+  (0.06, 0.03, 0, −0.03, −0.06, −0.13 for j = 0..5). That one rigid hinge
   reproduces both rest stackings exactly, so the leaf's bottom/spine edge moves
   smoothly from (0, bottomUnturned) to (0, bottomTurned + T) as it turns, and the
   whole stack swings like a bound book (no leaves passing through each other, even
   during bookClose when all five turn together). Mid-turn, a leaf's spine edge is
-  up to 0.12 off x = 0; at rest it is exactly on it.
+  up to 0.06 off x = 0; at rest it is exactly on it.
 - Helpers in `constants.js`: `leafThickness(j)`, `leafWidth(j)`, `leafDepth(j)`,
   `leafBottomUnturned(j)`, `leafBottomTurned(j)`, `HINGE_Y`, `leafOffset(j)`.
 - Resulting page-surface heights when a spread lies flat open: the left page
-  surface and the right page surface differ in height by the leaf stacks (e.g.
-  spread 0: left 0.09, right 0.33). Scenery is attached to anchors, so this never
-  matters to scenes.
+  surface and the right page surface differ in height by the leaf stacks: spread k
+  has its left page at y = 0.07 + 0.03k and its right page at y = 0.19 − 0.03k
+  (spread 0: left 0.07, right 0.19; spread 2: both 0.13). Scenery is attached to
+  anchors, so this rarely matters to scenes.
+- **Spine and gutter (book.js):** the step between the two page surfaces at the
+  spine is hidden by a rolled cream "gutter" strip: a half-round of radius
+  |leafOffset(k)| about the hinge line, tangent to both pages (radius 0.06 for
+  spreads 0 and 4, 0.03 for spreads 1 and 3, none for spread 2, where the pages
+  are level). It is a rounded step from the lower page up to the higher one: for
+  spreads 0–1 it lies over the LEFT page (x ∈ [−r, 0]), for spreads 3–4 over the
+  RIGHT page (x ∈ [0, r]), so keep standing scenery about r + 0.01 clear of the
+  spine on the lower page (center-anchored pieces pass through it, hidden).
+  The cloth spine is a half-round of radius 0.13 outside x < 0 when closed.
+- **Page surfaces:** plain cream card (faint grain, matte, roughness 0.93) on all
+  inner leaves. The inside covers (left page of spread 0, right page of spread 4)
+  are a slightly warmer cream pastedown with the teal cloth turned in along the
+  three outer edges: a 0.12-wide cloth band at the outer board edge and at the
+  head and tail, i.e. only 0.02 of it lies inside the page rectangle
+  (|x| > 2.98 or |z| > 1.98). Page edges are off-white.
 
 ## Spread anchors (the most important contract)
 
@@ -370,7 +386,35 @@ approximately the same x and z with y + `PAGE_SURFACE_Y` (0.2).
   `spread.theta` so they collapse flat as the spread closes.
 - Keep scenery inside the page rectangle (|z| ≤ 2, |x| ≤ 3) and low enough that
   a closing spread does not push it through the facing page.
-- Enable `castShadow` / `receiveShadow` on card meshes; the stage's key light
-  casts shadows over roughly x, z ∈ [−6, 6].
+- Enable `castShadow` / `receiveShadow` on card meshes. Only the stage's key
+  light casts shadows, and only inside **x ∈ [−4.6, 4.6], y ∈ [0, 3.5],
+  z ∈ [−3, 3]** (world; plus where those casters' shadows land on the desk).
+  Anything outside that box casts no shadow. Its shadow map is 2048² over about
+  10 units (≈ 0.005 per texel): 0.02-thick standing cards cast clean contact
+  shadows without acne or peter-panning; the penumbra is a few texels wide.
+
+### Stage lights (stage.js) — what scene authors can rely on
+
+All lights except the lantern live in `stage.js`; every value below is lerped by
+`state.night` (0 by day, 1 from 58.5 s to the end, including the closed book at
+the end).
+
+| light | day (`night` = 0) | night (`night` = 1) |
+|---|---|---|
+| key (DirectionalLight, the only shadow caster) | warm `#ffd7a3`, 3.0, from (−5.5, 9, 3.5): upper left, a little toward the viewer, ~54° up; shadows fall toward +x and slightly −z | moonlight `#a4b4e0`, 0.8, from (−3, 10, 3.5), ~65° up (higher) |
+| sky (HemisphereLight) | sky `#d3defa` / ground `#5a3e2a`, 0.55 | sky `#4f6299` / ground `#1a1a2a`, 0.6 |
+| fill (DirectionalLight, no shadows) | cool `#a9c1ff`, 0.5, from (6, 3.5, 6): right front | `#8d9bcc`, 0.8, from (4, 3, 8) |
+| background / fog | `#150f0c` (fog 32–60, only hides the horizon) | `#06080f` |
+
+Directions are from the target (the origin) toward the light. At night cream pages
+read as mid blue-grey and coloured card stays readable but dark (navy and deep
+red cards become very dark): the stage leaves the warm accent to the lantern
+(a scene-owned light driven by `state.glow`). `renderer.toneMappingExposure` is set by the stage every
+frame (1.0 day and night); do not set it elsewhere. The desk is darkened away
+from the book in its own shader (full brightness within ~4 units of the book,
+fading to ~5% by ~13 units, ~11.5 at night); this affects only the desk. The
+desk has a pencil (x ≈ 3.7–4.4, z ≈ −0.4–2.5) and three paper scraps
+(x ≈ −5.1 to −3.5, z ≈ −3 to 0) lying flat, and a few dust motes float in the
+light (additive points, no depth write).
 - Lights in scenes (e.g. the lantern) are fine; drive their intensity from
   `state.glow` / `state.night`. All other lights belong to `stage.js`.
