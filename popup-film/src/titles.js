@@ -2,8 +2,8 @@
  * titles.js — the printed-word layer of "The Little Paper Boat".
  *
  * DOM typography over the WebGL canvas, styled like a finely printed picture book: the opening
- * title card (line-drawn paper boat, display title, small-caps subtitle), a chapter label as each
- * spread finishes opening, the storybook captions, "The End" with a drawn flourish, and the final
+ * title card (line-drawn paper boat, display title, small-caps subtitle), a chapter label while each
+ * page turns, the storybook captions, "The End" with a drawn flourish, and the final
  * fade-to-black veil. Old-style serif, cream ink, gold hairlines, soft dark halos so every line
  * stays legible over any frame.
  *
@@ -41,10 +41,14 @@ const FADE_TO_BLACK = [93.5, 96];
 const CAPTION_FADE = 0.6;
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
-/** One label per spread: from (end of the leaf turn that opens it) − 0.5 s, for 3.5 s. */
+/**
+ * One label per spread, riding the leaf turn that opens it: from turn start + 0.4 s to the turn's
+ * end. The camera pushes in right after each turn and fills the top of the frame (the city's clock
+ * tower ~53.5 s, the sky's balloons and sun rays from ~72.5 s), so the label is gone by then.
+ */
 const CHAPTER_LABELS = SPREADS.map((s) => {
-  const start = LEAF_TURNS.find((turn) => turn.leaf === s.k - 1).end - 0.5;
-  return { start, end: start + 3.5, number: `Chapter ${ROMAN[s.k - 1]}`, title: s.title };
+  const turn = LEAF_TURNS.find((tr) => tr.leaf === s.k - 1);
+  return { start: turn.start + 0.4, end: turn.end, number: `Chapter ${ROMAN[s.k - 1]}`, title: s.title };
 });
 
 const LINES = CAPTIONS.filter((c) => c.kind === 'caption');
@@ -84,7 +88,7 @@ const CSS = `
   background: linear-gradient(to top, rgba(var(--tt-ink), .5), rgba(var(--tt-ink), .24) 42%, rgba(var(--tt-ink), 0));
 }
 .tt-glow {
-  position: absolute; inset: 0;
+  position: absolute; inset: 0; z-index: -1; /* under the static title / "The End" text, never over it */
   background: radial-gradient(ellipse 48% 38% at 50% 47%, rgba(var(--tt-ink), .62), rgba(var(--tt-ink), .42) 40%, rgba(var(--tt-ink), .14) 72%, rgba(var(--tt-ink), 0));
 }
 
@@ -326,7 +330,7 @@ export function createTitles(container) {
       L.subBlock.set(envelope(t, s + 1.3, e - 0.3, 1.3, 0.8), m * drift(t, s + 1.3, e - 0.3, 1.4, 2.6, 0.6));
 
       for (const c of chapters) {
-        const visible = c.layer.set(envelope(t, c.start, c.end, 0.9, 1.0), m * drift(t, c.start, c.end, 0.9, 1.8, 0.3));
+        const visible = c.layer.set(envelope(t, c.start, c.end, 0.8, 1.0), m * drift(t, c.start, c.end, 0.9, 1.8, 0.3));
         if (visible) c.layer.draw(m ? ease.outCubic(seg(t, c.start + 0.1, c.start + 1.6)) : 1);
       }
 
