@@ -22,11 +22,13 @@ the film, see the [README](../README.md).
 
 The film is a static site with ES modules and an import map (`three` → `vendor/three.module.js`,
 `three/addons/` → `vendor/addons/`). It has no build step and makes no network requests beyond
-its own files.
+its own files. For hosts that sandbox pages, `tools/build-artifact.mjs --out <dir>` produces one
+self-contained `index.html`: the CSS plus an esbuild bundle of the film with three.js, all
+inlined (see the README).
 
 ```
 index.html ── #stage (WebGL canvas) · #overlay (titles) · #ui (controls) · #intro (title / poster card)
-   └─ src/main.js ─┬─ timeline.js   schedule, easing, leafAngles(t), Player
+   └─ src/main.js ─┬─ timeline.js   schedule, easing, leafAngles(t, out), Player
                    ├─ environment.js desk, room, lamp + light schedule, dust      ← update(t)
                    ├─ book.js        hinged leaves, cover, page art, 4 anchors   ← setLeafAngles(φ), update(t)
                    │    └─ anchor k ─ spreads/<id>.js group (built with paper.js + popup.js) ← update(α, t, local)
@@ -40,17 +42,22 @@ index.html ── #stage (WebGL canvas) · #overlay (titles) · #ui (controls) �
 (antialias, pixel ratio min(dpr, 2), ACESFilmic, sRGB output, PCF-soft shadows) and a 35° camera.
 It then builds the environment, the book and the four spreads. Spread *k* is built with
 `makeRng(1000 + k)`, its group is mounted on `book.getSpreadAnchor(k)`, and its art goes to
-`book.setPageArt(k, …)`. After that come titles, audio and the camera rig. A **warm-up pass**
-renders ten key moments (0.5, the middle of every leaf turn and of every open spread, and 95 s)
-at 320 × 180 behind the card, so every shader variant is compiled and every texture uploaded
-before the first page turn. The pass is skipped for still frames (`ui=0` + `t` without `play`).
+`book.setPageArt(k, …)`. Every point light inside a spread is **adopted**: main.js hides the
+spread's own light and adds an always-present proxy to the scene, which copies the light's world
+position, colour, falloff and intensity on every pose (intensity 0 while the spread is hidden).
+That keeps the scene's light count constant (§10). After that come titles, audio and the camera
+rig. A **warm-up pass** renders ten key moments (0.5, the middle of every leaf turn and of every
+open spread, and 95 s) at 320 × 180 behind the card, so every shader program is compiled and
+every texture uploaded before the first page turn. The pass is skipped for still frames (`ui=0`
++ `t` without `play`).
 
 **Each frame** runs this sequence:
 
 ```
 t      = player.time
-φ[0..4] = leafAngles(t)                 → book.setLeafAngles(φ)
+leafAngles(t, φ)                       → book.setLeafAngles(φ)      (φ = one reused 5-element array)
 for k in 1..4:  α = φ[k−1] − φ[k];  group.visible = α > 0.002;  if visible: spread.update(α, t, t − start)
+syncSpreadLights()                     (proxies follow the spreads' point lights)
 camera.update(t) · environment.update(t) · book.update(t) · titles.update(t) · audio.sync(t, playing) · render
 ```
 
@@ -63,6 +70,15 @@ fallback.
 **Intro states** (`#intro[data-state]`): `loading` → `poster` → `leaving` → `gone`, or `error`.
 With no URL parameters the poster shows t = 20 s behind the card, and **Begin** (a user
 gesture) starts the audio and plays from 0.
+
+**Failure handling:**
+- `error` state with a message on the card: shown when WebGL is unavailable, when boot throws,
+  or when the module script can't load at all (the `onerror` of the `<script>` tag in
+  index.html, e.g. modules blocked in an opaque-origin sandboxed iframe).
+- `webglcontextlost`: the film pauses behind a small `.film-note` notice. On
+  `webglcontextrestored` it redraws and resumes if it had been playing.
+- Full screen: ui.js hides its button where full screen is unavailable and swallows a refused
+  request.
 
 ## 2. World conventions
 
@@ -145,18 +161,19 @@ page shader darkens a soft strip along the gutter. The art itself carries no gut
 | Film time | Leaf turn / spread | Light (environment.js) | Text (titles.js) |
 |---|---|---|---|
 | 0 – 7 | closed book; the camera approaches | lamp ignites 0.3–2.8 (flash, dip, flutter, amber → warm) | title card 1.2–6.0 |
-| 7 – 10 | **leaf 0** (cover) turns; spread 1 rises | day | chapter label I 9.5–13 |
+| 7 – 10 | **leaf 0** (cover) turns; spread 1 rises | day | chapter label I 7.4–10 |
 | 10 – 28 | spread 1 **forest** open | day | captions 11–15.5, 16–20.5, 21–26.5 |
-| 28 – 31 | **leaf 1** turns: forest folds, sea rises | day | chapter label II 30.5–34 |
+| 28 – 31 | **leaf 1** turns: forest folds, sea rises | day | chapter label II 28.4–31 |
 | 31 – 49 | spread 2 **sea** open | day | captions 32–36.5, 37–41.5, 42–47.5 |
-| 49 – 52 | **leaf 2** turns | → night: lamp 0.35, cone 0.82 → 0.45 rad, teal moonlight fill | chapter label III 51.5–55 |
+| 49 – 52 | **leaf 2** turns | → night: lamp 0.35, cone 0.82 → 0.45 rad, teal moonlight fill | chapter label III 49.4–52 |
 | 52 – 70 | spread 3 **city** open | night | captions 53–57.5, 58–62.5, 63–68.5 |
-| 70 – 73 | **leaf 3** turns | → dawn: lamp 1.1, warm-pink low light from the right | chapter label IV 72.5–76 |
+| 70 – 73 | **leaf 3** turns | → dawn: lamp 1.1, warm-pink low light from the right | chapter label IV 70.4–73 |
 | 73 – 89 | spread 4 **sky** open (never closes) | dawn | captions 74–78.5, 79–83.5, 84–88.5 |
 | 89 – 96 | epilogue | lamp fades 89–95.5 | "The End" 89.5–96; fade to black 93.5–96 |
 
-Chapter labels appear 0.5 s before the end of the turn that opens a spread and last 3.5 s.
-Captions fade in and out over 0.6 s. The score follows the same grid: forest section from 10,
+Each chapter label rides the page turn that opens its spread, from 0.4 s after the turn starts
+until the turn ends. That way it is gone before the camera pushes in and fills the top of the
+frame. Captions fade in and out over 0.6 s. The score follows the same grid: forest section from 10,
 sea from 31, city from 52, sky from 71, a glissando at each turn, and silence by 95.5.
 
 > The light, title and audio times are written as literals in their own modules
@@ -173,7 +190,7 @@ These are the APIs as implemented. Signatures are abridged; each file's header h
 **`src/timeline.js`**: `DURATION`, `LEAF_TURNS`, `SPREADS` (`{k, id, title, start, end}`),
 `CHAPTERS` (`{t, label}`), `clamp`, `lerp`, `seg(t,a,b)`, `smoothstep(a,b,x)`, `ease.{linear,
 inQuad, outQuad, inOutQuad, inCubic, outCubic, inOutCubic, inOutSine, outBack}`,
-`leafAngles(t) → [φ0..φ4]`, `spreadAlpha(k, φ)`, and
+`leafAngles(t, out?) → [φ0..φ4]` (fills and returns `out` when given), `spreadAlpha(k, φ)`, and
 `class Player { play, pause, toggle, seek, time, playing, rate, onEnd, duration }`. Player is a
 wall-clock player clamped to [0, duration]; it pauses and fires `onEnd` at the end.
 
@@ -235,7 +252,8 @@ boat or crane's world position). `SHOTS` holds 36 keys of the form
 with Fritsch–Butland tangents, so it is C1 and never overshoots. A key with `on: '<spread>'` is
 an offset from the boat path, with the target aimed 0.45 s ahead. Between follow keys the camera
 tracks the boat exactly, and transitions blend in and out with a smoothstep. Handheld drift and
-lens breathing are deterministic sines. Below aspect 1.5 the rig widens the fov (up to 62°) and
+lens breathing are deterministic sines, and they are switched off while
+`prefers-reduced-motion: reduce` matches (read live). Below aspect 1.5 the rig widens the fov (up to 62°) and
 dollies back, and `band` places the composition vertically.
 
 **`src/titles.js`**: `CAPTIONS` (`{start, end, text, kind: 'title'|'subtitle'|'caption'|'end'}`)
@@ -327,8 +345,8 @@ directions and a seek renders exactly what playing up to that time would. Concre
   current session out over 60 ms. Playback resumes with a fresh session at t once playback has
   been steady for 0.08 s: bells that began before t are skipped, and pads and beds restart
   midway.
-- **No per-frame allocation** in the modules (shared temporaries, preallocated arrays). The one
-  exception is the 5-element array that `leafAngles` returns.
+- **No per-frame allocation** in the modules: they use shared temporaries and preallocated
+  arrays, and main.js passes one reused array to `leafAngles(t, out)`.
 - The only wall-clock code is `Player`, plus the UI's idle timer, the tab-visibility pause and
   the intro animation.
 
@@ -348,18 +366,23 @@ spreads:
 | city | 30 (incl. 1 InstancedMesh of 16 lanterns) | 1 line set | 2 PointLights (garland, quiet light) | 18 |
 | sky | 48 | 1 sprite, 3 line sets, 1 Points | 0 | 21 |
 
+The "own lights" are created by the spreads. main.js renders them through proxies (§1).
+
 Scene-wide figures:
 
-- One shadow-casting light (2048² PCF soft) and four environment lights that are always
-  present. Only spreads with α > 0.002 are updated and drawn, which means at most two at once,
-  during a turn.
+- **A constant light count of 7.** There are four environment lights: the shadow-casting lamp
+  (2048² PCF soft), the hemisphere light and two directional lights. The other three are
+  always-present proxies for the spreads' point lights.
+- **Stable shader programs.** A hidden group would take its lights out of the render and change
+  the light count, which forces three.js to compile new programs. The proxies prevent that, so
+  page turns never trigger a recompile. Measured by counting `linkProgram` calls: 45 programs
+  after boot, and still 45 after seeking through the whole film in 0.5 s steps. The warm-up pass
+  compiles them all behind the intro card.
+- Only spreads with α > 0.002 are updated and drawn, which means at most two at once, during a
+  turn.
 - Measured WebGL draw calls per rendered frame, including the shadow pass (SwiftShader, 640 × 360):
   **51** at 0:03, **122** at 0:20, **168** at 0:40, **104** at 1:00, **139** at 1:25, **136** at 1:34.
 - Pixel ratio is capped at 2. A paused film renders nothing.
-- The spreads' point lights live inside groups whose visibility toggles, so the number of
-  visible lights changes at page turns, and three.js compiles a new program variant for each
-  light count. The warm-up pass (§1) renders every combination behind the intro card, so those
-  compiles never stall playback.
 
 ## 11. Adding or replacing a spread
 
@@ -371,7 +394,8 @@ Scene-wide figures:
    V-folds one γ. Hang art on the mounts with `paper.card` / `paper.splitCard`.
 2. Keep `update(alpha, t, local)` pure, with no allocation and no `Math.random`. Use the `rng`
    you are given at build time. Shrink thick props with `popup.rise(alpha)`. Use at most 2 lights
-   of your own, without shadows.
+   of your own, without shadows. main.js adopts point lights automatically, but other light types
+   are not proxied and would change the light count when the spread hides.
 3. Put it in `SPREAD_MODULES` (src/spreads/index.js) at position k − 1. Update its `id` and
    `title` in timeline.js `SPREADS` and the label in `CHAPTERS`.
 4. Keep the boat's journey in sync: your waypoints, camera.js `JOURNEY` (and `PAGE_Y`, and the
@@ -386,8 +410,8 @@ Scene-wide figures:
 **Adding a fifth spread** additionally needs a sixth leaf:
 
 - book.js: `BOOK.LEAVES`, the `THICK` array, and the cover/back-cover special cases.
-- timeline.js: the fixed 5-element array in `leafAngles`, `LEAF_TURNS`, `SPREADS`, `CHAPTERS`,
-  and probably `DURATION`.
+- The 5-element leaf-angle arrays: timeline.js `leafAngles` and main.js `phis`.
+- timeline.js: `LEAF_TURNS`, `SPREADS`, `CHAPTERS`, and probably `DURATION`.
 - Every literal time downstream: the light schedule in environment.js and book.js `lampLevel`,
   the captions and `FADE_TO_BLACK` in titles.js, the score and foley in audio.js (`SECTIONS`,
   `CUES`, `BEDS`, `RUSTLES`, the final fade), the camera's `SHOTS`, `JOURNEY` and

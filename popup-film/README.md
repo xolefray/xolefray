@@ -31,6 +31,18 @@ on your network. The layout works at phone width, in portrait and landscape.
 You need a browser with WebGL 2 (any current Chrome, Edge, Firefox or Safari). Sound starts on
 your first click or key press, as browsers require.
 
+If something goes wrong, the film says so instead of freezing:
+
+- **No WebGL, or the film fails to load:** the title card shows a short message instead of the
+  loading animation. This also covers code that can't load at all, for example in a sandboxed
+  frame.
+- **The graphics driver drops the picture** (WebGL context lost): the film pauses behind a short
+  notice and resumes when the browser restores it.
+- **No full screen available** (some iframes, some phones): the full-screen button is hidden,
+  and a refused request is ignored.
+- **Reduced motion:** with `prefers-reduced-motion`, the camera's handheld drift and lens
+  breathing are off, and the captions fade without drifting.
+
 ## Controls
 
 | Input | What it does |
@@ -155,8 +167,8 @@ owns the film's only shadow-casting light: a warm spotlight "desk lamp" at the u
 [`camera.js`](src/camera.js) is a virtual camera rig with 36 keyframes. Each channel (position,
 target, lens, handheld amount) is a cubic Hermite spline with shape-preserving tangents, so moves
 never overshoot and never jerk. Follow keys ride the boat's journey and aim where it will be
-0.45 s later. A small deterministic handheld drift and some lens breathing make it feel filmed.
-On narrow screens the rig widens the lens and dollies back, so the book stays in frame down to
+0.45 s later. A small deterministic handheld drift and some lens breathing make it feel filmed;
+both are off when the viewer prefers reduced motion. On narrow screens the rig widens the lens and dollies back, so the book stays in frame down to
 portrait phones.
 
 ### Score
@@ -172,17 +184,17 @@ seconds, so seeking anywhere restarts the music in the right place.
 
 | File | Responsibility | Lines |
 |---|---|---|
-| [`index.html`](index.html) · [`styles.css`](styles.css) | page shell, intro/poster card, all UI styling | 57 · 714 |
-| [`src/main.js`](src/main.js) | boot, warm-up pass, frame loop, URL parameters, test hooks | 443 |
-| [`src/ui.js`](src/ui.js) | control bar, scrubber, keyboard and pointer input, auto-hide | 423 |
-| [`src/timeline.js`](src/timeline.js) | master schedule, easing, leaf angles, wall-clock `Player` | 134 |
+| [`index.html`](index.html) · [`styles.css`](styles.css) | page shell, intro/poster card, all UI styling | 68 · 733 |
+| [`src/main.js`](src/main.js) | boot, warm-up pass, frame loop, light proxies, context-loss handling, URL parameters, test hooks | 510 |
+| [`src/ui.js`](src/ui.js) | control bar, scrubber, keyboard and pointer input, auto-hide | 427 |
+| [`src/timeline.js`](src/timeline.js) | master schedule, easing, leaf angles, wall-clock `Player` | 137 |
 | [`src/util/rng.js`](src/util/rng.js) | seeded random numbers (mulberry32) | 29 |
 | [`src/paper.js`](src/paper.js) | palettes, grain, die-cut, cards, paper materials, boat, crane | 767 |
 | [`src/popup.js`](src/popup.js) | pop-up mechanisms and folding rules | 562 |
-| [`src/book.js`](src/book.js) | the hinged book, cover, page materials, spread anchors | 850 |
+| [`src/book.js`](src/book.js) | the hinged book, cover, page materials, spread anchors | 855 |
 | [`src/environment.js`](src/environment.js) | desk, room, lamp and light schedule, dust motes | 573 |
-| [`src/camera.js`](src/camera.js) | camera rig: shot keys, splines, boat following | 408 |
-| [`src/titles.js`](src/titles.js) | title card, chapter labels, captions, "The End", fade to black | 349 |
+| [`src/camera.js`](src/camera.js) | camera rig: shot keys, splines, boat following | 409 |
+| [`src/titles.js`](src/titles.js) | title card, chapter labels, captions, "The End", fade to black | 353 |
 | [`src/audio.js`](src/audio.js) | procedural score, foley and the scheduler | 934 |
 | [`src/spreads/forest.js`](src/spreads/forest.js) | I · The Whispering Forest | 2086 |
 | [`src/spreads/sea.js`](src/spreads/sea.js) | II · The Folded Sea | 1491 |
@@ -190,7 +202,7 @@ seconds, so seeking anywhere restarts the music in the right place.
 | [`src/spreads/sky.js`](src/spreads/sky.js) | IV · The Morning Sky | 1591 |
 | [`src/spreads/index.js`](src/spreads/index.js) | the four spreads in film order | 9 |
 
-That makes about 13,600 lines of film code in total, plus ~2,500 lines of dev harnesses. The
+That makes about 13,700 lines of film code in total, plus ~2,500 lines of dev harnesses. The
 architecture (conventions, the spread frame, APIs, schedule and rules) is documented in
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -230,6 +242,18 @@ machines.
   loads the film once and seeks from frame to frame, which works because the film is a pure
   function of time.
 
+### Publish as a single page
+
+Some hosts wrap a page in their own document and sandbox it, which breaks the import map and
+module loading. For those hosts, build one self-contained file:
+
+```sh
+node tools/build-artifact.mjs --out <dir>     # writes <dir>/index.html
+```
+
+The output is a single HTML page with the CSS and an esbuild bundle of the whole film, three.js
+included, inlined. It makes no network requests. The first run fetches esbuild through `npx`.
+
 ## How this was built
 
 The film was written entirely by AI coding agents working as a small team.
@@ -254,5 +278,7 @@ with numeric self-tests and screenshots before reporting back.
 - [three.js](https://threejs.org/) r170 by the three.js authors, MIT licensed. See
   [`vendor/LICENSE`](vendor/LICENSE). The film also uses its `OrbitControls` and
   `RoundedBoxGeometry` add-ons.
+- [esbuild](https://esbuild.github.io/) (MIT) is used only by `tools/build-artifact.mjs`, at
+  build time.
 - Everything else (art, geometry, music, sound and typography, which uses system fonts) is
   generated by the code in this folder.
