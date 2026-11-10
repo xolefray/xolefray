@@ -1,29 +1,38 @@
 /**
- * build-artifact.mjs — packs the film into ONE self-contained HTML fragment for a hosted page viewer.
+ * build-artifact.mjs — packs the film into ONE HTML fragment for a hosted page viewer.
  *
  * Usage:
- *   node popup-film/tools/build-artifact.mjs --out <dir> [--target es2022] [--cache <dir>]
+ *   node popup-film/tools/build-artifact.mjs --out <dir> [--three-cdn] [--target es2022] [--cache <dir>]
  *
  * Writes <dir>/index.html: a page FRAGMENT, not a document. The host wraps it in its own
  * `<!doctype html><html><head>…</head><body>` skeleton (charset, viewport-fit=cover, a small
  * reset that pads :root by the safe-area insets), so the fragment carries no doctype / html /
- * head / body tags. It runs in a sandboxed, possibly opaque-origin iframe and must not make a
- * single network request, so everything is inline, in this order:
+ * head / body tags. It runs in a sandboxed, possibly opaque-origin iframe, so nothing of the
+ * film's own is fetched; everything is inline, in this order:
  *
  *   <title> · <meta name="description"> · <style> (styles.css verbatim + a short host-compat
  *   block) · the body markup of index.html (minus script / link / import-map tags) · one
- *   <script type="module"> holding src/main.js and everything it imports, three.js included.
+ *   <script type="module"> holding src/main.js and everything it imports.
+ *
+ * Default: three.js is bundled in too and the script is minified, so the page makes ZERO network
+ * requests. --three-cdn: 'three' and 'three/addons/*' stay external imports, resolved by an inline
+ * <script type="importmap"> (before the module script) to jsDelivr's copy of the npm release the
+ * vendored files are (three@0.170.0: build/three.module.js, examples/jsm/…), each pinned by a
+ * sha384 `integrity` entry computed from the vendored bytes; the film bundle is NOT minified, so
+ * it stays readable. Those CDN fetches are its only requests; if they fail, a small inline script
+ * shows the intro card's error state (index.html's own module-script onerror handler).
  *
  * Bundling uses esbuild 0.24.0 (pinned), installed on first use into a cache dir outside the
  * repo (default ~/.cache/popup-film-build/esbuild-0.24.0, override with --cache or
- * $POPUP_FILM_ESBUILD_CACHE; needs the npm registry once). 'three' and 'three/addons/*' resolve
- * to the vendored copies, so the bundle holds exactly one three.js. The script is checked for
- * `</script` and `<!--` (escaped, then re-parsed), the markup and CSS for any URL that would be
- * fetched, and the output against the 16 MB page limit. Prints a summary; exits 1 on failure.
+ * $POPUP_FILM_ESBUILD_CACHE; needs the npm registry once). By default 'three' and 'three/addons/*'
+ * resolve to the vendored copies, so the bundle holds exactly one three.js. The script is checked
+ * for `</script` and `<!--` (escaped, then re-parsed), the markup and CSS for any URL that would
+ * be fetched, and the output against the 16 MB page limit. Prints a summary; exits 1 on failure.
  *
  * Query strings never reach the hosted page, so viewers get the default path: the poster frame
  * behind the title card, and Begin plays from 0.
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -37,6 +46,11 @@ const MAX_BYTES = 16 * 1024 * 1024;
 const ENTRY = path.join(ROOT, 'src', 'main.js');
 const THREE_MAIN = path.join(ROOT, 'vendor', 'three.module.js');
 const THREE_ADDONS = path.join(ROOT, 'vendor', 'addons');
+
+// --three-cdn: the npm release the vendored files were copied from (byte-identical: r170).
+const THREE_VERSION = '0.170.0';
+const THREE_CDN = `https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/`;
+const CDN_IMPORTS = { three: `${THREE_CDN}build/three.module.js`, 'three/addons/': `${THREE_CDN}examples/jsm/` };
 
 /* The host's reset sets `body { margin: 0; font: 14px system-ui }`, a light colour scheme and
    pads :root by the safe-area insets. Every film layer is position: fixed; inset: 0 (and keeps
@@ -53,6 +67,8 @@ body {
 
 // ---------------------------------------------------------------- arguments
 
+const USAGE = 'usage: node popup-film/tools/build-artifact.mjs --out <dir> [--three-cdn] [--target es2022] [--cache <dir>]';
+
 function parseArgs(argv) {
   const opts = {
     out: null,
@@ -60,18 +76,23 @@ function parseArgs(argv) {
     cache:
       process.env.POPUP_FILM_ESBUILD_CACHE ||
       path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'popup-film-build', `esbuild-${ESBUILD_VERSION}`),
+    threeCdn: false,
   };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--help' || argv[i] === '-h') {
-      console.log('usage: node popup-film/tools/build-artifact.mjs --out <dir> [--target es2022] [--cache <dir>]');
+      console.log(USAGE);
       process.exit(0);
+    }
+    if (argv[i] === '--three-cdn') {
+      opts.threeCdn = true;
+      continue;
     }
     const key = argv[i].replace(/^--/, '');
     const val = argv[++i];
-    if (!(key in opts) || val === undefined) throw new Error(`bad argument: ${argv[i - 1]}`);
+    if (!(key in opts) || key === 'threeCdn' || val === undefined) throw new Error(`bad argument: ${argv[i - 1]}\n${USAGE}`);
     opts[key] = val;
   }
-  if (!opts.out) throw new Error('--out <dir> is required');
+  if (!opts.out) throw new Error(`--out <dir> is required\n${USAGE}`);
   if (!/^es20(2\d)$|^esnext$/.test(opts.target)) throw new Error(`--target must be es2020 or later, got ${opts.target}`);
   opts.out = path.resolve(opts.out);
   opts.cache = path.resolve(opts.cache);
@@ -109,27 +130,39 @@ function loadEsbuild(cacheDir) {
   return esbuild;
 }
 
-/** 'three' → vendor/three.module.js, 'three/addons/x' → vendor/addons/x (the import map's rules). */
-const vendoredThree = {
-  name: 'vendored-three',
-  setup(build) {
-    build.onResolve({ filter: /^three$/ }, () => ({ path: THREE_MAIN }));
-    build.onResolve({ filter: /^three\/addons\// }, (args) => {
-      const file = path.join(THREE_ADDONS, args.path.slice('three/addons/'.length));
-      if (!file.startsWith(THREE_ADDONS + path.sep) || !fs.existsSync(file)) {
-        return { errors: [{ text: `no vendored three.js add-on for "${args.path}"` }] };
-      }
-      return { path: file };
-    });
-    // Anything else bare would have needed a network fetch (or a node_modules the film doesn't have).
-    build.onResolve({ filter: /^[^./]/ }, (args) => {
-      if (args.kind === 'entry-point' || path.isAbsolute(args.path)) return undefined;
-      return { errors: [{ text: `bare import "${args.path}" has no vendored file` }] };
-    });
-  },
-};
+/** The vendored file behind a 'three' / 'three/addons/…' specifier (the import map's rules), or null. */
+function vendoredFile(spec) {
+  if (spec === 'three') return THREE_MAIN;
+  const file = path.join(THREE_ADDONS, spec.slice('three/addons/'.length));
+  return file.startsWith(THREE_ADDONS + path.sep) && fs.existsSync(file) ? file : null;
+}
 
-async function bundle(esbuild, target) {
+/** The CDN URL a 'three' / 'three/addons/…' specifier resolves to under CDN_IMPORTS. */
+const cdnURL = (spec) => (spec === 'three' ? CDN_IMPORTS.three : CDN_IMPORTS['three/addons/'] + spec.slice('three/addons/'.length));
+
+/**
+ * 'three' and 'three/addons/*' resolve to the vendored files, or (external) stay bare imports for
+ * the import map. Either way an add-on must exist in vendor/addons (the mirror of examples/jsm).
+ */
+function threeResolver(external) {
+  return {
+    name: external ? 'three-external' : 'vendored-three',
+    setup(build) {
+      build.onResolve({ filter: /^three(\/addons\/.*)?$/ }, (args) => {
+        const file = vendoredFile(args.path);
+        if (!file) return { errors: [{ text: `no vendored three.js file for "${args.path}"` }] };
+        return external ? { path: args.path, external: true } : { path: file };
+      });
+      // Anything else bare would have needed a network fetch (or a node_modules the film doesn't have).
+      build.onResolve({ filter: /^[^./]/ }, (args) => {
+        if (args.kind === 'entry-point' || path.isAbsolute(args.path)) return undefined;
+        return { errors: [{ text: `bare import "${args.path}" has no vendored file` }] };
+      });
+    },
+  };
+}
+
+async function bundle(esbuild, { target, threeCdn }) {
   const result = await esbuild.build({
     entryPoints: [ENTRY],
     absWorkingDir: ROOT,
@@ -137,21 +170,59 @@ async function bundle(esbuild, target) {
     format: 'esm',
     platform: 'browser',
     target,
-    minify: true,
+    minify: !threeCdn, // the CDN build keeps the film code readable
     charset: 'utf8',
-    legalComments: 'eof', // keeps three.js's MIT notice
+    legalComments: 'eof', // keeps three.js's MIT notice when it is bundled
     write: false,
     metafile: true,
     logLevel: 'silent',
-    plugins: [vendoredThree],
+    plugins: [threeResolver(threeCdn)],
   });
   for (const w of result.warnings) console.error(`[build-artifact] esbuild warning: ${w.text}${w.location ? ` (${w.location.file}:${w.location.line})` : ''}`);
   const [output] = result.outputFiles;
   const [meta] = Object.values(result.metafile.outputs);
-  if (meta.imports.length) {
-    throw new Error(`bundle still imports: ${meta.imports.map((i) => i.path).join(', ')}`);
+  const externals = [...new Set(meta.imports.map((i) => i.path))];
+  const unexpected = meta.imports.filter((i) => !threeCdn || !i.external || i.kind !== 'import-statement' || !vendoredFile(i.path));
+  if (unexpected.length) throw new Error(`bundle still imports: ${unexpected.map((i) => `${i.path} (${i.kind})`).join(', ')}`);
+  return { code: output.text, metafile: result.metafile, meta, externals };
+}
+
+// ---------------------------------------------------------------- --three-cdn: import map
+
+/** The import map for the CDN build, with a sha384 integrity entry per module the bundle imports. */
+function cdnImportMap(externals) {
+  const revision = fs.readFileSync(THREE_MAIN, 'utf8').match(/\bREVISION\s*=\s*'(\d+)'/)?.[1];
+  if (revision !== THREE_VERSION.split('.')[1]) {
+    throw new Error(`vendor/three.module.js is r${revision}, but the CDN build pins three@${THREE_VERSION}`);
   }
-  return { code: output.text, metafile: result.metafile, meta };
+  const integrity = {};
+  for (const spec of externals.sort()) {
+    integrity[cdnURL(spec)] = `sha384-${crypto.createHash('sha384').update(fs.readFileSync(vendoredFile(spec))).digest('base64')}`;
+  }
+  const json = JSON.stringify({ imports: CDN_IMPORTS, integrity }, null, 2);
+  if (/<\/script|<!--/i.test(json)) throw new Error('import map is not safe to inline');
+  return { json, urls: Object.keys(integrity) };
+}
+
+/** index.html's own module-script onerror handler, attached to the inline module script instead. */
+function cdnErrorScript(handler) {
+  if (!handler) return '';
+  const body = handler
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .trim();
+  if (/<\/script|<!--/i.test(body)) throw new Error('index.html module onerror handler is not safe to inline');
+  return [
+    '<script>',
+    '/* three.js comes from the CDN: if it cannot be fetched, show the intro card\'s error state. */',
+    "document.currentScript.previousElementSibling.addEventListener('error', function () {",
+    `  ${body};`,
+    '});',
+    '</script>',
+  ].join('\n');
 }
 
 // ---------------------------------------------------------------- inline-safety
@@ -201,6 +272,8 @@ function readPage() {
   const descTag = html.match(/<meta\b[^>]*\bname\s*=\s*["']description["'][^>]*>/i)?.[0];
   const description = descTag?.match(/\bcontent\s*=\s*"([^"]*)"/i)?.[1] ?? descTag?.match(/\bcontent\s*=\s*'([^']*)'/i)?.[1];
   if (description == null) throw new Error('index.html has no <meta name="description">');
+  const moduleTag = html.match(/<script\b[^>]*\btype\s*=\s*["']module["'][^>]*>/i)?.[0];
+  const moduleOnError = moduleTag?.match(/\bonerror\s*=\s*"([^"]*)"/i)?.[1] ?? null;
   const bodyMatch = html.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
   if (!bodyMatch) throw new Error('index.html has no <body>');
   if (/^<body\s+[^\s>]/i.test(bodyMatch[0])) {
@@ -224,7 +297,7 @@ function readPage() {
   const fetching = body.match(/\s(?:src|href|srcset|poster|action|formaction|background)\s*=\s*["']?(?!data:|#|javascript:void)[^"'\s>]+/i);
   if (fetching) throw new Error(`index.html body references a resource: ${fetching[0].trim()}`);
   if (/url\(\s*['"]?(?!data:|#)/i.test(body)) throw new Error('index.html body has an inline-style url()');
-  return { title, description, body };
+  return { title, description, body, moduleOnError };
 }
 
 // ---------------------------------------------------------------- main
@@ -238,21 +311,29 @@ async function main() {
 
   const page = readPage();
   const css = inlineSafeCss(fs.readFileSync(path.join(ROOT, 'styles.css'), 'utf8').trim());
-  const { code, metafile, meta } = await bundle(esbuild, opts.target);
+  const { code, metafile, meta, externals } = await bundle(esbuild, opts);
   const { safe: script, fixes } = await inlineSafeScript(esbuild, code.trim());
+  const cdn = opts.threeCdn ? cdnImportMap(externals) : null;
 
+  const origin = cdn
+    ? `three.js r170 from cdn.jsdelivr.net via the import map, sha384-pinned). Its only external resources are those three.js modules.`
+    : `three.js r170 inline). No external resources.`;
   const head = [
     `<title>${page.title}</title>`,
     `<meta name="description" content="${page.description}">`,
-    `<!-- ${page.title}: single-page build of popup-film/ (tools/build-artifact.mjs; esbuild ${esbuild.version}, ${opts.target}, three.js r170 inline). No external resources. -->`,
+    `<!-- ${page.title}: single-page build of popup-film/ (tools/build-artifact.mjs; esbuild ${esbuild.version}, ${opts.target}, ${origin} -->`,
   ].join('\n');
-  const doc = `${head}\n<style>\n${css}\n${COMPAT_CSS}</style>\n${page.body}\n<script type="module">\n${script}\n</script>\n`;
+  const scripts = cdn
+    ? `<script type="importmap">\n${cdn.json}\n</script>\n<script type="module">\n${script}\n</script>\n${cdnErrorScript(page.moduleOnError)}\n`
+    : `<script type="module">\n${script}\n</script>\n`;
+  const doc = `${head}\n<style>\n${css}\n${COMPAT_CSS}</style>\n${page.body}\n${scripts}`;
 
   // The host supplies the document skeleton: none of ours may leak in (the bundle is opaque text).
-  const markup = doc.slice(0, doc.indexOf('<script type="module">'));
+  const markup = doc.slice(0, doc.indexOf('<script'));
   const stray = markup.match(/<!doctype|<\/?html[\s>]|<\/?head[\s>]|<\/?body[\s>]/i);
   if (stray) throw new Error(`fragment contains a document-level tag: ${stray[0]}`);
   if (/<\/script/i.test(script) || script.includes('<!--')) throw new Error('bundle is not safe to inline');
+  if (cdn && !page.moduleOnError) console.error('[build-artifact] warning: index.html has no module onerror handler; a failed CDN fetch will leave the loading card up');
 
   const bytes = Buffer.byteLength(doc);
   if (bytes > MAX_BYTES) throw new Error(`output is ${fmt(bytes)}, over the ${fmt(MAX_BYTES)} limit`);
@@ -269,14 +350,22 @@ async function main() {
   const sum = (re) => inputs.filter((i) => re.test(i.p)).reduce((s, i) => s + i.n, 0);
   const scriptBytes = Buffer.byteLength(script);
   const cssBytes = Buffer.byteLength(css) + Buffer.byteLength(COMPAT_CSS);
+  const style = cdn ? 'NOT minified (readable)' : 'minified';
   console.log(`[build-artifact] wrote ${file}`);
   console.log(`  total      ${fmt(bytes)} (${bytes.toLocaleString('en-US')} bytes; limit ${fmt(MAX_BYTES)})`);
-  console.log(`  script     ${fmt(scriptBytes)} — ${inputs.length} modules, esm, minified, ${opts.target}, esbuild ${esbuild.version}`);
-  console.log(`               three.js ${fmt(sum(/vendor\//))} (${threeCopies} copy) · film code ${fmt(sum(/^src\//))}`);
+  console.log(`  script     ${fmt(scriptBytes)} — ${inputs.length} modules, esm, ${style}, ${opts.target}, esbuild ${esbuild.version}`);
+  if (cdn) {
+    console.log(`               three.js not inlined: import map → jsDelivr three@${THREE_VERSION}, sha384 integrity per module:`);
+    for (const url of cdn.urls) console.log(`                 ${url}`);
+    console.log(`               film code ${fmt(sum(/^src\//))}`);
+  } else {
+    console.log(`               three.js ${fmt(sum(/vendor\//))} (${threeCopies} copy) · film code ${fmt(sum(/^src\//))}`);
+  }
   console.log(`               largest: ${inputs.slice(0, 5).map((i) => `${i.p.replace(/^.*?(src|vendor)\//, '$1/')} ${fmt(i.n)}`).join(', ')}`);
   console.log(`  style      ${fmt(cssBytes)} (styles.css verbatim + host-compat block)`);
   console.log(`  markup     ${fmt(Buffer.byteLength(page.body))} (index.html body, no script/link/import-map tags)`);
-  console.log(`  inline-safety  ${fixes ? `${fixes} sequence(s) escaped and re-parsed` : 'no </script or <!-- in the bundle'} · 0 external imports`);
+  const imports = cdn ? `${externals.length} external imports, all three.js via the import map` : '0 external imports';
+  console.log(`  inline-safety  ${fixes ? `${fixes} sequence(s) escaped and re-parsed` : 'no </script or <!-- in the bundle'} · ${imports}`);
   console.log(`  done in ${((Date.now() - started) / 1000).toFixed(1)} s`);
 }
 

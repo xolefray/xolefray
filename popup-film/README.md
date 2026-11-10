@@ -248,11 +248,19 @@ Some hosts wrap a page in their own document and sandbox it, which breaks the im
 module loading. For those hosts, build one self-contained file:
 
 ```sh
-node tools/build-artifact.mjs --out <dir>     # writes <dir>/index.html
+node tools/build-artifact.mjs --out <dir>                # writes <dir>/index.html
+node tools/build-artifact.mjs --out <dir> --three-cdn    # the same, but three.js comes from jsDelivr
 ```
 
-The output is a single HTML page with the CSS and an esbuild bundle of the whole film, three.js
-included, inlined. It makes no network requests. The first run fetches esbuild through `npx`.
+The output is an HTML fragment. It has no doctype and no `<html>`, `<head>` or `<body>` tags,
+because the host supplies those. The CSS, the page markup and an esbuild bundle of the film are
+inlined in it. By default three.js is bundled in too, the script is minified, and the page makes
+no network requests at all. With `--three-cdn`, the film code stays unminified and readable, and an
+inline import map loads three.js r170 from `https://cdn.jsdelivr.net/npm/three@0.170.0/` (the
+`build/` and `examples/jsm/` files, byte-identical to `vendor/`). Each module is pinned with a
+`sha384` integrity hash, so a changed file is refused. If the CDN can't be reached, the title card
+shows its error message. Use this mode for hosts whose CSP allows that CDN. The first run installs
+esbuild 0.24.0 into `~/.cache/popup-film-build/`, which needs the npm registry once.
 
 ## How this was built
 
