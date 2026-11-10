@@ -21,9 +21,9 @@ const DAY = {
   dust: 1.0, dustColor: 0xffe2b0,
 };
 const NIGHT = {
-  keyDir: [-3.0, 10, 3.5], keyColor: 0xa4b4e0, key: 0.8,
-  skyColor: 0x4f6299, groundColor: 0x1a1a2a, sky: 0.6,
-  fillDir: [4, 3, 8], fillColor: 0x8d9bcc, fill: 0.8,
+  keyDir: [-3.0, 10, 3.5], keyColor: 0xb4c6dc, key: 1.0,
+  skyColor: 0x5a72a0, groundColor: 0x1a1a2a, sky: 0.7,
+  fillDir: [3, 2.2, 8], fillColor: 0xa6bad0, fill: 1.4,
   bg: 0x06080f, vigFloor: 0.03, vigR: 11.5, exposure: 1.0,
   dust: 0.35, dustColor: 0xb8c8ff,
 };

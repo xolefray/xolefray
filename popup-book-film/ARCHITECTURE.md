@@ -21,7 +21,9 @@ identical frame no matter what was shown before. So, in every module:
   "last frame" state that changes what you draw). Compute positions in closed form
   from `state.t`, `state.segT`, `state.spreadTime[k]`, `spread.time`, etc.
 - **No `Date.now()` / `performance.now()` / `clock.getDelta()`.** Only
-  `main.js`'s playback clock touches real time.
+  `main.js` touches real time: its playback clock, and its resolution governor
+  (which only changes the renderer's pixel ratio while playing, never film
+  content; see main.js below).
 - Caching derived values is fine as long as the output depends only on the input
   state.
 
@@ -41,7 +43,9 @@ node tools/smoke.mjs --times=1,8.5,14 --out=/tmp/my-frames --width=1280 --height
 ```
 
 URL parameters of `index.html`: `t=<seconds>` start time, `autoplay=0|1`
-(default 1), `controls=0` hides `#ui` (for frame capture), `loop=1`.
+(default 1), `controls=0` hides `#ui` (for frame capture; also disables the
+resolution governor), `loop=1`, `res=<number>` pins the renderer's pixel ratio
+(e.g. `res=1`) and disables the resolution governor.
 
 **smoke.mjs** starts its own static server on an ephemeral port, launches
 Chromium (software WebGL2 via SwiftShader — slow but works), opens
@@ -248,6 +252,9 @@ the file — starts accumulate):
   titleCard,            // opening title opacity: in 1-2, hold, out 5-6
   endCard,              // "The End" opacity: in 74-75.5, hold to the end
   night,                // 0 until the turn into spread 4, ramps 0->1 over 55.5-58.5, stays 1
+                        // through the night spread and the book closing; once the book has
+                        // nearly shut it eases back down to 0.3 over 72.8-76 (a warm desk
+                        // lamp coming up again for the closed book and "The End"), stays 0.3
   glow }                // lantern lit: 0 until 61.5, ramps 0->1 over 61.5-64, stays 1
 ```
 
@@ -301,8 +308,17 @@ calls `scene.update` when visible.
 ### main.js
 
 - Renderer: antialias, shadow maps on (`PCFShadowMap`, see the r187 note), sRGB
-  output, ACES filmic tone mapping, pixel ratio `min(devicePixelRatio, 2)`,
-  resize handling → `cameraRig.resize(aspect)`.
+  output, ACES filmic tone mapping, pixel ratio `min(devicePixelRatio, 2)` (or
+  the `res=` value), resize handling → `cameraRig.resize(aspect)`.
+- Resolution governor (the one place besides the playback clock that reads
+  real time): while PLAYING, an exponential moving average of the real frame
+  interval above ~40 ms for ~1 s steps the pixel ratio down ×0.85 (floor 0.6,
+  or the starting ratio if lower); below ~24 ms for ~4 s steps it back up toward
+  the starting ratio; 1.5 s settle after every change (hysteresis). It never
+  runs when paused or on `seek()`, and is off with `controls=0` (capture is
+  always at the requested resolution) and with `res=` (pinned). It changes only
+  the drawing-buffer resolution, never what the film shows.
+  `__film.debug.governor` exposes `{ enabled, pixelRatio, average }`.
 - Frame update order: `state = getFilmState(t)` → stage → book → scenes →
   cameraRig → captions → ui → audio → `renderer.render(scene, cameraRig.camera)`.
 - Film controller on `window.__film`: `ready` (Promise, resolves after the first
@@ -357,8 +373,21 @@ approximately the same x and z with y + `PAGE_SURFACE_Y` (0.2).
 - `camera.js` also exports `cameraPose(t, aspect)` (pure; target, yaw, pitch,
   dist, fov, roll). One continuous take: shots are closed-form functions of t,
   cross-blended with smootherstep weights; a sub-degree closed-form handheld sway
-  is added. Narrow viewports widen the lens (up to +20 deg vertical) and dolly back.
-  The camera stays above y ~ 2.2 and in front of the book (z > 3) at all times.
+  is added. Turns, the cover opening and the book closing are wide, high and
+  centred on the spine. The holds each have a character: forest low and from the
+  left through the trees; village a lateral track along the street from the clock
+  tower to the fox; sea low and afloat (bob and roll); mountain sinks low and
+  looks up at the summit and moon, then (by ~51 s) settles into a framing that
+  holds the moon, the sliver's whole arc, the fox and the lantern above the
+  caption band for the sliver beat (52–54.5 s); night pushes in on the fox, then
+  pulls back and rises for the glowing reveal. Close framings keep the staged
+  fox (a per-spread box measured from the scenes, `HERO` in camera.js) in frame
+  and, in the last part of each hold, above the caption band (lower ~20 % of the
+  frame). Narrow viewports widen the lens (up to +20 deg vertical) and dolly back;
+  portrait viewports also pitch ~9 deg steeper, fit a narrower strip around the
+  fox and slide the open book a little down the frame, so the spread fills more
+  of the tall frame. The camera stays above y ~ 2.1 and in front of the book
+  (z > 3.5) at all times.
 - Caption timing (captions.js `captionOpacity(k, t)`): fades in 1.2-2.2 s after a
   hold begins, gone 0.25 s before the next turn. Title card in the upper part of
   the frame (the intro shot frames the cover low while it shows); "The End" sits
@@ -396,19 +425,23 @@ approximately the same x and z with y + `PAGE_SURFACE_Y` (0.2).
 ### Stage lights (stage.js) — what scene authors can rely on
 
 All lights except the lantern live in `stage.js`; every value below is lerped by
-`state.night` (0 by day, 1 from 58.5 s to the end, including the closed book at
-the end).
+`state.night` (0 by day, 1 from 58.5 s until the book has nearly shut, then
+easing to 0.3 over 72.8–76 s, so the closed book at the end is lit mostly by
+the warm day look).
 
 | light | day (`night` = 0) | night (`night` = 1) |
 |---|---|---|
-| key (DirectionalLight, the only shadow caster) | warm `#ffd7a3`, 3.0, from (−5.5, 9, 3.5): upper left, a little toward the viewer, ~54° up; shadows fall toward +x and slightly −z | moonlight `#a4b4e0`, 0.8, from (−3, 10, 3.5), ~65° up (higher) |
-| sky (HemisphereLight) | sky `#d3defa` / ground `#5a3e2a`, 0.55 | sky `#4f6299` / ground `#1a1a2a`, 0.6 |
-| fill (DirectionalLight, no shadows) | cool `#a9c1ff`, 0.5, from (6, 3.5, 6): right front | `#8d9bcc`, 0.8, from (4, 3, 8) |
+| key (DirectionalLight, the only shadow caster) | warm `#ffd7a3`, 3.0, from (−5.5, 9, 3.5): upper left, a little toward the viewer, ~54° up; shadows fall toward +x and slightly −z | silvery moonlight `#b4c6dc`, 1.0, from (−3, 10, 3.5), ~65° up (higher) |
+| sky (HemisphereLight) | sky `#d3defa` / ground `#5a3e2a`, 0.55 | sky `#5a72a0` / ground `#1a1a2a`, 0.7 |
+| fill (DirectionalLight, no shadows) | cool `#a9c1ff`, 0.5, from (6, 3.5, 6): right front | `#a6bad0`, 1.4, from (3, 2.2, 8): low, mostly frontal |
 | background / fog | `#150f0c` (fog 32–60, only hides the horizon) | `#06080f` |
 
 Directions are from the target (the origin) toward the light. At night cream pages
 read as mid blue-grey and coloured card stays readable but dark (navy and deep
-red cards become very dark): the stage leaves the warm accent to the lantern
+red cards become very dark). The night light is kept silvery rather than deep
+blue and the frontal fill fairly strong, so dark-teal card (the night forest's
+pines) still separates from indigo card by hue and reads as shapes, not only as
+cut edges. The stage leaves the warm accent to the lantern
 (a scene-owned light driven by `state.glow`). `renderer.toneMappingExposure` is set by the stage every
 frame (1.0 day and night); do not set it elsewhere. The desk is darkened away
 from the book in its own shader (full brightness within ~4 units of the book,
