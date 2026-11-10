@@ -79,7 +79,7 @@ let audio;
 let rig;
 let controls = null;
 let ui = null;
-let audioStart = null;
+let audioWarned = false;
 let dirty = 0;
 let lastT = NaN;
 let framesRendered = 0;
@@ -129,17 +129,15 @@ function seek(t) {
   dirty = Math.max(dirty, 1);
 }
 
-/** audio.start() must run inside a user gesture; called synchronously from every gesture we see. */
+/**
+ * audio.start() (async, idempotent) needs a user gesture, so it is called synchronously from
+ * every gesture the page handles: Begin, play/pause, shortcuts, scrubbing, replay, film clicks.
+ */
 function startAudio() {
-  audioStart ??= (async () => {
-    try {
-      await audio.start();
-    } catch (err) {
-      console.warn('[film] audio could not start:', err);
-      audioStart = null;
-    }
-  })();
-  return audioStart;
+  Promise.resolve(audio.start()).catch((err) => {
+    if (!audioWarned) console.warn('[film] audio could not start:', err);
+    audioWarned = true;
+  });
 }
 
 window.__film = {

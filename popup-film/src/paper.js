@@ -2,83 +2,87 @@
  * paper.js — the paper look of "The Little Paper Boat": palettes, canvas painting helpers
  * (fibre grain, die-cut borders), paper materials, printed cut-out cards and folded paper models.
  * Everything is procedural and deterministic (seeded); nothing here allocates per frame.
+ * Units: 1 = 10 cm. Typical piece: a 384x512 px canvas on a 0.9 x 1.2 card (~430 px per unit).
  *
- * Exports (each with a short usage example):
- *
- *   PAPER, PALETTES — colour constants as '#rrggbb' strings.
+ * PAPER, PALETTES — colour constants as '#rrggbb' strings (PALETTES.forest|sea|city|sky.<name>).
  *     ctx.fillStyle = PALETTES.forest.fox;
  *     const { navy, foam } = PALETTES.sea;
- *     paperMaterial({ color: PAPER.cream });
+ *     const mat = paperMaterial({ color: PAPER.cream });
  *
- *   makeCanvas(w, h) -> { canvas, ctx } — 2D canvas (CPU-backed, cheap to read back).
+ * makeCanvas(w, h) -> { canvas, ctx } — CPU-backed 2D canvas (cheap pixel read-back).
  *     const { canvas, ctx } = makeCanvas(512, 512);
  *     ctx.fillStyle = PALETTES.city.brick;
  *     ctx.fillRect(40, 40, 432, 432);
  *
- *   addGrain(ctx, w, h, { amount=0.06, seed=1 }) — paper fibres + mottling, only where alpha > 0.
+ * addGrain(ctx, w, h, { amount=0.06, seed=1, mottle=1 }) — paper tooth, fibres and low-frequency
+ * mottling (scaled by `mottle`), added only where alpha > 0. ~3-4 ms for 512² (unloaded machine).
  *     const { canvas, ctx } = makeCanvas(256, 256);
- *     drawMyArt(ctx);
+ *     drawStar(ctx);
  *     addGrain(ctx, 256, 256, { amount: 0.05, seed: 7 });
  *
- *   dieCut(canvas, { margin=8, color=PAPER.white, edge=true }) -> new canvas — the art on a die-cut
- *   paper border grown `margin` px around its silhouette (leave >= margin px of empty padding).
+ * dieCut(canvas, { margin=8, color=PAPER.white, edge=true }) -> NEW canvas, same size: the art over
+ * a paper border grown `margin` px around its silhouette (alpha >= ~10%), with a faint darker cut
+ * line at its outer rim when `edge`. Leave at least `margin` px of empty padding around the art.
  *     const cut = dieCut(canvas, { margin: 10 });
- *     const cream = dieCut(canvas, { margin: 6, color: PAPER.cream, edge: false });
- *     scene.add(card({ canvas: cut, width: 1, height: 1 }));
+ *     const plain = dieCut(canvas, { margin: 6, color: PAPER.cream, edge: false });
+ *     group.add(card({ canvas: cut, width: 1, height: 1 }));
  *
- *   paint(w, h, draw, { grain=0.05, dieCut=8, seed=1 }) -> canvas — make, draw, die-cut, grain.
- *     const tree = paint(384, 512, (ctx, w, h) => { ctx.fillStyle = PALETTES.forest.mid;
- *       ctx.beginPath(); ctx.moveTo(w / 2, 20); ctx.lineTo(w - 30, h - 30); ctx.lineTo(30, h - 30); ctx.fill(); },
- *       { seed: 3 });
+ * paint(w, h, draw, { grain=0.05, dieCut=8, seed=1 }) -> canvas: makeCanvas, draw(ctx, w, h), die-cut
+ * (0 = none), then grain over art AND border (so the border is real-looking paper too).
+ *     const star = paint(256, 256, drawStar, { seed: 3 });
+ *     const flat = paint(512, 128, drawBanner, { dieCut: 0 });
+ *     const piece = card({ canvas: star, width: 0.4, height: 0.4 });
  *
- *   page(draw, { seed=1, tint }) -> 768x1024 page-art canvas: paper base, your art, grain + print mottle.
+ * page(draw, { seed=1, tint }) -> 768x1024 page-art canvas (contract 3.2): base colour (tint ??
+ * PAPER.white), draw(ctx, 768, 1024), then grain with stronger print mottle. No gutter shading.
  *     const rightArt = page((ctx, w, h) => {
  *       ctx.fillStyle = PALETTES.sea.teal; ctx.fillRect(0, h * 0.6, w, h * 0.4);
- *     }, { seed: 21 });
+ *     }, { seed: 21, tint: PAPER.cream });
  *
- *   texture(canvas) -> THREE.CanvasTexture (sRGB, anisotropy 8, trilinear mipmaps). Live: redraw the
- *   canvas and set `tex.needsUpdate = true`. For alpha-cut art prefer cutoutTexture (no dark fringes).
- *     const tex = texture(page(drawSea));
- *     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3, 4), paperMaterial({ map: tex }));
- *     mesh.receiveShadow = true;
+ * texture(canvas) -> THREE.CanvasTexture (sRGB, anisotropy 8, trilinear mipmaps). Live: redraw the
+ * canvas and set `tex.needsUpdate = true`. For alpha-cut art use cutoutTexture (no dark fringes).
+ *     const tex = texture(rightArt);
+ *     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(3, 4), paperMaterial({ map: tex }));
+ *     sheet.receiveShadow = true;
  *
- *   cutoutTexture(canvas) -> THREE.Texture — snapshot of `canvas` whose transparent texels carry the
- *   colour of the nearest opaque texel, so filtering/mipmaps never bleed black into cut edges.
- *     const tex = cutoutTexture(paint(256, 256, drawStar));
- *     const mat = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5 });
- *     const star = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), mat);
+ * cutoutTexture(canvas) -> THREE.Texture (same settings): a SNAPSHOT of the canvas whose transparent
+ * texels carry the colour of the nearest opaque texel, so filtering and mipmaps never pull black
+ * into cut edges. card()/splitCard() use it; use it for your own alpha-tested meshes too.
+ *     const tex = cutoutTexture(star);
+ *     const mat = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide });
+ *     const sprite = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), mat);
  *
- *   paperMaterial({ color, map, roughness=0.92, ...extra }) -> MeshStandardMaterial (metalness 0).
- *   Without a map (and without extra options) the material is cached and SHARED per colour: clone
- *   it before mutating.
- *     const mat = paperMaterial({ color: PALETTES.sky.peach });
- *     const strip = new THREE.Mesh(new THREE.BoxGeometry(1, 0.003, 0.2), mat);
+ * paperMaterial({ color, map, roughness=0.92, ...extra }) -> MeshStandardMaterial, metalness 0. With
+ * no map and no extra options it is cached and SHARED per colour: clone() before mutating it.
+ *     const peach = paperMaterial({ color: PALETTES.sky.peach });
+ *     const strip = new THREE.Mesh(new THREE.BoxGeometry(1, 0.003, 0.2), peach);
  *     const art = paperMaterial({ map: texture(canvas), side: THREE.DoubleSide });
  *
- *   card({ canvas, width, height, back=PAPER.cream, anchor='bottom-center', alphaTest=0.5 })
- *   -> THREE.Group: printed face toward +Z (z = +0.0015), plain back face toward -Z (z = -0.0015),
- *   both cut to the canvas alpha (shadows too). anchor: 'bottom-center'|'bottom-left'|
- *   'bottom-right'|'center'. group.userData = { front, back, texture } (meshes + shared texture).
- *     const tree = card({ canvas: paint(384, 512, drawTree), width: 0.9, height: 1.2 });
+ * card({ canvas, width, height, back=PAPER.cream, anchor='bottom-center', alphaTest=0.5 }) ->
+ * THREE.Group in its local XY plane: printed face toward +Z (at z=+0.0015), plain `back`-coloured
+ * face toward -Z (z=-0.0015), both cut to the canvas alpha; shadows are silhouette-shaped.
+ * anchor: 'bottom-center' | 'bottom-left' | 'bottom-right' | 'center' (origin placement).
+ * group.userData = { front, back, texture } (the two meshes and their shared texture).
+ *     const tree = card({ canvas: paint(384, 512, drawTree, { dieCut: 10 }), width: 0.9, height: 1.2 });
  *     mech.mount.add(tree);
- *     tree.rotation.y = 0.1;
+ *     tree.position.x = -0.4;
  *
- *   splitCard({ canvas, width, height, back=PAPER.cream, alphaTest=0.5 }) -> { left, right } — one
- *   artwork for a V-fold: left = u in [0,.5] on x in [-w/2,0], right = u in [.5,1] on x in [0,w/2],
- *   bottom edge at y = 0, origin at the bottom of the seam. Both halves share one texture.
+ * splitCard({ canvas, width, height, back=PAPER.cream, alphaTest=0.5 }) -> { left, right }: one
+ * artwork for a V-fold. left shows u in [0,.5] on x in [-w/2,0]; right shows u in [.5,1] on
+ * x in [0,w/2]; bottom edge at y=0; origin = bottom of the seam. Halves share one texture.
  *     const { left, right } = splitCard({ canvas: panorama, width: 2.4, height: 1.2 });
  *     fold.left.add(left);
  *     fold.right.add(right);
  *
- *   boat({ color=PAPER.white, scale=1 }) -> THREE.Group — folded newspaper boat, origin at the
- *   waterline centre, bow +X, 0.6 long, keel at y = -0.05, peak at y = +0.30 (x scale).
+ * boat({ color=PAPER.white, scale=1 }) -> THREE.Group: folded newspaper boat, origin at the waterline
+ * centre, bow +X, 0.6 long, keel at y=-0.05, peak at y=+0.30 (all times scale). Casts shadows.
  *     const b = boat({ scale: 0.5 });
  *     b.position.set(1.2, 0.01, 0.4);
- *     b.rotation.z = Math.sin(t * 2) * 0.05;
+ *     b.rotation.x = Math.sin(t * 2) * 0.05;
  *
- *   crane({ color=PAPER.white, scale=1 }) -> THREE.Group — origami crane, origin at body centre,
- *   head toward +X, wingspan 0.8 (x scale). group.userData.setFlap(v), v in [-1, 1] (pure):
- *   -1 = wings fully down, 0 = slight dihedral, 1 = wings fully up.
+ * crane({ color=PAPER.white, scale=1 }) -> THREE.Group: origami crane, origin at body centre, head
+ * toward +X, wingspan 0.8 (times scale). userData.setFlap(v), v in [-1, 1], is pure (no state):
+ * -1 = wings ~36 deg down, 0 = slight dihedral, 1 = wings ~50 deg up.
  *     const c = crane({ color: PALETTES.sky.dawn, scale: 0.6 });
  *     c.userData.setFlap(Math.sin(t * 6));
  *     group.add(c);
@@ -132,9 +136,9 @@ export const PALETTES = {
   },
 };
 
-function hexToRgb(hex) {
+function cssToRgb(css) {
   const c = new THREE.Color();
-  c.setStyle(hex, THREE.SRGBColorSpace);
+  c.setStyle(css, THREE.SRGBColorSpace);
   const out = {};
   c.getRGB(out, THREE.SRGBColorSpace);
   return [out.r * 255, out.g * 255, out.b * 255];
@@ -183,7 +187,7 @@ function getFibreTile() {
     let a = rnd() * Math.PI * 2;
     const len = 6 + rnd() * rnd() * 34;
     const curl = (rnd() - 0.5) * 0.16;
-    const s = (rnd() < 0.65 ? 1 : -1) * (0.5 + rnd() * 0.9);
+    const s = (rnd() < 0.6 ? 1 : -1) * (0.3 + rnd() * 0.5);
     for (let k = 0; k < len; k++) {
       splat(x, y, s * Math.sin((Math.PI * (k + 0.5)) / len));
       x += Math.cos(a) * 0.75;
@@ -293,21 +297,27 @@ const FAR = 1e20;
  */
 function distanceField(inside, W, H, wantNearest) {
   const n = W * H;
-  const g = new Float64Array(n);
+  // Vertical pass, row-major for cache friendliness: squared distance to the nearest inside cell
+  // in the same column (and its row), sweeping down then up with per-column trackers.
+  const g = new Float32Array(n);
   const ny = wantNearest ? new Int32Array(n) : null;
-  for (let x = 0; x < W; x++) {
-    let last = -1;
-    for (let y = 0, i = x; y < H; y++, i += W) {
-      if (inside[i]) last = y;
-      g[i] = last < 0 ? FAR : (y - last) * (y - last);
-      if (ny) ny[i] = last;
+  const track = new Int32Array(W).fill(-1);
+  for (let y = 0, i = 0; y < H; y++) {
+    for (let x = 0; x < W; x++, i++) {
+      if (inside[i]) track[x] = y;
+      const t = track[x];
+      g[i] = t < 0 ? FAR : (y - t) * (y - t);
+      if (ny) ny[i] = t;
     }
-    let next = -1;
-    for (let y = H - 1, i = x + (H - 1) * W; y >= 0; y--, i -= W) {
-      if (inside[i]) next = y;
-      if (next >= 0 && (next - y) * (next - y) < g[i]) {
-        g[i] = (next - y) * (next - y);
-        if (ny) ny[i] = next;
+  }
+  track.fill(-1);
+  for (let y = H - 1, i = n - 1; y >= 0; y--) {
+    for (let x = W - 1; x >= 0; x--, i--) {
+      if (inside[i]) track[x] = y;
+      const t = track[x];
+      if (t >= 0 && (t - y) * (t - y) < g[i]) {
+        g[i] = (t - y) * (t - y);
+        if (ny) ny[i] = t;
       }
     }
   }
@@ -385,7 +395,7 @@ export function dieCut(canvas, { margin = 8, color = PAPER.white, edge = true } 
         for (let x = 0, p = ((y + y0) * w + x0) * 4 + 3; x < W; x++, p += 4) inside[y * W + x] = src[p] >= 24 ? 1 : 0;
       }
       const { d2 } = distanceField(inside, W, H, false);
-      const [pr, pg, pb] = hexToRgb(color);
+      const [pr, pg, pb] = cssToRgb(color);
       const er = pr * 0.86;
       const eg = pg * 0.84;
       const eb = pb * 0.8;
@@ -472,9 +482,7 @@ export function cutoutTexture(canvas) {
       d[p + 2] = d[q + 2];
     }
   }
-  const tex = configureTexture(new THREE.Texture(img));
-  tex.userData.source = canvas;
-  return tex;
+  return configureTexture(new THREE.Texture(img));
 }
 
 const materialCache = new Map();
@@ -518,12 +526,13 @@ function alphaOnlyMap(shader) {
 function buildCard(geometry, map, backColor, alphaTest) {
   const front = new THREE.Mesh(
     geometry,
-    new THREE.MeshStandardMaterial({ map, alphaTest, roughness: 0.92, metalness: 0 }),
+    new THREE.MeshStandardMaterial({ map, alphaTest, alphaToCoverage: true, roughness: 0.92, metalness: 0 }),
   );
   const backMat = new THREE.MeshStandardMaterial({
     color: backColor,
     map,
     alphaTest,
+    alphaToCoverage: true,
     roughness: 0.95,
     metalness: 0,
     side: THREE.BackSide,
