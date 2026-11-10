@@ -1,13 +1,20 @@
 // Spread 6 — "February 6, 2027". The book stays open: the garden keeps twinkling
 // under the end card until DURATION. Times come from timeline.BEATS / SPREADS / END_CARD.
 // Drawings: characters cycle "wedding", dog-bowtie, and love-story/art/wedding/.
+// The couple is one V-fold on the arch's gamma: Marlin on the left half, Brian on the right,
+// both wedding frames at one scale, swapped by showing one pair of halves.
 // update() allocates nothing.
 import { photoPrint, PHOTO_ASPECT } from '../photos.js';
 
-const GAMMA = 1.78; // one mountain angle — arch and trees stay parallel, so they never cross
-const COUPLE_H = 1.62;
-const COUPLE_X = 1.76; // right page, front half, under the arch
-const COUPLE_Z = 0.56;
+const GAMMA = 1.78; // one mountain angle — arch, trees, couple and ribbon stay parallel
+const COUPLE_BODY = 1.8; // feet to the top of the hair, world units
+const COUPLE_Z = -0.55; // in front of the arch, centred on the gutter
+const ARCH_Z = -0.9;
+const ARCH_H = 2.42;
+const ARCH_EXTRA = 336; // post extension below the drawing so the swag clears their heads
+const RIB_Z = 0.36;
+const RIB_H = 1.02; // icons are drawn at 0.45 inside this; "forever" is larger
+const RIB_W = 5.4;
 
 function bump(t, at) {
   const u = (t - at) / 0.4;
@@ -129,12 +136,12 @@ export default {
       return w;
     };
 
-    // Trees sit further back; the floral arch is the same gamma, a little nearer the reader.
-    const treesH = 2.18;
-    const treesZ = -0.9;
+    // Trees sit behind the arch. Same gamma, so the planes never meet.
+    const treesH = 2.08;
+    const treesZ = -1.0;
     const tInfo = info('trees-backdrop');
     const treesNat = treesH * (tInfo ? tInfo.w / tInfo.h : 1.94);
-    const treesW = fitWidth(treesZ, treesH, Math.max(treesNat, 5.05));
+    const treesW = fitWidth(treesZ, treesH, Math.min(Math.max(treesNat, 4.2), 4.55));
     const trees = track(popup.vFold({ z0: treesZ, gamma: GAMMA, width: treesW, height: treesH }));
 
     const paintDate = (ctx2, w, h) => {
@@ -167,16 +174,20 @@ export default {
       mountSplit(paper, trees, flat, treesW, treesH, 'trees-backdrop');
     }
 
-    const archH = 2.06;
-    const archZ = -0.52;
-    const aInfo = info('arch');
-    const archNat = archH * (aInfo ? aInfo.w / aInfo.h : 2);
-    const archW = fitWidth(archZ, archH, Math.max(archNat, 4.25));
-    const arch = track(popup.vFold({ z0: archZ, gamma: GAMMA, width: archW, height: archH }));
-    if (aInfo) {
-      const painted = cloneCanvas(paper, art.canvas('arch'));
-      paintDate(painted.ctx, painted.canvas.width, painted.canvas.height);
-      mountSplit(paper, arch, painted.canvas, archW, archH, 'arch');
+    // Posts are lengthened under the drawing so the centre swag sits above the couple.
+    const archSrc = aInfoReady(art);
+    const archBuilt = archSrc ? extendArch(paper, archSrc, ARCH_EXTRA) : null;
+    const archPainted = archBuilt ? archBuilt.canvas : null;
+    const archPxH = archPainted ? archPainted.height : 512;
+    const archW = archPainted ? ARCH_H * (archPainted.width / archPxH) : 4.2;
+    const archFit = fitPair(popup, ARCH_Z, ARCH_H, archW);
+    const archH = archFit.h;
+    const arch = track(popup.vFold({ z0: ARCH_Z, gamma: GAMMA, width: archFit.w, height: archH }));
+    const swagPx = archSrc ? opaqueRun(archSrc, 0.5).bot : Math.round(512 * 0.32);
+    const swagY = archH * (1 - (swagPx > 0 ? swagPx : 165) / archPxH);
+    if (archBuilt) {
+      paintDate(archBuilt.ctx, archPainted.width, archSrc.height);
+      mountSplit(paper, arch, archPainted, archFit.w, archH, 'arch');
     } else {
       const flat = paper.paint(1000, 500, (ctx2, w, h) => {
         ctx2.strokeStyle = '#7d9a62';
@@ -189,7 +200,7 @@ export default {
         ctx2.stroke();
         paintDate(ctx2, w, h);
       }, { dieCut: 8, seed: 4 });
-      mountSplit(paper, arch, flat, archW, archH, 'arch');
+      mountSplit(paper, arch, flat, archFit.w, archH, 'arch');
     }
 
     // Lanterns hang in the arch opening, split on the same fold.
@@ -197,88 +208,98 @@ export default {
     let lanternH = 0;
     if (has('lantern-string')) {
       const meta = art.info('lantern-string');
-      const lanternW = Math.min(archW * 0.78, 3.5);
+      const lanternW = Math.min(archFit.w * 0.72, 2.4);
       lanternH = lanternW * meta.h / meta.w;
-      const y = Math.max(0.15, archH * 0.8 - lanternH);
+      // Hang in the opening, just under the swag, so the string frames the couple.
+      const y = Math.max(0.2, swagY - lanternH - 0.02);
       // Keep the closed thickness under the fold test (page normal < 0.045).
       const halves = mountSplit(paper, arch, art.canvas('lantern-string'), lanternW, lanternH, 'lantern-string', y, 0.012);
       lanternRigs.push(halves.left, halves.right);
     }
 
-    // ---------------------------------------------------------------- couple (one card — the drawings are a pair)
-    const couple = track(popup.standUp({
-      side: 'right', x: COUPLE_X, z: COUPLE_Z, fold: 'back', width: 1.15, height: COUPLE_H,
+    // ---------------------------------------------------------------- couple, straddling the gutter under the arch
+    // The centre column of each drawing already runs between the two bodies
+    // (Marlin left, Brian right), so paper.splitCard's midline is the fold.
+    const couplePair = mountCouple(paper, characters, COUPLE_BODY);
+    const coupleFit = fitPair(popup, COUPLE_Z, couplePair.height * 1.08, Math.max(couplePair.width, 1.1));
+    const coupleScale = couplePair.height > coupleFit.h / 1.08 && couplePair.height > 0
+      ? (coupleFit.h / 1.08) / couplePair.height
+      : 1;
+    const couple = track(popup.vFold({
+      z0: COUPLE_Z,
+      gamma: GAMMA,
+      width: couplePair.width * coupleScale,
+      height: couplePair.height * coupleScale,
     }));
-    const coupleRig = new THREE.Group();
-    coupleRig.name = 'couple';
-    couple.mount.add(coupleRig);
-
-    const cycle = characters && characters.cycle ? characters.cycle('wedding') : [];
-    const flip = cycle.length
-      ? characterArt.characterFlip(paper, characters, cycle, { height: COUPLE_H })
-      : null;
-    let coupleSpreadX = COUPLE_X - 0.28;
-    if (flip) {
-      coupleRig.add(flip.group);
-      const ref = characters.info(cycle[0]);
-      const s = ref ? COUPLE_H / ref.h : 1;
-      if (ref) coupleSpreadX = COUPLE_X + ((ref.w / 2) - ref.feet[0]) * s;
-      // characterCard plants the feet, so the canvas (and its paper margin) hangs
-      // below the hinge. Lift each frame until the canvas bottom sits on the glue line.
-      const frames = flip.group.children;
-      for (let i = 0; i < frames.length; i++) {
-        const meta = characters.info(cycle[i]);
-        if (!meta) continue;
-        frames[i].position.y = (meta.h - meta.feet[1]) * s;
-        frames[i].name = cycle[i];
+    const leftRig = new THREE.Group();
+    leftRig.name = 'couple-left';
+    const rightRig = new THREE.Group();
+    rightRig.name = 'couple-right';
+    couple.left.add(leftRig);
+    couple.right.add(rightRig);
+    const pairs = [];
+    if (couplePair.frames.length) {
+      for (let i = 0; i < couplePair.frames.length; i++) {
+        const frame = couplePair.frames[i];
+        frame.left.scale.setScalar(coupleScale);
+        frame.right.scale.setScalar(coupleScale);
+        leftRig.add(frame.left);
+        rightRig.add(frame.right);
+        pairs.push(frame);
       }
     } else {
-      const add = (who, x, facing) => {
-        let card = null;
-        try {
-          card = figures.figureCard(paper, who, { outfit: 'wedding', pose: 'stand', facing, scale: 0.78 });
-        } catch {
-          card = null;
-        }
-        if (!card) return;
-        card.position.x = x;
-        if (card.userData && card.userData.baseline) card.position.y = -card.userData.baseline;
-        card.name = `${who}-wedding`;
-        coupleRig.add(card);
-      };
-      add('her', -0.34, 'right');
-      add('him', 0.28, 'left');
+      mountFallbackCouple(figures, paper, leftRig, rightRig);
     }
+    let shown = -1;
+    const showPair = (index) => {
+      if (!pairs.length) return;
+      let i = index;
+      if (i < 0) i = 0;
+      if (i >= pairs.length) i = pairs.length - 1;
+      if (i === shown) return;
+      for (let k = 0; k < pairs.length; k++) {
+        const on = k === i;
+        pairs[k].left.visible = on;
+        pairs[k].right.visible = on;
+      }
+      shown = i;
+    };
+    showPair(0);
+    const coupleTop = couplePair.height * coupleScale;
 
-    // "They love that date." — a small heart over the couple.
-    const loveHeart = makeHeartMesh(THREE, paper, 0.24);
+    // "They love that date." — a small heart over the joined hands.
+    const loveHeart = makeHeartMesh(THREE, paper, 0.28);
     loveHeart.name = 'love-heart';
-    loveHeart.position.set(-0.05, COUPLE_H * 0.92, 0.03);
+    loveHeart.position.set(0.02, Math.max(0.4, coupleTop * 0.96), 0.01);
     loveHeart.scale.setScalar(0.001);
-    coupleRig.add(loveHeart);
+    rightRig.add(loveHeart);
 
-    // ---------------------------------------------------------------- dog, beside Brian (outer side of the right page)
+    // ---------------------------------------------------------------- dog, right beside Brian
     const dogH = 0.5;
+    const dogMeta = characters && characters.info ? characters.info('dog-bowtie') : null;
+    const dogW = dogMeta && dogMeta.h ? dogH * (dogMeta.w / dogMeta.h) : 0.28;
+    // Beside Brian, just in front of the ribbon so the banner cannot hide him.
     const dog = track(popup.standUp({
-      side: 'right', x: 2.42, z: 0.9, fold: 'back', width: 0.36, height: dogH,
+      side: 'right', x: 0.8, z: 0.32, fold: 'back', width: dogW, height: dogH,
     }));
     const dogRig = new THREE.Group();
     dogRig.name = 'dog';
     dog.mount.add(dogRig);
     placeDog(characterArt, paper, characters, figures, dogRig, 'dog-bowtie', dogH);
 
-    // ---------------------------------------------------------------- chairs, easel + print, flowers, cake, calendar
-    const chairH = 0.74;
+    // ---------------------------------------------------------------- garden around the aisle: chairs face the arch
     placeStand(THREE, track, popup, characterArt, paper, art, {
-      id: 'chairs-left', side: 'left', x: 1.95, z: -0.42, height: chairH, name: 'chairs-left',
+      id: 'chairs-left', side: 'left', x: 1.72, z: 0.02, height: 0.58, name: 'chairs-left',
     });
     placeStand(THREE, track, popup, characterArt, paper, art, {
-      id: 'chairs-right', side: 'right', x: 2.15, z: -0.5, height: 0.7, name: 'chairs-right',
+      id: 'chairs-right', side: 'right', x: 1.82, z: -0.06, height: 0.55, name: 'chairs-right',
     });
 
-    const easelH = 1.16;
+    const easelH = 1.15;
+    const easelX = 2.28;
+    const easelZ = 0.68;
     const easel = track(popup.standUp({
-      side: 'left', x: 2.52, z: 0.12, fold: 'back', width: 0.62, height: easelH,
+      side: 'left', x: easelX, z: easelZ, fold: 'back', width: 0.58, height: easelH,
     }));
     easel.mount.name = 'easel';
     if (has('easel')) addProp(characterArt, paper, art, easel.mount, 'easel', easelH, 0, 0);
@@ -293,9 +314,9 @@ export default {
       seed: 6,
     });
     const photoRatio = shot.height / shot.width;
-    let photoH = 0.84;
+    let photoH = 0.72;
     let photoW = photoH / photoRatio;
-    const photoLim = popup.standUpLimits({ x: 2.52, z: 0.12, width: photoW, fold: 'back' });
+    const photoLim = popup.standUpLimits({ x: easelX, z: easelZ, width: photoW, fold: 'back' });
     if (photoH > photoLim.maxHeight) {
       photoH = photoLim.maxHeight * 0.96;
       photoW = photoH / photoRatio;
@@ -314,25 +335,27 @@ export default {
 
     const flowerRigs = [];
     flowerRigs.push(placeStand(THREE, track, popup, characterArt, paper, art, {
-      id: 'flower-pots', side: 'left', x: 3.12, z: 0.62, height: 0.9, name: 'flowers-left',
+      id: 'flower-pots', side: 'left', x: 2.85, z: -0.38, height: 1.02, name: 'flowers-left',
     }));
     flowerRigs.push(placeStand(THREE, track, popup, characterArt, paper, art, {
-      id: 'flower-pots', side: 'right', x: 3.16, z: 0.28, height: 0.86, flip: true, name: 'flowers-right',
+      id: 'flower-pots', side: 'left', x: 3.12, z: 0.92, height: 0.7, name: 'flowers-left-front',
+    }));
+    flowerRigs.push(placeStand(THREE, track, popup, characterArt, paper, art, {
+      id: 'flower-pots', side: 'right', x: 2.2, z: -0.48, height: 0.88, flip: true, name: 'flowers-right',
     }));
 
     placeStand(THREE, track, popup, characterArt, paper, art, {
-      id: 'cake', side: 'right', x: 3.05, z: 1.08, height: 0.7, name: 'cake',
+      id: 'cake', side: 'right', x: 2.35, z: 1.02, height: 0.74, name: 'cake',
     });
 
     // Desk calendar. The block is blank; the month and the two dates are painted here.
     // SUN 7's cross and SAT 6's heart are separate sprites so the strokes can draw on.
-    const calH = 1.02;
-    const calX = 2.78;
-    const calZ = 0.16;
-    const cal = track(popup.standUp({
-      side: 'right', x: calX, z: calZ, fold: 'back', width: 1.06, height: calH,
-    }));
-    cal.mount.name = 'calendar';
+    // Fractions are centres on the cream face (the block's right edge is the wood side).
+    const SAT = { x: 0.30, y: 0.50 };
+    const SUN = { x: 0.64, y: 0.50 };
+    let calH = 1.32;
+    const calX = 2.88; // clear of the ribbon's "forever"
+    const calZ = 0.46;
     const calCanvas = has('desk-calendar')
       ? cloneCanvas(paper, art.canvas('desk-calendar')).canvas
       : paper.paint(640, 640, (ctx2, w, h) => {
@@ -340,8 +363,20 @@ export default {
         ctx2.fillRect(24, 24, w - 48, h - 48);
       }, { dieCut: 0, seed: 8 });
     const calPainted = cloneCanvas(paper, calCanvas);
-    paintCalendar(calPainted.ctx, calPainted.canvas.width, calPainted.canvas.height, FONT, C);
-    const calW = calH * (calPainted.canvas.width / calPainted.canvas.height);
+    paintCalendar(calPainted.ctx, calPainted.canvas.width, calPainted.canvas.height, FONT, C, SAT, SUN);
+    const calAspect = calPainted.canvas.width / calPainted.canvas.height;
+    let calW = calH * calAspect;
+    const calLim0 = popup.standUpLimits({ x: calX, z: calZ, width: calW, fold: 'back' });
+    if (calW > calLim0.maxWidth * 0.96) calW = calLim0.maxWidth * 0.96;
+    const calLim = popup.standUpLimits({ x: calX, z: calZ, width: calW, fold: 'back' });
+    if (calH > calLim.maxHeight * 0.96) {
+      calH = calLim.maxHeight * 0.96;
+      calW = calH * calAspect;
+    }
+    const cal = track(popup.standUp({
+      side: 'right', x: calX, z: calZ, fold: 'back', width: calW, height: calH,
+    }));
+    cal.mount.name = 'calendar';
     const calCard = paper.card({
       canvas: paper.dieCut(calPainted.canvas, { margin: 6 }),
       width: calW,
@@ -351,31 +386,24 @@ export default {
     calCard.name = 'desk-calendar';
     cal.mount.add(calCard);
 
-    const markW = calW * 0.34;
-    const cross = makeCross(THREE, paper, markW);
+    const markW = calW * 0.46;
+    const cross = makeCross(THREE, paper, markW * 0.86);
     cross.name = 'sunday-cross';
-    cross.position.set((0.66 - 0.5) * calW, (1 - 0.56) * calH, 0.02);
+    cross.position.set((SUN.x - 0.5) * calW, (1 - SUN.y) * calH, 0.02);
     cross.scale.setScalar(0.001);
     calCard.add(cross);
-    const heartMark = makeHeartRing(THREE, paper, markW * 1.15);
+    const heartMark = makeHeartRing(THREE, paper, markW);
     heartMark.name = 'saturday-heart';
-    heartMark.position.set((0.32 - 0.5) * calW, (1 - 0.55) * calH, 0.02);
+    heartMark.position.set((SAT.x - 0.5) * calW, (1 - SAT.y) * calH + calH * 0.02, 0.02);
     heartMark.scale.setScalar(0.001);
     calCard.add(heartMark);
 
-    // ---------------------------------------------------------------- ribbon timeline along the front edge
-    const ribH = 0.38;
-    const ribLZ = 1.22;
-    const ribL = mountRibbon(THREE, track, popup, paper, FONT, C, rng, {
-      side: 'left', x: 1.42, z: ribLZ, width: 1.95, height: ribH, which: 'left',
-    });
-    const ribR = mountRibbon(THREE, track, popup, paper, FONT, C, rng, {
-      side: 'right', x: 1.5, z: ribLZ, width: 2.15, height: ribH, which: 'right',
-    });
+    // ---------------------------------------------------------------- ribbon across the front of both pages
+    const rib = mountRibbon(THREE, track, popup, paper, FONT, C, rng);
 
     // ---------------------------------------------------------------- petals, hearts, twinkles
-    const scatterL = track(popup.onPage({ side: 'left', x: 1.55, z: 0.35, lift: 0.006 }));
-    const scatterR = track(popup.onPage({ side: 'right', x: 1.7, z: 0.45, lift: 0.006 }));
+    const scatterL = track(popup.onPage({ side: 'left', x: 1.15, z: 0.12, lift: 0.006 }));
+    const scatterR = track(popup.onPage({ side: 'right', x: 1.2, z: 0.16, lift: 0.006 }));
     const bitsL = new THREE.Group();
     bitsL.name = 'petals-left';
     scatterL.mount.add(bitsL);
@@ -383,22 +411,22 @@ export default {
     bitsR.name = 'petals-right';
     scatterR.mount.add(bitsR);
 
-    const petalGeo = new THREE.PlaneGeometry(0.15, 0.22);
-    const heartGeo = new THREE.PlaneGeometry(0.2, 0.18);
+    const petalGeo = new THREE.PlaneGeometry(0.22, 0.32);
+    const heartGeo = new THREE.PlaneGeometry(0.24, 0.22);
     const petals = [];
     const floatHearts = [];
     const petalMatA = spriteMat(THREE, paper, paintPetal(paper, '#e8788c'));
     const petalMatB = spriteMat(THREE, paper, paintPetal(paper, '#f6c2c8'));
     const floatHeartMat = spriteMat(THREE, paper, paintHeart(paper, '#e2574c'));
-    addFloater(THREE, bitsL, petals, petalGeo, petalMatA, rng, 3, -0.55, 0.7);
-    addFloater(THREE, bitsR, petals, petalGeo, petalMatB, rng, 3, -0.4, 1.15);
-    addFloater(THREE, bitsL, floatHearts, heartGeo, floatHeartMat, rng, 1, -0.2, 0.35);
-    addFloater(THREE, bitsR, floatHearts, heartGeo, floatHeartMat, rng, 2, -0.2, 0.9);
+    addFloater(THREE, bitsL, petals, petalGeo, petalMatA, rng, 3, -0.85, 0.7);
+    addFloater(THREE, bitsR, petals, petalGeo, petalMatB, rng, 3, -0.75, 1.15);
+    addFloater(THREE, bitsL, floatHearts, heartGeo, floatHeartMat, rng, 1, -0.4, 0.45);
+    addFloater(THREE, bitsR, floatHearts, heartGeo, floatHeartMat, rng, 1, -0.35, 0.85);
 
     const twinkles = [];
     const starMat = spriteMat(THREE, paper, paintStar(paper), true);
     const starGeo = new THREE.PlaneGeometry(0.16, 0.16);
-    addTwinkles(THREE, arch, twinkles, starGeo, starMat, archW, archH, 4);
+    addTwinkles(THREE, arch, twinkles, starGeo, starMat, archFit.w, archH, 4);
     if (lanternRigs.length && lanternH > 0) {
       const half = (lanternRigs[0].userData && lanternRigs[0].userData.halfW) || 1.2;
       addLanternGlows(THREE, lanternRigs, twinkles, starGeo, starMat, half, lanternH);
@@ -407,10 +435,9 @@ export default {
     const glow = new THREE.PointLight('#ffd7a8', 0, 6.5, 1.6);
     glow.name = 'wedding-glow';
     glow.castShadow = false;
-    glow.position.set(0.4, 1.55, 0.35);
+    glow.position.set(0, 1.65, COUPLE_Z + 0.2);
     group.add(glow);
 
-    let shown = 0;
     const celebrate = BEATS.celebrate;
     const notSunday = BEATS.notSunday;
     const forever = BEATS.walmartToForever;
@@ -421,12 +448,12 @@ export default {
       leftArt,
       rightArt,
       cues: [
-        { t: spread.open, hold: 1.6, at: [0, 1.05, 0], size: 7.5, from: 'front' },
-        { t: weddingDate + 0.5, hold: 6.4, at: [coupleSpreadX, 0.95, COUPLE_Z], size: 3.0, from: 'front' },
-        { t: notSunday + 0.2, hold: 2.6, at: [calX, calH * 0.5, calZ], size: 1.8, from: 'right' },
-        { t: forever + 0.2, hold: 2.5, at: [0.15, 0.32, ribLZ], size: 5.0, from: 'low' },
-        { t: celebrate + 0.2, hold: 2.8, at: [coupleSpreadX, 1.0, COUPLE_Z], size: 2.2, from: 'front' },
-        { t: BEATS.endCard, hold: END_CARD.end - END_CARD.start, at: [0, 1.2, 0], size: 7.5, from: 'high' },
+        { t: spread.open, hold: 1.6, at: [0, 1.15, -0.15], size: 7.5, from: 'front' },
+        { t: weddingDate + 0.5, hold: 6.4, at: [0, 1.05, COUPLE_Z], size: 3.0, from: 'front' },
+        { t: notSunday + 0.2, hold: 2.8, at: [calX, calH * 0.52, calZ], size: 2.15, from: 'front' },
+        { t: forever + 0.25, hold: 2.6, at: [0, 1.0, 0.0], size: 5, from: 'front' },
+        { t: celebrate + 0.2, hold: 2.8, at: [0, 1.1, COUPLE_Z], size: 2.8, from: 'front' },
+        { t: BEATS.endCard, hold: END_CARD.end - END_CARD.start, at: [0, 1.25, -0.2], size: 7.5, from: 'high' },
       ],
       update(alpha, t) {
         const n = mechanisms.length;
@@ -434,21 +461,22 @@ export default {
         const risen = popup.rise(alpha);
         const fade = 1 - smoothstep(END_CARD.fadeStart, END_CARD.end, t);
 
-        const frame = t >= celebrate ? 1 : 0;
-        if (flip && frame !== shown) {
-          flip.show(frame);
-          shown = frame;
-        }
+        showPair(t >= celebrate ? 1 : 0);
         const pop = bump(t, weddingDate) * 0.65 + bump(t, celebrate);
         const breathe = 1 + Math.sin(t * 1.45) * 0.012;
-        coupleRig.scale.set(breathe * (1 - 0.06 * pop), breathe * (1 + 0.1 * pop), 1);
-        coupleRig.position.y = Math.sin(t * 1.45) * 0.008 * risen;
+        const sx = breathe * (1 - 0.05 * pop);
+        const sy = breathe * (1 + 0.05 * pop);
+        leftRig.scale.set(sx, sy, 1);
+        rightRig.scale.set(sx, sy, 1);
+        const bob = Math.sin(t * 1.45) * 0.008 * risen;
+        leftRig.position.y = bob;
+        rightRig.position.y = bob;
 
         const loveU = smoothstep(loveDate, loveDate + 0.45, t);
         let loveS = ease.outBack(clamp01(loveU));
         if (loveS < 0) loveS = 0;
         loveHeart.scale.setScalar(Math.max(0.001, loveS) * (1 + Math.sin(t * 2.2) * 0.06));
-        loveHeart.position.y = COUPLE_H * 0.92 + Math.sin(t * 1.8) * 0.02 * loveS;
+        loveHeart.position.y = coupleTop * 0.96 + Math.sin(t * 1.8) * 0.02 * loveS;
 
         const ht = t - celebrate;
         let hop = 0;
@@ -480,15 +508,15 @@ export default {
         heartMark.rotation.z = Math.sin(t * 1.6) * 0.04 * hs;
 
         const uL = ease.outCubic(smoothstep(forever, forever + 0.7, t));
-        const uR = ease.outCubic(smoothstep(forever + 0.22, forever + 1.05, t));
-        ribL.pivot.scale.x = Math.max(0.001, uL);
-        ribR.pivot.scale.x = Math.max(0.001, uR);
+        const uR = ease.outCubic(smoothstep(forever + 0.28, forever + 1.15, t));
+        rib.left.scale.x = Math.max(0.001, uL);
+        rib.right.scale.x = Math.max(0.001, uR);
 
         const born = smoothstep(celebrate, celebrate + 1.15, t);
         bitsL.scale.setScalar(risen);
         bitsR.scale.setScalar(risen);
-        poseFloaters(petals, t, born, 0.9);
-        poseFloaters(floatHearts, t, born, 1.25);
+        poseFloaters(petals, t, born, 1.15);
+        poseFloaters(floatHearts, t, born, 1.45);
 
         const party = smoothstep(celebrate, celebrate + 0.55, t);
         const dateFlash = bump(t, weddingDate);
@@ -503,6 +531,144 @@ export default {
     };
   },
 };
+
+function aInfoReady(art) {
+  return art && art.has && art.has('arch') ? art.canvas('arch') : null;
+}
+
+function opaqueRun(canvas, xFrac) {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const x = Math.min(canvas.width - 1, Math.max(0, Math.round(canvas.width * xFrac)));
+  const { data, height } = ctx.getImageData(x, 0, 1, canvas.height);
+  let top = -1;
+  let bot = -1;
+  for (let y = 0; y < height; y++) {
+    if (data[y * 4 + 3] > 24) {
+      if (top < 0) top = y;
+      bot = y;
+    }
+  }
+  return { top, bot };
+}
+
+// Repeat the plain column so the floral swag stays put and the plinth drops to the new foot.
+function extendArch(paper, src, extra) {
+  const sw = src.width;
+  const sh = src.height;
+  const footH = 48;
+  const bandTop = 336;
+  const bandBot = sh - footH;
+  const bandH = bandBot - bandTop;
+  const { canvas, ctx } = paper.makeCanvas(sw, sh + extra);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, sw, bandBot, 0, 0, sw, bandBot);
+  const destBottom = sh + extra - footH;
+  for (let y = bandBot; y < destBottom;) {
+    const slice = Math.min(bandH, destBottom - y);
+    ctx.drawImage(src, 0, bandTop, sw, slice, 0, y, sw, slice);
+    y += slice;
+  }
+  ctx.drawImage(src, 0, sh - footH, sw, footH, 0, sh + extra - footH, sw, footH);
+  return { canvas, ctx };
+}
+
+function fitPair(popup, z0, height, width) {
+  let h = height;
+  let w = width;
+  for (let i = 0; i < 12; i++) {
+    if (popup.vFoldLimits({ z0, gamma: GAMMA, width: w, height: h }).fits) return { w, h };
+    h *= 0.98;
+    w *= 0.98;
+  }
+  return { w, h };
+}
+
+function opaqueTop(canvas) {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  for (let y = 0; y < height; y++) {
+    const row = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      if (data[row + x * 4 + 3] > 24) return y;
+    }
+  }
+  return 0;
+}
+
+function cropToFeet(paper, src, feetY) {
+  const bottom = Math.min(src.height, Math.ceil(feetY) + 12);
+  const { canvas, ctx } = paper.makeCanvas(src.width, bottom);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, src.width, bottom, 0, 0, src.width, bottom);
+  return canvas;
+}
+
+// Pad so `split` (a source column between the two bodies) becomes the canvas centre.
+function centreOnColumn(paper, src, split) {
+  const half = Math.max(split, src.width - split);
+  const { canvas, ctx } = paper.makeCanvas(half * 2, src.height);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, half - split, 0);
+  return canvas;
+}
+
+// Per frame: the seam between the faces. wedding-1's centre line cuts Brian's leaned-in head.
+const COUPLE_SPLIT = { 'wedding-0': 317, 'wedding-1': 317 };
+
+function mountCouple(paper, characters, bodyH) {
+  const empty = { frames: [], width: 1.2, height: bodyH };
+  const cycle = characters && characters.cycle ? characters.cycle('wedding') : [];
+  if (!cycle.length) return empty;
+  const refInfo = characters.info(cycle[0]);
+  const refCanvas = characters.canvas(cycle[0]);
+  if (!refInfo || !refCanvas || !(refInfo.feet && refInfo.feet[1] > 0)) return empty;
+  const bodyPx = Math.max(1, refInfo.feet[1] - opaqueTop(refCanvas));
+  const s = bodyH / bodyPx;
+  const frames = [];
+  let width = 0;
+  let height = 0;
+  for (let i = 0; i < cycle.length; i++) {
+    const id = cycle[i];
+    const info = characters.info(id);
+    const src = characters.canvas(id);
+    if (!info || !src) continue;
+    const split = COUPLE_SPLIT[id] ?? Math.round(src.width / 2);
+    const placed = centreOnColumn(paper, cropToFeet(paper, src, info.feet[1]), split);
+    const cut = paper.dieCut(placed, { margin: 8 });
+    const w = cut.width * s;
+    const h = cut.height * s;
+    const halves = paper.splitCard({ canvas: cut, width: w, height: h });
+    halves.left.visible = false;
+    halves.right.visible = false;
+    halves.left.name = `${id}-left`;
+    halves.right.name = `${id}-right`;
+    frames.push(halves);
+    if (w > width) width = w;
+    if (h > height) height = h;
+  }
+  if (!frames.length) return empty;
+  return { frames, width, height };
+}
+
+function mountFallbackCouple(figures, paper, leftRig, rightRig) {
+  if (!figures || !figures.figureCard) return;
+  let her = null;
+  let him = null;
+  try {
+    her = figures.figureCard(paper, 'her', { outfit: 'wedding', pose: 'holdHandsL', facing: 'left', scale: 1.7 });
+    him = figures.figureCard(paper, 'him', { outfit: 'wedding', pose: 'holdHandsR', scale: 1.55 });
+  } catch {
+    return;
+  }
+  if (her) {
+    her.position.set(-0.02, 0, 0);
+    leftRig.add(her);
+  }
+  if (him) {
+    him.position.set(0.02, 0, 0);
+    rightRig.add(him);
+  }
+}
 
 function mountSplit(paper, mech, canvas, width, height, name, y = 0, z = 0) {
   const cut = canvas.width ? paper.dieCut(canvas, { margin: 8 }) : canvas;
@@ -572,74 +738,95 @@ function placeDog(characterArt, paper, characters, figures, rig, id, height) {
   return card;
 }
 
-function paintCalendar(ctx, w, h, FONT, C) {
+function paintCalendar(ctx, w, h, FONT, C, sat, sun) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const display = (size) => `${size}px ${FONT.display}`;
   const hand = (size) => `700 ${size}px ${FONT.hand}`;
   ctx.fillStyle = '#8d3d45';
-  ctx.font = display(fitSize(ctx, 'FEB 2027', display, Math.round(h * 0.1), w * 0.7));
-  ctx.fillText('FEB 2027', w * 0.46, h * 0.2);
+  ctx.font = display(fitSize(ctx, 'FEB 2027', display, Math.round(h * 0.11), w * 0.72));
+  ctx.fillText('FEB 2027', w * 0.46, h * 0.16);
   ctx.fillStyle = C.ink;
-  ctx.font = hand(Math.round(h * 0.065));
-  ctx.fillText('SAT', w * 0.32, h * 0.4);
-  ctx.fillText('SUN', w * 0.66, h * 0.4);
-  ctx.font = display(Math.round(h * 0.15));
+  ctx.font = hand(Math.round(h * 0.075));
+  ctx.fillText('SAT', w * sat.x, h * 0.34);
+  ctx.fillText('SUN', w * sun.x, h * 0.34);
+  ctx.font = display(Math.round(h * 0.2));
   ctx.fillStyle = '#c4473b';
-  ctx.fillText('6', w * 0.32, h * 0.56);
+  ctx.fillText('6', w * sat.x, h * sat.y);
   ctx.fillStyle = C.ink;
-  ctx.fillText('7', w * 0.66, h * 0.56);
-  ctx.font = hand(fitSize(ctx, 'our anniversary — almost!', hand, Math.round(h * 0.05), w * 0.78));
+  ctx.fillText('7', w * sun.x, h * sun.y);
+  // Two lines so the note stays large enough to read in the close cue.
   ctx.fillStyle = '#8a5a4a';
-  ctx.fillText('our anniversary — almost!', w * 0.46, h * 0.8);
+  ctx.font = hand(fitSize(ctx, 'our anniversary', hand, Math.round(h * 0.078), w * 0.78));
+  ctx.fillText('our anniversary', w * 0.46, h * 0.74);
+  ctx.font = hand(fitSize(ctx, '— almost!', hand, Math.round(h * 0.078), w * 0.7));
+  ctx.fillText('— almost!', w * 0.46, h * 0.86);
 }
 
-function mountRibbon(THREE, track, popup, paper, FONT, C, rng, opts) {
-  const canvas = paper.paint(opts.which === 'left' ? 980 : 1100, 280, (ctx, w, h) => {
-    drawRibbon(ctx, w, h, FONT, C, rng, opts.which);
-  }, { dieCut: 8, seed: opts.which === 'left' ? 11 : 12 });
-  const mech = track(popup.standUp({
-    side: opts.side, x: opts.x, z: opts.z, fold: 'back', width: opts.width, height: opts.height,
-  }));
-  mech.mount.name = `ribbon-${opts.which}`;
-  // Scale about the start of the timeline: image-left, which is local −X.
-  const pivot = new THREE.Group();
-  pivot.position.x = -opts.width / 2;
-  const card = paper.card({ canvas, width: opts.width, height: opts.height, anchor: 'bottom-center' });
-  card.position.x = opts.width / 2;
-  card.name = `ribbon-${opts.which}`;
-  pivot.add(card);
-  pivot.scale.x = 0.001;
-  mech.mount.add(pivot);
-  return { pivot, mech };
+function mountRibbon(THREE, track, popup, paper, FONT, C, rng) {
+  const canvas = paper.paint(1590, 300, (ctx, w, h) => {
+    drawRibbon(ctx, w, h, FONT, C, rng);
+  }, { dieCut: 6, seed: 21 });
+  const fit = fitPair(popup, RIB_Z, RIB_H, RIB_W);
+  const mech = track(popup.vFold({ z0: RIB_Z, gamma: GAMMA, width: fit.w, height: fit.h }));
+  const halves = paper.splitCard({ canvas, width: fit.w, height: fit.h });
+  halves.left.name = 'ribbon-left';
+  halves.right.name = 'ribbon-right';
+  const left = new THREE.Group();
+  const right = new THREE.Group();
+  left.name = 'ribbon-unfurl-left';
+  right.name = 'ribbon-unfurl-right';
+  left.add(halves.left);
+  right.add(halves.right);
+  left.scale.x = 0.001;
+  right.scale.x = 0.001;
+  mech.left.add(left);
+  mech.right.add(right);
+  return { left, right, mech };
 }
 
-function drawRibbon(ctx, w, h, FONT, C, rng, which) {
+function drawRibbon(ctx, w, h, FONT, C, rng) {
   const ink = C.ink;
+  // Icons ≈ 0.45 world on a RIB_H card; "forever" is the large cut-letter word.
+  const icon = h * (0.45 / RIB_H);
+  const top = h * 0.14;
+  const band = h * 0.72;
+  const y = top + band * 0.52;
   ctx.fillStyle = '#f8e4ea';
-  roundBand(ctx, w * 0.06, h * 0.38, w * 0.88, h * 0.3, h * 0.12);
+  roundBand(ctx, w * 0.03, top, w * 0.94, band, h * 0.16);
   ctx.fill();
   ctx.strokeStyle = '#e7b4c0';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 5;
   ctx.stroke();
-  ctx.strokeStyle = C.mustard;
-  ctx.lineWidth = 2;
-  ctx.setLineDash([10, 12]);
+  // Swallowtail ends, so it reads as a ribbon rather than a bar.
+  ctx.fillStyle = '#f8e4ea';
   ctx.beginPath();
-  ctx.moveTo(w * 0.1, h * 0.53);
-  ctx.lineTo(w * 0.9, h * 0.53);
+  ctx.moveTo(w * 0.03, top + band * 0.18);
+  ctx.lineTo(w * 0.008, y);
+  ctx.lineTo(w * 0.03, top + band * 0.82);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(w * 0.97, top + band * 0.18);
+  ctx.lineTo(w * 0.992, y);
+  ctx.lineTo(w * 0.97, top + band * 0.82);
+  ctx.fill();
+  ctx.strokeStyle = C.mustard;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([14, 16]);
+  ctx.beginPath();
+  ctx.moveTo(w * 0.08, y);
+  ctx.lineTo(w * 0.48, y);
+  ctx.moveTo(w * 0.52, y);
+  ctx.lineTo(w * 0.92, y);
   ctx.stroke();
   ctx.setLineDash([]);
-  if (which === 'left') {
-    drawVest(ctx, w * 0.3, h * 0.52, h * 0.34, C);
-    drawPaw(ctx, w * 0.72, h * 0.52, h * 0.22, C);
-  } else {
-    drawHouse(ctx, w * 0.2, h * 0.52, h * 0.3, C);
-    drawRing(ctx, w * 0.48, h * 0.52, h * 0.2, C);
-    const font = (size) => `${size}px ${FONT.display}`;
-    const size = fitSize(ctx, 'forever', font, Math.round(h * 0.28), w * 0.34);
-    cutWord(ctx, 'forever', w * 0.76, h * 0.52, size, FONT, [C.tomato, ink, C.mustard, C.teal, C.blush, C.leaf, C.sky], rng);
-  }
+  drawVest(ctx, w * 0.13, y, icon, C);
+  drawPaw(ctx, w * 0.32, y, icon * 0.72, C);
+  drawHouse(ctx, w * 0.56, y, icon * 0.9, C);
+  drawRing(ctx, w * 0.68, y, icon * 0.62, C);
+  const font = (size) => `${size}px ${FONT.display}`;
+  const size = fitSize(ctx, 'forever', font, Math.round(h * 0.52), w * 0.2);
+  cutWord(ctx, 'forever', w * 0.79, y, size, FONT, [C.tomato, ink, C.mustard, C.teal, C.blush, C.leaf, C.sky], rng);
 }
 
 function roundBand(ctx, x, y, w, h, r) {
@@ -770,10 +957,10 @@ function makeHeartRing(THREE, paper, size) {
     ctx.strokeStyle = '#e2574c';
     ctx.lineWidth = 14;
     ctx.beginPath();
-    ctx.arc(128, 140, 78, 0, Math.PI * 2);
+    ctx.arc(112, 152, 70, 0, Math.PI * 2);
     ctx.stroke();
     ctx.fillStyle = '#e2574c';
-    heartPath(ctx, 128, 78, 28);
+    heartPath(ctx, 178, 78, 44);
     ctx.fill();
   }, { dieCut: 0, grain: 0, seed: 2 });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), spriteMat(THREE, paper, canvas));
@@ -899,15 +1086,13 @@ function addTwinkles(THREE, arch, list, geo, mat, archW, archH, count) {
 
 function addLanternGlows(THREE, rigs, list, geo, mat, halfW, lanternH) {
   for (let s = 0; s < rigs.length; s++) {
-    for (let i = 0; i < 2; i++) {
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.castShadow = false;
-      mesh.receiveShadow = false;
-      mesh.name = 'lantern-glow';
-      const sign = s === 0 ? -1 : 1;
-      mesh.position.set(sign * halfW * (0.32 + i * 0.4), lanternH * 0.55, 0.012);
-      rigs[s].add(mesh);
-      list.push({ mesh, freq: 1.6 + s + i * 0.4, phase: s * 2 + i, base: 1.05 });
-    }
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    mesh.name = 'lantern-glow';
+    const sign = s === 0 ? -1 : 1;
+    mesh.position.set(sign * halfW * 0.48, lanternH * 0.55, 0.012);
+    rigs[s].add(mesh);
+    list.push({ mesh, freq: 1.7 + s * 0.4, phase: s * 2.1, base: 1.05 });
   }
 }
