@@ -1,0 +1,15 @@
+{
+  "id": "confetti-cluster",
+  "file": "confetti-cluster.webp",
+  "w": 769,
+  "h": 678,
+  "feet": [
+    399.5,
+    649
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 0.46
+}

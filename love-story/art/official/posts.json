@@ -1,0 +1,15 @@
+{
+  "id": "posts",
+  "file": "posts.webp",
+  "w": 107,
+  "h": 521,
+  "feet": [
+    53.0,
+    492
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 0.42
+}

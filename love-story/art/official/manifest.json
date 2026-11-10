@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "items": {
+    "calendar": {
+      "id": "calendar",
+      "file": "calendar.webp",
+      "w": 789,
+      "h": 817,
+      "feet": [
+        402.5,
+        788
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 2
+    },
+    "candle-table": {
+      "id": "candle-table",
+      "file": "candle-table.webp",
+      "w": 765,
+      "h": 586,
+      "feet": [
+        388.5,
+        557
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 0.62
+    },
+    "confetti-cluster": {
+      "id": "confetti-cluster",
+      "file": "confetti-cluster.webp",
+      "w": 769,
+      "h": 678,
+      "feet": [
+        399.5,
+        649
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 0.46
+    },
+    "envelope-pile": {
+      "id": "envelope-pile",
+      "file": "envelope-pile.webp",
+      "w": 835,
+      "h": 597,
+      "feet": [
+        441.5,
+        568
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 0.72
+    },
+    "garland": {
+      "id": "garland",
+      "file": "garland.webp",
+      "w": 1024,
+      "h": 195,
+      "feet": [
+        475.5,
+        174
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 0.56
+    },
+    "page-left": {
+      "id": "page-left",
+      "file": "page-left.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 3
+    },
+    "page-right": {
+      "id": "page-right",
+      "file": "page-right.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 3
+    },
+    "photo-booth-strip": {
+      "id": "photo-booth-strip",
+      "file": "photo-booth-strip.webp",
+      "w": 367,
+      "h": 1024,
+      "feet": [
+        183.5,
+        999
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 1.18
+    },
+    "posts": {
+      "id": "posts",
+      "file": "posts.webp",
+      "w": 107,
+      "h": 521,
+      "feet": [
+        53,
+        492
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 0.42
+    }
+  },
+  "cycles": {}
+}
