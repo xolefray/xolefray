@@ -149,7 +149,10 @@ src/stage.js          desk, backdrop, ALL lights, scene.background/fog
 src/camera.js         camera rig (shots)
 src/captions.js       ALL DOM film overlays: #fade, title card, captions, end card
 src/ui.js             player controls inside #ui
-src/audio.js          sound (silent until a user gesture)
+src/audio.js          sound (silent until a user gesture): live scheduler + renderWav()
+src/audio/score.js    the score: deterministic event list in film time (pure, no Web Audio)
+src/audio/synth.js    noise/reverb assets, master bus, session graph, one function per voice
+src/audio/wav.js      16-bit PCM WAV encoder
 src/scenes/index.js   registry: sceneFactories in spread order
 src/scenes/{forest,village,sea,mountain,night}.js   one pop-up scene per spread
 src/paper.js          (another task) shared cut-paper materials/builders
@@ -344,10 +347,13 @@ camera.js    export function createCameraRig(ctx)    -> { camera /* PerspectiveC
 captions.js  export function createCaptions(ctx)     -> { update(state) }
              // owns ALL DOM film overlays: #fade, title card, captions, end card
 ui.js        export function createUI(ctx, film)     -> { update(state) }   // player controls inside #ui
-audio.js     export function createAudio(ctx, film)  -> { update(state), setMuted(bool), get muted }
+audio.js     export function createAudio(ctx, film)  -> { update(state), setMuted(bool), get muted,
+                                                  renderWav(), status, unlockStamp, unlock(e),
+                                                  subscribe(fn), debug }
              // must do nothing audible until a user gesture. main.js creates it BEFORE the
              // UI and exposes it as film.audio (= __film.audio); the player's sound button
              // calls film.audio.setMuted(b) and reflects film.audio.muted (also key M).
+             // See "Audio" below.
 scenes/*.js  export function createScene(ctx)        -> { left, right, center /* THREE.Group each */, update(state, spread) }
              // spread = { index, open /* 0..1 */, theta /* π·open */, time /* state.spreadTime[index] */ }
 scenes/index.js  export const sceneFactories = [forest, village, sea, mountain, night]  // createScene fns, in order
@@ -450,6 +456,49 @@ approximately the same x and z with y + `PAGE_SURFACE_Y` (0.2).
   Keys: Space/K play-pause, Left/Right -/+5 s, Home/End, F fullscreen, M mute.
   Mouse click on the picture toggles playback, double-click toggles fullscreen.
   The bar auto-hides after 2.8 s without activity while playing.
+
+## Audio (`src/audio.js`, `src/audio/*`)
+
+Fully procedural Web Audio: oscillators, seeded-noise buffers, biquads, a
+generated-impulse convolution reverb, a gentle master bus (high-pass 28 Hz, warm
+tilt, glue compressor, limiter, level, mute). No files, no libraries.
+
+- **The score is data.** `buildScore()` (`audio/score.js`) returns one sorted list
+  of events `{ t, dur, v, ... }` in film time (`v` = voice name in `synth.js`),
+  built once from the seeded `rng` (no `Math.random()` anywhere). F major, 3/4 at
+  60 bpm (bar = 3 s), bar grid anchored at 1.5 s so every hold and turn starts on a
+  downbeat. Timed cues read from the picture: lighthouse flashes at t = 2.5 n
+  (`sea.js`), the sliver's flight 52.45–54.15 (`mountain.js`), star ignition from
+  ~63.6 (`night.js` cascade), the page turns and bookClose (`timeline.js`), the
+  thump at 73.3. If those change, move the events in `score.js`.
+- **Unlock.** No `AudioContext` exists until the first real user activation
+  (`pointerdown`/`pointerup`/`touchend`/`click`/`keydown`, checked with
+  `navigator.userActivation.isActive` where available so the browser never warns).
+  `status` is `'locked' | 'running' | 'unsupported'`; `subscribe(fn)` is called on
+  status/mute changes; `unlockStamp` is the `event.timeStamp` of the unlocking
+  gesture (ui.js uses it so that gesture only turns sound on: it does not also
+  mute or pause the film).
+- **Sound follows film time.** `play` (or unlock while playing) opens a *session*
+  mapping film time to context time; events already sounding at the start point
+  join mid-note (envelopes are evaluated at "now", see `applyEnv`), so starting at
+  any t sounds like having played from 0 (bar the reverb tail). A look-ahead
+  scheduler (50 ms timer + every `update`) starts events up to 0.3 s ahead.
+  `pause` / `end` / `seek` fade the session out (~40 ms) and stop every source;
+  a seek while playing restarts 120 ms after the last seek (scrubbing does not
+  machine-gun). If film and audio clocks drift > 0.3 s (slow machine, loop wrap)
+  the session is restarted, at most every 2 s. Hidden tab: stopped, resumed on
+  return. Voices disconnect themselves when their sources end.
+- **`renderWav()`** → `Promise<ArrayBuffer>`: the whole 80 s through an
+  `OfflineAudioContext` (2 ch, 44.1 kHz) with the same session/voice code, encoded
+  as 16-bit PCM WAV. Needs no gesture and never touches the live context.
+  **Bit-identical across calls**: in the offline graph no node sums more than two
+  inputs (`mixInto` builds two-input trees), because Web Audio sums 3+ connections
+  in an unspecified order and the compressor amplifies the float noise; offline
+  voices are also not disconnected mid-render. Takes ~25–35 s in headless
+  SwiftShader Chromium. Measured: −19 LUFS integrated, sample peak ≈ −2 dBFS,
+  silent for the first second and the last half second.
+- `debug` (getter): `{ context, status, muted, sessions, session, dyingSessions,
+  scheduledEvents, activeVoices, nodesCreated, events }` for tests.
 
 ## Story and art direction
 

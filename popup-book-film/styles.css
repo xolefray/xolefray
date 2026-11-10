@@ -204,7 +204,9 @@ body.ui-idle, body.ui-idle #film { cursor: none; }
   color: #fff;
   transition: opacity 0.35s ease;
 }
-#ui.is-hidden { opacity: 0; }
+/* Hidden bar: fade the bar and replay button (not #ui itself, so the
+   "for sound" pill can stay while sound is still locked). */
+#ui.is-hidden .ui-bar, #ui.is-hidden .ui-replay { opacity: 0; }
 #ui.is-hidden .ui-bar { transform: translateY(8px); }
 
 .ui-bar {
@@ -215,7 +217,7 @@ body.ui-idle, body.ui-idle #film { cursor: none; }
   padding: 26px calc(var(--safe-r) + 12px) calc(var(--safe-b) + 6px) calc(var(--safe-l) + 12px);
   background: linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.32) 55%, rgba(0, 0, 0, 0));
   pointer-events: auto;
-  transition: transform 0.35s ease;
+  transition: transform 0.35s ease, opacity 0.35s ease;
 }
 #ui.is-hidden .ui-bar, #ui.is-hidden .ui-replay { pointer-events: none; }
 
@@ -368,9 +370,60 @@ body.ui-idle, body.ui-idle #film { cursor: none; }
   letter-spacing: 0.04em;
   pointer-events: auto;
   opacity: 1;
+  transition: opacity 0.35s ease;
 }
 .ui-replay:hover { background: rgba(40, 28, 18, 0.75); }
 #ui.is-ended .ui-replay { display: inline-grid; }
+
+/* ---- sound: locked until a user gesture ------------------------------------ */
+
+.ui-sound-label { white-space: nowrap; font-size: 13px; letter-spacing: 0.01em; }
+.ui-sound-label .for-mouse { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .ui-sound-label .for-touch { display: none; }
+  .ui-sound-label .for-mouse { display: inline; }
+}
+/* in the bar: the sound button grows into a labelled pill */
+.ui-btn.ui-mute.is-locked {
+  width: auto;
+  height: 34px;
+  margin: 0 4px;
+  padding: 0 12px 0 8px;
+  gap: 6px;
+  grid-auto-flow: column;
+  border: 1px solid rgba(227, 196, 138, 0.75);
+  border-radius: 17px;
+  background: rgba(14, 10, 7, 0.45);
+  opacity: 1;
+}
+.ui-btn.ui-mute.is-locked svg { width: 20px; height: 20px; }
+.ui-btn.ui-mute.is-locked:hover { background: rgba(40, 28, 18, 0.7); }
+/* while the bar is hidden: the same offer as a small pill in the corner */
+.ui-btn.ui-sound-hint {
+  position: absolute;
+  right: calc(var(--safe-r) + 14px);
+  bottom: calc(var(--safe-b) + 14px);
+  width: auto;
+  height: 34px;
+  padding: 0 12px 0 8px;
+  gap: 6px;
+  grid-auto-flow: column;
+  border: 1px solid rgba(227, 196, 138, 0.55);
+  border-radius: 17px;
+  background: rgba(14, 10, 7, 0.5);
+  color: var(--ink);
+  opacity: 0;
+  visibility: hidden;              /* (visibility, not pointer-events: it stays tappable while fading) */
+  pointer-events: auto;
+  transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+}
+.ui-btn.ui-sound-hint svg { width: 20px; height: 20px; }
+#ui.is-hidden.is-sound-locked .ui-sound-hint {
+  opacity: 0.85;
+  visibility: visible;
+  transition: opacity 0.35s ease 0.2s, visibility 0s;
+}
+#ui.is-hidden.is-sound-locked .ui-sound-hint:hover { opacity: 1; background: rgba(40, 28, 18, 0.7); }
 
 @media (max-width: 480px) {
   :root { --bar-h: 84px; }
@@ -381,5 +434,6 @@ body.ui-idle, body.ui-idle #film { cursor: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #ui, .ui-bar, .ui-btn, .ui-thumb, .ui-track { transition: none; }
+  #ui, .ui-bar, .ui-btn, .ui-thumb, .ui-track, .ui-replay,
+  .ui-btn.ui-sound-hint, #ui.is-hidden.is-sound-locked .ui-sound-hint { transition: none; }
 }

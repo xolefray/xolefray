@@ -1,6 +1,12 @@
 // Player controls inside #ui: play/pause, a scrubber with chapter ticks,
 // elapsed/total time, sound on/off, fullscreen and a replay affordance.
 //
+// Sound: browsers keep audio off until a user gesture. Until film.audio is
+// actually running, the sound button reads "Tap/Click for sound" and a small
+// pill with the same offer stays in the corner while the bar is hidden. The
+// gesture that turns sound on does nothing else (it does not also mute, or
+// pause the film when it was a click on the picture).
+//
 // This is player chrome, not film content: it may use timers and CSS
 // transitions (auto-hide). It never changes what a film frame looks like.
 import { SEGMENTS, SPREADS, FILM_TITLE } from './timeline.js';
@@ -102,6 +108,8 @@ export function createUI(ctx, film) {
   const chapter = document.createElement('span');
   chapter.className = 'ui-chapter';
   const muteBtn = button('ui-mute', 'Mute');
+  const soundHint = button('ui-sound-hint', 'Turn sound on');
+  soundHint.innerHTML = `${svg('soundOff')}<span class="ui-sound-label"><span class="for-touch">Tap</span><span class="for-mouse">Click</span> for sound</span>`;
   const fsBtn = button('ui-fs', 'Full screen');
   const fsTarget = document.documentElement;
   const fsSupported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
@@ -109,7 +117,7 @@ export function createUI(ctx, film) {
   row.append(playBtn, time, chapter, muteBtn, fsBtn);
 
   bar.append(scrub, row);
-  root.append(replayBig, bar);
+  root.append(replayBig, soundHint, bar);
 
   // --- actions --------------------------------------------------------------
   const audio = () => film.audio;
@@ -123,9 +131,20 @@ export function createUI(ctx, film) {
       if (p && p.catch) p.catch(() => {});
     }
   }
-  function toggleMute() {
+  const soundLocked = () => { const a = audio(); return !!a && a.status === 'locked'; };
+  /** True if `e` is (part of) the gesture that just turned sound on. */
+  const justUnlocked = (e) => {
     const a = audio();
-    if (a) a.setMuted(!a.muted);
+    if (!a || !(a.unlockStamp >= 0) || !e) return false;
+    const dt = e.timeStamp - a.unlockStamp;
+    return dt >= 0 && dt < 700;
+  };
+  function toggleMute(e) {
+    const a = audio();
+    if (!a) return;
+    // The gesture that unlocks sound means "sound on", never "mute".
+    if (soundLocked() || justUnlocked(e)) a.setMuted(false);
+    else a.setMuted(!a.muted);
     refresh();
   }
   function replay() {
@@ -136,6 +155,8 @@ export function createUI(ctx, film) {
   playBtn.addEventListener('click', () => film.toggle());
   replayBig.addEventListener('click', replay);
   muteBtn.addEventListener('click', toggleMute);
+  soundHint.addEventListener('click', toggleMute);
+  audio()?.subscribe?.(() => refresh());
   fsBtn.addEventListener('click', toggleFullscreen);
   document.addEventListener('fullscreenchange', () => refresh());
   document.addEventListener('webkitfullscreenchange', () => refresh());
@@ -186,8 +207,8 @@ export function createUI(ctx, film) {
   // Clicking the picture with a mouse toggles playback; a tap just reveals the bar.
   let lastPointerType = 'mouse';
   window.addEventListener('pointerdown', (e) => { lastPointerType = e.pointerType; }, true);
-  ctx.canvas.addEventListener('click', () => {
-    if (lastPointerType === 'mouse') film.toggle();
+  ctx.canvas.addEventListener('click', (e) => {
+    if (lastPointerType === 'mouse' && !justUnlocked(e)) film.toggle();
   });
   ctx.canvas.addEventListener('dblclick', toggleFullscreen);
 
@@ -210,7 +231,7 @@ export function createUI(ctx, film) {
       case 'Home': film.seek(0); break;
       case 'End': film.seek(D); break;
       case 'f': case 'F': toggleFullscreen(); break;
-      case 'm': case 'M': toggleMute(); break;
+      case 'm': case 'M': toggleMute(e); break;
       default: handled = false;
     }
     if (handled) e.preventDefault();
@@ -281,11 +302,23 @@ export function createUI(ctx, film) {
     });
     put('chapter', chapterAt(t), (v) => { chapter.textContent = v; });
     const a = audio();
-    put('muted', a ? !!a.muted : false, (m) => {
-      muteBtn.innerHTML = svg(m ? 'soundOff' : 'soundOn');
-      muteBtn.setAttribute('aria-label', 'Mute');
-      muteBtn.setAttribute('aria-pressed', String(m));
-      muteBtn.title = m ? 'Sound on (m)' : 'Mute (m)';
+    const sound = !a || a.status === 'unsupported' ? 'none' : a.status === 'locked' ? 'locked' : a.muted ? 'muted' : 'on';
+    put('sound', sound, (m) => {
+      muteBtn.hidden = m === 'none';
+      root.classList.toggle('is-sound-locked', m === 'locked');
+      muteBtn.classList.toggle('is-locked', m === 'locked');
+      if (m === 'locked') {
+        muteBtn.innerHTML = soundHint.innerHTML;
+        muteBtn.setAttribute('aria-label', 'Sound is off. Turn sound on');
+        muteBtn.removeAttribute('aria-pressed');
+        muteBtn.title = 'Sound is off: click for sound (m)';
+      } else {
+        const muted = m === 'muted';
+        muteBtn.innerHTML = svg(muted ? 'soundOff' : 'soundOn');
+        muteBtn.setAttribute('aria-label', 'Mute');
+        muteBtn.setAttribute('aria-pressed', String(muted));
+        muteBtn.title = muted ? 'Sound on (m)' : 'Mute (m)';
+      }
     });
     put('fs', isFullscreen(), (f) => {
       fsBtn.innerHTML = svg(f ? 'fsExit' : 'fsEnter');
