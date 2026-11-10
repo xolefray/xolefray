@@ -21,6 +21,10 @@ All three are plain sRGB JPEGs, upright (no EXIF rotation), with metadata stripp
 A single-file build can supply them instead through `window.__PHOTOS = { cover, proposal, dog }`
 (URLs or data URIs).
 
+Add `?photos=0` to the film's URL (or to any dev page that calls `loadPhotos()`) to switch the
+photos off: nothing is fetched and every print shows its illustrated fallback. Use it for any
+screenshot or recording that leaves your machine (`tools/snap.mjs --query "photos=0"`).
+
 ## Regenerating
 
 `tools/prep-photos.py` (Python 3 with `pillow`, `pillow-heif` and `numpy`) makes the three files
