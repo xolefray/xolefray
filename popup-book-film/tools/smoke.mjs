@@ -2,6 +2,7 @@
 // Smoke test + frame grabber for the film.
 //
 //   node tools/smoke.mjs [--times=1,8.5,14] [--out=DIR] [--width=1280] [--height=720] [--controls]
+//                        [--page=<file path | http(s) URL>]
 //
 // Starts its own static server on an ephemeral port, launches Chromium (software
 // WebGL2), opens index.html?autoplay=0&controls=0, awaits __film.ready, then for
@@ -10,9 +11,15 @@
 // failed / 4xx+ requests; exits 1 if there were any. Also checks the spread-anchor
 // contract numerically and runs a determinism check (seek A, seek elsewhere, seek
 // back to A: PNG bytes must match). Safe to run concurrently with other instances.
+//
+// --page tests another page instead of the dev index.html (e.g. the single-file
+// build): a file path is opened via file:// with NO server, and then any request
+// other than the page itself (data:/blob: excepted) is a failure, because such a
+// page must be fully self-contained; an http(s) URL is opened as is.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { startServer, PROJECT_ROOT } from './serve.mjs';
 import { SHOT_TIMES, DURATION } from '../src/timeline.js';
 
@@ -24,7 +31,7 @@ const args = Object.fromEntries(process.argv.slice(2).map((a) => {
   return m ? [m[1], m[2] ?? true] : [a, true];
 }));
 if (args.help || args.h) {
-  console.log('usage: node tools/smoke.mjs [--times=1,8.5,14] [--out=DIR] [--width=1280] [--height=720] [--controls]');
+  console.log('usage: node tools/smoke.mjs [--times=1,8.5,14] [--out=DIR] [--width=1280] [--height=720] [--controls] [--page=FILE|URL]');
   process.exit(0);
 }
 
@@ -40,6 +47,18 @@ const width = parseInt(args.width ?? 1280, 10);
 const height = parseInt(args.height ?? 720, 10);
 const showControls = !!args.controls;
 const fmtTime = (t) => String(Math.round(t * 1000) / 1000);
+const pageArg = typeof args.page === 'string' ? args.page : null;
+const pageIsUrl = !!pageArg && /^https?:\/\//i.test(pageArg);
+const pageFile = pageArg && !pageIsUrl ? path.resolve(pageArg) : null;
+if (pageFile && !fs.existsSync(pageFile)) {
+  console.error(`--page: no such file: ${pageFile}`);
+  process.exit(2);
+}
+const withQuery = (base, q) => {
+  const u = new URL(base);
+  for (const [k, v] of new URLSearchParams(q)) u.searchParams.set(k, v);
+  return u.href;
+};
 
 const problems = [];   // anything here => exit 1
 const warnings = [];
@@ -49,7 +68,7 @@ let exitCode = 0;
 
 async function main() {
   fs.mkdirSync(outDir, { recursive: true });
-  server = await startServer({ port: 0 });
+  if (!pageArg) server = await startServer({ port: 0 });
   browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
 
@@ -62,7 +81,19 @@ async function main() {
   page.on('requestfailed', (req) => problems.push(`request failed: ${req.url()} (${req.failure()?.errorText})`));
   page.on('response', (res) => { if (res.status() >= 400) problems.push(`HTTP ${res.status()}: ${res.url()}`); });
 
-  const url = `${server.url}index.html?autoplay=0${showControls ? '' : '&controls=0'}`;
+  const query = `autoplay=0${showControls ? '' : '&controls=0'}`;
+  const url = pageArg
+    ? withQuery(pageFile ? pathToFileURL(pageFile).href : pageArg, query)
+    : `${server.url}index.html?${query}`;
+  if (pageFile) {
+    // A file page must be self-contained: the document is the only allowed request.
+    const self = pathToFileURL(pageFile).href;
+    page.on('request', (req) => {
+      const u = req.url();
+      if (/^(data|blob):/i.test(u) || u.split(/[?#]/)[0] === self) return;
+      problems.push(`external request from a single-file page: ${u}`);
+    });
+  }
   console.log(`smoke: ${url}  ${width}x${height}  -> ${outDir}`);
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__film && window.__film.ready, null, { timeout: 60000 });

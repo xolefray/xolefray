@@ -39,7 +39,10 @@ cd popup-book-film
 npm run serve            # = node tools/serve.mjs --port=8080   -> http://127.0.0.1:8080/
 node tools/serve.mjs --port=0           # ephemeral port, prints the URL
 npm run smoke            # = node tools/smoke.mjs
-node tools/smoke.mjs --times=1,8.5,14 --out=/tmp/my-frames --width=1280 --height=720 [--controls]
+node tools/smoke.mjs --times=1,8.5,14 --out=/tmp/my-frames --width=1280 --height=720 [--controls] [--page=FILE|URL]
+npm run build            # single-file build -> dist/the-fox-and-the-paper-moon.html (needs `npm install`)
+npm run render           # MP4 export -> out/the-fox-and-the-paper-moon.mp4 (needs ffmpeg)
+npm run stills           # contact sheet -> docs/contact-sheet.jpg
 ```
 
 URL parameters of `index.html`: `t=<seconds>` start time, `autoplay=0|1`
@@ -67,7 +70,53 @@ Playwright is preinstalled and resolved through NODE_PATH (CommonJS only), so
 `.mjs` tools load it with `createRequire(import.meta.url)('playwright')`. Never
 `npm install` playwright or run `playwright install`.
 
+`--page=<path|URL>` tests another page instead of the dev `index.html`: a file
+path is opened via `file://` with **no server**, and any request other than the
+document itself (data:/blob: aside) is then a failure; an http(s) URL is used as
+is. `npm run build && node tools/smoke.mjs --page=dist/the-fox-and-the-paper-moon.html`
+must pass like the default run.
+
 **Look at your frames.** Open the PNGs after every change.
+
+### Build, video export, stills
+
+```
+npm install              # once: esbuild (devDependency) into node_modules/ (git-ignored)
+npm run build            # -> dist/the-fox-and-the-paper-moon.html, one self-contained file
+npm run render -- [--width=1280] [--height=720] [--fps=30] [--from=0] [--to=80] [--workers=N]
+                  [--out=out/the-fox-and-the-paper-moon.mp4] [--page=FILE|URL] [--crf=18]
+                  [--preset=medium] [--png] [--keep-frames] [--no-audio] [--init-script=FILE]
+npm run stills           # -> docs/contact-sheet.jpg (times: MOMENTS at the top of tools/stills.mjs)
+```
+
+- **build.mjs** bundles `src/main.js` with esbuild (`three` aliased to the vendored
+  `three.module.js`, ESM, minified), then transforms the real `index.html`: drops
+  the import map, inlines `styles.css` and the bundle (`</script`, `<script` and
+  `<!--` inside it are written as `\x3C...`), adds a description and an inline
+  SVG favicon. It fails (exit 1) on bundling errors or if `index.html` no longer
+  has the expected `<link>` / import map / `<script src>`. The three.js MIT
+  notice is a comment at the top of the script. `dist/` is committed, not ignored.
+  The built file renders frames byte-identical to the dev page.
+- **render.mjs**: frame i = `__film.seek(from + i/fps)` in a page opened with
+  `?autoplay=0&controls=0`, captured with `page.screenshot` (DOM overlays
+  included) as JPEG q95 (`--png` for PNG). N workers (default min(4, cores)),
+  each its own headless Chromium, pull frames from one queue. Frames go to
+  `<out dir>/.frames-<name>-<settings hash>/` (atomic writes); existing frames
+  are skipped, so re-running the same command resumes; the folder is deleted
+  after a successful encode unless `--keep-frames`. A failed frame (crash,
+  timeout) is retried in a fresh browser (3 tries per frame, 3 restarts per
+  worker). Encoding: ffmpeg libx264 `yuv420p`, `+faststart`. Audio: if
+  `__film.audio.renderWav()` exists, worker 1 calls it once (an `ArrayBuffer`
+  WAV of the whole film), copies it out as base64 in 1 MiB chunks, caches it as
+  `soundtrack.wav` in the frames folder; it is trimmed to `[from, to]` and muxed
+  as AAC 192k. Missing or failing → a warning and a silent video.
+- **Capture CSS.** `render` and `stills` add
+  `#captions .caption, #captions .card-inner { will-change: auto !important }`
+  to the page. With `will-change: transform` (styles.css) Chromium rasters the
+  caption/title text once and afterwards only moves that raster, so glyph edges
+  depend on which frame the page showed first (seen: frames from different
+  workers differing by up to ~10 levels on caption edges). With the override,
+  frames are byte-identical whatever the worker or seek order.
 
 ### Vendored three.js
 
@@ -107,6 +156,9 @@ src/paper.js          (another task) shared cut-paper materials/builders
 src/characters.js     (another task) shared fox builder
 tools/serve.mjs       static server (importable: startServer({port}))
 tools/smoke.mjs       smoke test / frame grabber
+tools/build.mjs       single-file build (esbuild) -> dist/
+tools/render.mjs      offline frame-accurate MP4 export (parallel, resumable)
+tools/stills.mjs      contact sheet -> docs/contact-sheet.jpg
 ```
 
 `src/timeline.js`, `src/util.js`, `src/constants.js` and `src/layout.js` must
