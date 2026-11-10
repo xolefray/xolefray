@@ -1,0 +1,114 @@
+<!doctype html>
+<!--
+  dev/environment.html (T-env) — harness for src/environment.js.
+  The real environment plus a stand-in book: a 6 × 0.1 × 4 cream block with three upright paper
+  cards (0.003 thick) and one lying flat, to judge lamp exposure and thin-paper shadow quality.
+  URL params: t=<sec> film time (default 20) · view=low|wide|close|top alternative cameras ·
+  free=1 orbit controls · lamp=x,y,z move the key light (A/B tests).
+  Sets window.__ready once two frames have been rendered.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Environment harness</title>
+  <link rel="icon" href="data:,">
+  <style>html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0908; }</style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { createEnvironment } from '../src/environment.js';
+
+    const params = new URLSearchParams(location.search);
+    const t = parseFloat(params.get('t') ?? '20') || 0;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 100);
+    const VIEWS = {
+      default: [[0, 5.5, 8], [0, 0.5, 0]],
+      low: [[0.5, 1.4, 7.5], [0, 1, 0]],
+      wide: [[5, 6, 11], [0, 0.3, 0]],
+      close: [[-1.2, 2.2, 3.6], [-0.4, 0.8, -0.4]],
+      top: [[0, 13, 4], [0, 0, 0]],
+    };
+    const [pos, target] = VIEWS[params.get('view')] ?? VIEWS.default;
+    camera.position.set(...pos);
+    camera.lookAt(...target);
+
+    const env = createEnvironment({ scene, renderer });
+    if (params.has('lamp')) env.keyLight.position.set(...params.get('lamp').split(',').map(Number));
+
+    // ------------------------------------------------------------------ stand-in book
+    const paper = (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.92 });
+    const block = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 4), paper('#f3ead8'));
+    block.position.y = 0.05;
+    block.castShadow = block.receiveShadow = true;
+    scene.add(block);
+
+    function art(draw) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fbf7ee';
+      ctx.fillRect(0, 0, 256, 256);
+      draw(ctx);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
+    }
+    const arts = [
+      art((c) => { c.fillStyle = '#3f6b45'; c.beginPath(); c.moveTo(128, 20); c.lineTo(220, 230); c.lineTo(36, 230); c.fill(); }),
+      art((c) => { c.fillStyle = '#2f5d8a'; c.fillRect(0, 150, 256, 106); c.fillStyle = '#e0b04a'; c.beginPath(); c.arc(180, 80, 40, 0, 7); c.fill(); }),
+      art((c) => { c.fillStyle = '#8a3b33'; c.fillRect(60, 90, 136, 166); c.fillStyle = '#f2c66b'; c.fillRect(100, 130, 30, 34); }),
+      art((c) => { c.fillStyle = '#c98b5a'; c.fillRect(30, 30, 196, 196); }),
+    ];
+    const back = paper('#efe5cf');
+    function card(w, h, material) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.003), [back, back, back, back, material, back]);
+      mesh.castShadow = mesh.receiveShadow = true;
+      return mesh;
+    }
+    const c1 = card(1.3, 1.7, arts[0]);
+    c1.position.set(-1.6, 0.1 + 0.85, -0.6);
+    c1.rotation.y = 0.25;
+    const c2 = card(1.6, 1.1, arts[1]);
+    c2.position.set(1.4, 0.1 + 0.55, 0.4);
+    c2.rotation.y = -0.3;
+    const c3 = card(1.1, 2.2, arts[2]);
+    c3.position.set(0.2, 0.1 + 1.1, -1.3);
+    const flat = card(1.2, 0.9, arts[3]);
+    flat.rotation.x = -Math.PI / 2;
+    flat.position.set(-0.6, 0.1 + 0.0015, 1.1);
+    scene.add(c1, c2, c3, flat);
+
+    if (params.get('free') === '1') new OrbitControls(camera, renderer.domElement).target.set(...target);
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    let frames = 0;
+    renderer.setAnimationLoop(() => {
+      env.update(t);
+      renderer.render(scene, camera);
+      if (++frames >= 2) window.__ready = true;
+    });
+  </script>
+</body>
+</html>

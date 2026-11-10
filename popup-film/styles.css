@@ -1,45 +1,710 @@
-/* STUB (T0) — replaced by T-main. Minimal full-screen film layout. */
+/**
+ * styles.css — page shell of "The Little Paper Boat".
+ *
+ * Full-screen stage + caption overlay, the intro card (loading state, poster "Begin" screen,
+ * error) and the player controls built by src/ui.js (classes prefixed `pb-`). Colours are tokens
+ * on :root; the film UI is deliberately dark in every colour scheme, so the dark-scheme blocks
+ * restate the same palette. ui.js publishes --ui-safe-bottom (height the visible control bar
+ * occupies at the bottom, else 0px) for anything that wants to keep clear of it.
+ */
+
 :root {
-  --bg: #0d0b0a;
-  --fg: #f3ead8;
-  --accent: #d9a35f;
+  color-scheme: dark;
+  --bg: #0c0a09;
+  --bg-glow: #2a1e15;
+  --cream: #f3ead8;
+  --cream-2: rgba(243, 234, 216, 0.74);
+  --cream-3: rgba(243, 234, 216, 0.5);
+  --gold: #d9b56c;
+  --gold-deep: #a9823f;
+  --gold-soft: rgba(217, 181, 108, 0.45);
+  --gold-faint: rgba(217, 181, 108, 0.14);
+  --glass: rgba(21, 17, 14, 0.58);
+  --glass-tip: rgba(14, 11, 9, 0.9);
+  --hairline: rgba(243, 234, 216, 0.11);
+  --track: rgba(243, 234, 216, 0.24);
+  --hover: rgba(243, 234, 216, 0.09);
+  --focus: #ecd08f;
+  --vignette: rgba(8, 6, 5, 0.86);
+  --shadow: 0 14px 44px rgba(0, 0, 0, 0.45);
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", P052,
+    "TeX Gyre Pagella", Georgia, Caladea, "Liberation Serif", serif;
+  --font-ui: system-ui, sans-serif;
+  --ui-safe-bottom: 0px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0a09;
+    --bg-glow: #2a1e15;
+    --cream: #f3ead8;
+    --cream-2: rgba(243, 234, 216, 0.74);
+    --cream-3: rgba(243, 234, 216, 0.5);
+    --gold: #d9b56c;
+    --gold-deep: #a9823f;
+    --gold-soft: rgba(217, 181, 108, 0.45);
+    --gold-faint: rgba(217, 181, 108, 0.14);
+    --glass: rgba(21, 17, 14, 0.58);
+    --glass-tip: rgba(14, 11, 9, 0.9);
+    --hairline: rgba(243, 234, 216, 0.11);
+    --track: rgba(243, 234, 216, 0.24);
+    --hover: rgba(243, 234, 216, 0.09);
+    --focus: #ecd08f;
+    --vignette: rgba(8, 6, 5, 0.86);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0c0a09;
+  --bg-glow: #2a1e15;
+  --cream: #f3ead8;
+  --cream-2: rgba(243, 234, 216, 0.74);
+  --cream-3: rgba(243, 234, 216, 0.5);
+  --gold: #d9b56c;
+  --gold-deep: #a9823f;
+  --gold-soft: rgba(217, 181, 108, 0.45);
+  --gold-faint: rgba(217, 181, 108, 0.14);
+  --glass: rgba(21, 17, 14, 0.58);
+  --glass-tip: rgba(14, 11, 9, 0.9);
+  --hairline: rgba(243, 234, 216, 0.11);
+  --track: rgba(243, 234, 216, 0.24);
+  --hover: rgba(243, 234, 216, 0.09);
+  --focus: #ecd08f;
+  --vignette: rgba(8, 6, 5, 0.86);
+}
+
+/* Registered so it can transition: captions glide up when the control bar appears. */
+@property --ui-safe-bottom {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
+/* ---------------------------------------------------------------- page shell */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
 }
 
 html,
 body {
   margin: 0;
-  height: 100%;
-  overflow: hidden;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: Georgia, serif;
-}
-
-#stage,
-#stage canvas,
-#overlay {
-  position: fixed;
-  inset: 0;
   width: 100%;
   height: 100%;
-  display: block;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg);
+  color: var(--cream);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-#overlay {
+html {
+  transition: --ui-safe-bottom 0.5s ease;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+}
+
+.stage,
+.stage canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.stage canvas {
+  touch-action: manipulation;
+}
+
+.pb-idle .stage canvas {
+  cursor: none;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  /* titles.js caption baseline: its own default, or clear of the visible control bar. */
+  --tt-caption-bottom: max(calc(env(safe-area-inset-bottom, 0px) + clamp(30px, 9vh, 150px)), calc(var(--ui-safe-bottom) + 14px));
+}
+
+.noscript {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 16px;
+  background: var(--bg);
+  font: italic 1.1rem/1.5 var(--font-display);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- intro card */
+
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  overflow: hidden;
+  text-align: center;
+  background: radial-gradient(ellipse 70% 65% at 50% 50%, rgba(8, 6, 5, 0.52) 0%, rgba(8, 6, 5, 0.7) 60%, var(--vignette) 100%);
+  -webkit-backdrop-filter: blur(2.5px);
+  backdrop-filter: blur(2.5px);
+  transition: opacity 1.2s ease;
+}
+
+/* While the poster is up its captions are noise: hide the titles layer until the film starts. */
+.is-poster .overlay {
+  opacity: 0;
+}
+
+/* Opaque backdrop while loading (a warm glow, like a lamp about to be lit) and as the veil on Begin. */
+.intro::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse 55% 45% at 50% 44%, var(--bg-glow) 0%, var(--bg) 72%);
+  transition: opacity 0.9s ease;
+}
+
+.intro[data-state="poster"]::before {
+  opacity: 0;
+}
+
+.intro[data-state="leaving"]::before,
+.intro[data-state="gone"]::before {
+  background: var(--bg);
+  transition-duration: 0.5s;
+}
+
+.intro[data-state="gone"] {
+  opacity: 0;
   pointer-events: none;
 }
 
-.begin {
-  position: fixed;
+.intro__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 46rem;
+  transition: opacity 0.45s ease, transform 0.6s ease;
+}
+
+.intro[data-state="leaving"] .intro__card,
+.intro[data-state="gone"] .intro__card {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.intro__eyebrow {
+  margin: 0 0 0.55rem;
+  color: var(--gold);
+  font: italic 400 clamp(0.95rem, 2.6vw, 1.12rem) / 1.3 var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+.intro__title {
+  margin: 0;
+  font: 400 clamp(2.25rem, 6.6vw, 4.6rem) / 1.04 var(--font-display);
+  letter-spacing: 0.005em;
+  text-wrap: balance;
+  text-shadow: 0 2px 28px rgba(0, 0, 0, 0.65);
+}
+
+.intro__rule {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 1.15rem 0 1rem;
+}
+
+.intro__rule span {
+  width: 3.75rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-soft));
+}
+
+.intro__rule span:last-child {
+  transform: scaleX(-1);
+}
+
+.intro__rule svg {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.intro__line {
+  max-width: 27rem;
+  margin: 0 0 1.7rem;
+  color: var(--cream-2);
+  font: 400 clamp(1rem, 2.7vw, 1.16rem) / 1.5 var(--font-display);
+  text-wrap: balance;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.7);
+}
+
+.intro__action {
+  display: grid;
+  place-items: center;
+  min-height: 3.4rem;
+}
+
+.intro__status {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 0.7rem;
+  color: var(--cream-2);
+  font: italic 400 1.05rem/1.4 var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.intro__progress {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: 9rem;
+  height: 1px;
+  overflow: hidden;
+  background: var(--hairline);
+}
+
+.intro__progress i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  transform: scaleX(var(--load, 0));
+  transform-origin: 0 50%;
+  transition: transform 0.4s ease;
+}
+
+/* A small sheet folding along its centre line, over and over. */
+.intro__fold {
+  position: relative;
+  width: 16px;
+  height: 20px;
+  perspective: 80px;
+}
+
+.intro__fold::before,
+.intro__fold::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: var(--cream);
+  opacity: 0.85;
+}
+
+.intro__fold::before {
+  left: 0;
+}
+
+.intro__fold::after {
   left: 50%;
-  bottom: 12%;
-  transform: translateX(-50%);
-  padding: 12px 28px;
-  border: 1px solid var(--accent);
+  background: #e2d4b7;
+  transform-origin: 0 50%;
+  animation: intro-fold 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes intro-fold {
+  0%,
+  15% {
+    transform: rotateY(0deg);
+  }
+  85%,
+  100% {
+    transform: rotateY(-178deg);
+  }
+}
+
+.intro[data-state="poster"] .intro__status,
+.intro[data-state="leaving"] .intro__status,
+.intro[data-state="gone"] .intro__status,
+.intro[data-state="loading"] .intro__begin,
+.intro[data-state="error"] .intro__begin,
+.intro[data-state="error"] .intro__fold,
+.intro[data-state="error"] .intro__progress,
+.intro[data-state="error"] .intro__hint {
+  display: none;
+}
+
+.intro[data-state="error"] .intro__status-text {
+  grid-column: 1 / -1;
+  max-width: 24rem;
+  color: var(--cream);
+  font-style: normal;
+}
+
+.intro__begin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 48px;
+  padding: 0.8rem 2rem 0.8rem 1.65rem;
+  border: 1px solid var(--gold-soft);
   border-radius: 999px;
-  background: rgba(13, 11, 10, 0.6);
-  color: var(--fg);
-  font: inherit;
-  font-size: 18px;
+  background: rgba(21, 17, 14, 0.5);
+  color: var(--cream);
+  font: 400 1rem/1 var(--font-display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  animation: intro-rise 0.8s 0.15s ease both;
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.intro__begin svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: var(--gold);
+}
+
+.intro__begin:hover {
+  border-color: var(--gold);
+  background: var(--gold-faint);
+  box-shadow: 0 0 0 5px rgba(217, 181, 108, 0.07), 0 10px 32px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.intro__begin:active {
+  transform: translateY(0);
+}
+
+.intro__begin:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+
+.intro__hint {
+  margin: 1.15rem 0 0;
+  color: var(--cream-3);
+  font: 400 0.8rem/1.4 var(--font-ui);
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes intro-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* ---------------------------------------------------------------- player controls (ui.js) */
+
+.pb-ui {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  font-family: var(--font-ui);
+}
+
+.pb-bar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  max-width: 960px;
+  margin-inline: auto;
+  padding: 4px 10px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow: var(--shadow);
+  color: var(--cream);
+  pointer-events: auto;
+  animation: pb-rise 0.6s ease both;
+  transition: opacity 0.35s ease, transform 0.35s ease, visibility 0s;
+}
+
+.pb-ui.is-idle .pb-bar {
+  opacity: 0;
+  transform: translateY(12px);
+  visibility: hidden;
+  transition: opacity 0.7s ease, transform 0.7s ease, visibility 0s 0.7s;
+}
+
+@keyframes pb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Scrubber: 22 px hit area, thin track masked into chapter segments, thumb on hover/drag/focus. */
+.pb-scrub {
+  position: relative;
+  height: 22px;
+  margin: 0 4px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+  border-radius: 6px;
+}
+
+.pb-scrub:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.pb-scrub__track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--track);
+  transition: height 0.15s ease, margin-top 0.15s ease;
+}
+
+.pb-scrub:hover .pb-scrub__track,
+.pb-scrub.is-dragging .pb-scrub__track {
+  height: 6px;
+  margin-top: -3px;
+}
+
+.pb-scrub__fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
+  transform: scaleX(var(--p, 0));
+  transform-origin: 0 50%;
+}
+
+.pb-scrub__head {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translateX(calc(var(--p, 0) * 100%));
+}
+
+.pb-scrub__thumb {
+  position: absolute;
+  left: -7px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: var(--cream);
+  box-shadow: 0 0 0 3px rgba(217, 181, 108, 0.4), 0 1px 5px rgba(0, 0, 0, 0.5);
+  transform: scale(0);
+  transition: transform 0.15s ease;
+}
+
+.pb-scrub:hover .pb-scrub__thumb,
+.pb-scrub.is-dragging .pb-scrub__thumb,
+.pb-scrub:focus-visible .pb-scrub__thumb {
+  transform: scale(1);
+}
+
+.pb-tip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 4px);
+  display: flex;
+  gap: 0.55em;
+  padding: 6px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--glass-tip);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  font: 500 12px/1.2 var(--font-ui);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.pb-scrub.is-tip .pb-tip {
+  opacity: 1;
+}
+
+.pb-tip__time {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-tip__chapter {
+  color: var(--cream);
+  font: italic 400 13px/1.15 var(--font-display);
+}
+
+.pb-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pb-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cream);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.pb-btn:hover {
+  background: var(--hover);
+  color: #fff;
+}
+
+.pb-btn:focus-visible,
+.pb-replay:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.pb-btn svg,
+.pb-replay svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.pb-btn .pb-stroke,
+.pb-replay .pb-stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pb-time {
+  flex: none;
+  padding: 0 6px;
+  color: var(--cream-3);
+  font: 500 13px/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pb-time__cur {
+  color: var(--cream);
+}
+
+.pb-chapter {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cream-2);
+  font: italic 400 15px/1.2 var(--font-display);
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pb-replay {
+  position: absolute;
+  left: 50%;
+  top: 66%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 46px;
+  padding: 0.7rem 1.6rem 0.7rem 1.3rem;
+  border: 1px solid var(--gold-soft);
+  border-radius: 999px;
+  background: rgba(21, 17, 14, 0.45);
+  color: var(--cream);
+  font: italic 400 1.08rem/1 var(--font-display);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translateX(-50%);
+  animation: pb-fade 1.2s 0.4s ease both;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+.pb-replay:hover {
+  border-color: var(--gold);
+  background: var(--gold-faint);
+}
+
+.pb-replay svg {
+  width: 18px;
+  height: 18px;
+  color: var(--gold);
+}
+
+@keyframes pb-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- small screens & touch */
+
+@media (max-width: 520px) {
+  .pb-bar {
+    left: 12px;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    padding: 2px 6px 4px;
+    border-radius: 12px;
+  }
+
+  .pb-chapter {
+    visibility: hidden;
+  }
+
+  .pb-time {
+    font-size: 12px;
+  }
+}
+
+@media (hover: none) {
+  .pb-scrub__thumb {
+    transform: scale(0.85);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

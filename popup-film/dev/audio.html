@@ -1,0 +1,296 @@
+<!doctype html>
+<!--
+  dev/audio.html (T-audio) — measurement + listening harness for src/audio.js.
+  On load: renders the whole film (0–96 s) offline at 22.05 kHz with renderOffline(), plus a
+  foley-only render; computes per-second and per-chapter peak/RMS (dBFS); runs the checks
+  (peak ≤ −3 dBFS, no silent holes, turn foley present, silence after 95.5 s); exercises the
+  live API (start, play, seek, scrub, pause, resume, mute, no-WebAudio fallback); logs a compact
+  table with console.info, plots the level curve, sets window.__audioStats and window.__ready.
+  Buttons below the plot play the score live from any chapter (needs a click for audio).
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Audio harness</title>
+  <link rel="icon" href="data:,">
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+  <style>
+    :root { --bg: #14110f; --panel: #1e1a17; --ink: #efe6d6; --dim: #9b8f7f; --rms: #d9a441; --peak: #f3d9a4;
+            --foley: #6fb3d2; --bad: #e0614f; --good: #7cc47f; --grid: #3a332d; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, sans-serif; }
+    main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+    p.sub { margin: 0 0 12px; color: var(--dim); }
+    canvas { width: 100%; height: 240px; display: block; background: var(--panel); border-radius: 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+    button { background: var(--panel); color: var(--ink); border: 1px solid var(--grid); border-radius: 6px;
+             padding: 6px 10px; font: inherit; cursor: pointer; }
+    button:hover { border-color: var(--rms); }
+    #clock { font-variant-numeric: tabular-nums; color: var(--dim); min-width: 5em; }
+    table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; margin: 8px 0 12px; }
+    th, td { text-align: right; padding: 3px 8px; border-bottom: 1px solid var(--grid); }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--dim); font-weight: 500; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { padding: 2px 0; }
+    .ok { color: var(--good); } .bad { color: var(--bad); }
+    .legend span { margin-right: 14px; color: var(--dim); }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>The Little Paper Boat: score &amp; foley</h1>
+    <p class="sub" id="status">Rendering 96 s offline…</p>
+    <canvas id="plot" width="1936" height="480"></canvas>
+    <div class="legend">
+      <span><i style="background:var(--rms)"></i>RMS (100 ms)</span>
+      <span><i style="background:var(--peak)"></i>peak</span>
+      <span><i style="background:var(--foley)"></i>foley-only peak</span>
+      <span><i style="background:var(--bad)"></i>−3 dBFS</span>
+    </div>
+    <div class="row" id="transport">
+      <button id="play" type="button">Play</button>
+      <button id="mute" type="button">Mute</button>
+      <span id="clock">0.0 s</span>
+    </div>
+    <table id="chapters"></table>
+    <ul id="checks"></ul>
+  </main>
+
+  <script type="module">
+    import { createAudio, renderOffline } from '../src/audio.js';
+    import { CHAPTERS, LEAF_TURNS, DURATION, Player } from '../src/timeline.js';
+
+    const SR = 22050;
+    const FADE_START = 93; // the score fades to silence over 93.5–95.5 s (intentional)
+    const db = (x) => (x > 1e-6 ? 20 * Math.log10(x) : -120);
+    const f1 = (x) => (x <= -119 ? '  -inf' : x.toFixed(1).padStart(6));
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const $ = (id) => document.getElementById(id);
+
+    /** Peak / RMS (linear) of buf over [t0, t1), all channels; counts non-finite samples. */
+    function measure(buf, t0, t1) {
+      const a = Math.max(0, Math.floor(t0 * buf.sampleRate));
+      const b = Math.min(buf.length, Math.floor(t1 * buf.sampleRate));
+      let peak = 0, sum = 0, bad = 0, n = 0;
+      for (let c = 0; c < buf.numberOfChannels; c++) {
+        const d = buf.getChannelData(c);
+        for (let i = a; i < b; i++) {
+          const v = d[i];
+          if (!Number.isFinite(v)) { bad++; continue; }
+          const m = Math.abs(v);
+          if (m > peak) peak = m;
+          sum += v * v;
+          n++;
+        }
+      }
+      return { peak: db(peak), rms: db(Math.sqrt(sum / Math.max(1, n))), bad };
+    }
+
+    const windows = (buf, step) =>
+      Array.from({ length: Math.ceil(DURATION / step) }, (_, k) => ({ t: k * step, ...measure(buf, k * step, (k + 1) * step) }));
+
+    function drawPlot(fine, foleyFine) {
+      const cv = $('plot');
+      const g = cv.getContext('2d');
+      const W = cv.width, H = cv.height, padL = 70, padB = 40, top = 16;
+      const x = (t) => padL + ((W - padL - 16) * t) / DURATION;
+      const y = (d) => top + ((H - top - padB) * Math.min(60, Math.max(0, -d))) / 60;
+      const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+      g.clearRect(0, 0, W, H);
+      g.font = '22px system-ui';
+      g.fillStyle = css('--dim');
+      for (const turn of LEAF_TURNS) {
+        g.fillStyle = 'rgba(255,255,255,0.05)';
+        g.fillRect(x(turn.start), top, x(turn.end) - x(turn.start), H - top - padB);
+      }
+      g.strokeStyle = css('--grid');
+      g.lineWidth = 1;
+      for (let d = 0; d >= -60; d -= 12) {
+        g.beginPath(); g.moveTo(padL, y(d)); g.lineTo(W - 16, y(d)); g.stroke();
+        g.fillStyle = css('--dim'); g.fillText(`${d}`, 12, y(d) + 7);
+      }
+      for (const ch of CHAPTERS) {
+        g.beginPath(); g.moveTo(x(ch.t), top); g.lineTo(x(ch.t), H - padB); g.stroke();
+        g.fillStyle = css('--dim'); g.fillText(ch.label.replace(/^The /, ''), x(ch.t) + 6, H - 12);
+      }
+      g.fillStyle = css('--rms');
+      g.beginPath(); g.moveTo(x(0), y(-60));
+      for (const r of fine) g.lineTo(x(r.t + 0.05), y(r.rms));
+      g.lineTo(x(DURATION), y(-60)); g.closePath(); g.fill();
+      const line = (rows, color, key, floor = -Infinity) => {
+        g.strokeStyle = color; g.lineWidth = 2; g.beginPath();
+        let pen = false;
+        for (const r of rows) {
+          if (r[key] < floor) { pen = false; continue; }
+          (pen ? g.lineTo : g.moveTo).call(g, x(r.t + 0.05), y(r[key]));
+          pen = true;
+        }
+        g.stroke();
+      };
+      line(fine, css('--peak'), 'peak');
+      line(foleyFine, css('--foley'), 'peak', -55);
+      g.strokeStyle = css('--bad'); g.setLineDash([10, 8]); g.beginPath();
+      g.moveTo(padL, y(-3)); g.lineTo(W - 16, y(-3)); g.stroke(); g.setLineDash([]);
+    }
+
+    /** Drive a live audio instance like main.js would: sync every ~16 ms while time advances. */
+    async function drive(audio, clock, seconds, playing = true) {
+      const t0 = performance.now();
+      let last = t0;
+      while (performance.now() - t0 < seconds * 1000) {
+        const now = performance.now();
+        if (playing) clock.t += (now - last) / 1000;
+        last = now;
+        audio.sync(clock.t, playing);
+        await sleep(16);
+      }
+    }
+
+    async function liveTest() {
+      const res = { ok: true, errors: [], steps: [] };
+      const note = (name, audio) => res.steps.push({ name, ...audio.stats });
+      try {
+        // 1. without WebAudio every method is a silent no-op
+        const saved = [window.AudioContext, window.webkitAudioContext];
+        window.AudioContext = undefined;
+        window.webkitAudioContext = undefined;
+        try {
+          const dead = createAudio();
+          dead.sync(3, true);
+          await dead.start();
+          dead.sync(3, true);
+          dead.setMuted(true);
+          dead.sync(4, false);
+          res.noWebAudio = { state: dead.stats.state, muted: dead.muted };
+        } finally {
+          [window.AudioContext, window.webkitAudioContext] = saved;
+        }
+        // 2. the real thing
+        const audio = createAudio();
+        audio.sync(1, true); // before start(): ignored
+        await audio.start();
+        const clock = { t: 6.6 };
+        await drive(audio, clock, 1.0); note('play 6.6 -> 7.6 (cover creak)', audio);
+        clock.t = 28.2;
+        await drive(audio, clock, 0.6); note('seek -> 28.2 (page whoosh)', audio);
+        for (let k = 0; k < 12; k++) { audio.sync(30 + k * 1.7, true); await sleep(16); } // scrub while playing
+        note('scrub 30 -> 49', audio);
+        await drive(audio, clock, 0.4, false); note('paused', audio);
+        clock.t = 49.4;
+        await drive(audio, clock, 0.5); note('resume at 49.4', audio);
+        audio.setMuted(true);
+        await drive(audio, clock, 0.2);
+        audio.setMuted(false);
+        note('mute / unmute', audio);
+        clock.t = 95.2;
+        await drive(audio, clock, 0.5); note('95.2 -> 95.7 (end fade)', audio);
+        audio.sync(DURATION, false); note('stopped at end', audio);
+        const s = res.steps;
+        res.running = audio.stats.state === 'running';
+        if (res.running) {
+          const expect = (cond, msg) => { if (!cond) { res.ok = false; res.errors.push(msg); } };
+          expect(s[0].sessions === 1 && s[0].scheduled > 0 && s[0].live > 0, 'playback did not schedule');
+          expect(s[1].sessions === 2, 'seek did not restart the session');
+          expect(s[2].sessions <= 3, 'scrubbing spawned too many sessions');
+          expect(s[3].live === 0, 'pause left sources playing');
+          expect(s[4].sessions > s[3].sessions && s[4].live > 0, 'resume did not restart');
+          expect(s[7].live === 0, 'end did not stop playback');
+        }
+      } catch (err) {
+        res.ok = false;
+        res.errors.push(String(err?.stack ?? err));
+      }
+      return res;
+    }
+
+    function setupTransport() {
+      const audio = createAudio();
+      const player = new Player(DURATION);
+      const row = $('transport');
+      for (const ch of CHAPTERS) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = `${ch.t}s ${ch.label.replace(/^The /, '')}`;
+        b.addEventListener('click', () => { audio.start(); player.seek(ch.t); player.play(); });
+        row.insertBefore(b, $('clock'));
+      }
+      $('play').addEventListener('click', () => { audio.start(); player.toggle(); });
+      $('mute').addEventListener('click', () => {
+        audio.setMuted(!audio.muted);
+        $('mute').textContent = audio.muted ? 'Unmute' : 'Mute';
+      });
+      const tick = () => {
+        audio.sync(player.time, player.playing);
+        $('clock').textContent = `${player.time.toFixed(1)} s`;
+        $('play').textContent = player.playing ? 'Pause' : 'Play';
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+
+    async function run() {
+      setupTransport();
+      const t0 = performance.now();
+      const full = await renderOffline(0, DURATION, SR);
+      const renderMs = Math.round(performance.now() - t0);
+      const foley = await renderOffline(0, DURATION, SR, { layers: ['foley'] });
+
+      const perSecond = windows(full, 1);
+      const fine = windows(full, 0.1);
+      const foleyFine = windows(foley, 0.1);
+      drawPlot(fine, foleyFine);
+
+      const overall = measure(full, 0, DURATION);
+      const chapters = CHAPTERS.map((ch, i) => {
+        const end = CHAPTERS[i + 1]?.t ?? DURATION;
+        const secs = perSecond.filter((r) => r.t >= ch.t && r.t < end && r.t < FADE_START);
+        return { label: ch.label, from: ch.t, to: end, ...measure(full, ch.t, end), quietest: Math.min(...secs.map((r) => r.rms)) };
+      });
+      const turns = [{ start: 0.25, end: 0.5, label: 'lamp click' }, ...LEAF_TURNS.map((tr) => ({ ...tr, label: `leaf ${tr.leaf} turn` }))]
+        .map((tr) => ({ label: tr.label, at: tr.start, foleyPeak: measure(foley, tr.start, tr.end).peak, foleyRms: measure(foley, tr.start, tr.end).rms }));
+      const holes = perSecond.filter((r) => r.t >= 1 && r.t < FADE_START && r.rms < -50).map((r) => r.t);
+      const tail = measure(full, 95.5, DURATION);
+      const live = await liveTest();
+
+      const checks = [
+        { name: `overall peak ${overall.peak.toFixed(1)} dBFS ≤ −3`, ok: overall.peak <= -3 },
+        { name: `no non-finite samples (${overall.bad})`, ok: overall.bad === 0 },
+        { name: `no silent seconds in 1–${FADE_START} s (RMS < −50 dBFS): ${holes.length ? holes.join(', ') : 'none'}`, ok: !holes.length },
+        ...turns.map((tr) => ({ name: `${tr.label} @ ${tr.at}s: foley peak ${tr.foleyPeak.toFixed(1)} dBFS ≥ −30`, ok: tr.foleyPeak >= -30 })),
+        { name: `silence after 95.5 s: peak ${tail.peak.toFixed(1)} dBFS ≤ −60`, ok: tail.peak <= -60 },
+        { name: `live API: ${live.running ? 'context running' : 'context not running (no autoplay permission) —'} ${live.ok ? 'no errors' : live.errors.join('; ')}`, ok: live.ok },
+      ];
+
+      $('chapters').innerHTML =
+        '<tr><th>chapter</th><th>from</th><th>to</th><th>peak dBFS</th><th>RMS dBFS</th><th>quietest second (before fade)</th></tr>' +
+        chapters.map((c) => `<tr><td>${c.label}</td><td>${c.from}</td><td>${c.to}</td><td>${c.peak.toFixed(1)}</td><td>${c.rms.toFixed(1)}</td><td>${c.quietest.toFixed(1)}</td></tr>`).join('');
+      $('checks').innerHTML = checks.map((c) => `<li class="${c.ok ? 'ok' : 'bad'}">${c.ok ? '✓' : '✗'} ${c.name}</li>`).join('');
+      $('status').textContent = `Rendered 96 s at ${SR} Hz in ${renderMs} ms · overall peak ${overall.peak.toFixed(1)} dBFS, RMS ${overall.rms.toFixed(1)} dBFS`;
+
+      console.info(`[audio] render ${renderMs} ms @ ${SR} Hz · overall peak ${f1(overall.peak)} dBFS rms ${f1(overall.rms)} dBFS`);
+      console.info('[audio] chapter                    peak    rms  quietest-s\n' +
+        chapters.map((c) => `[audio] ${c.label.padEnd(24)} ${f1(c.peak)} ${f1(c.rms)} ${f1(c.quietest)}`).join('\n'));
+      console.info('[audio] per-second peak/rms dBFS\n' + Array.from({ length: 12 }, (_, row) =>
+        `[audio] ${String(row * 8).padStart(2)}s ` + perSecond.slice(row * 8, row * 8 + 8).map((r) => `${r.peak.toFixed(0)}/${r.rms.toFixed(0)}`.padStart(8)).join('')).join('\n'));
+      console.info('[audio] foley ' + turns.map((tr) => `${tr.label}@${tr.at}: ${tr.foleyPeak.toFixed(1)}`).join(' · '));
+      console.info('[audio] checks ' + checks.map((c) => `${c.ok ? 'ok' : 'FAIL'}: ${c.name}`).join(' | '));
+
+      window.__audioStats = {
+        sampleRate: SR, renderMs, overall, chapters, turns, holes, tail, live,
+        perSecond: perSecond.map((r) => ({ t: r.t, peak: +r.peak.toFixed(1), rms: +r.rms.toFixed(1) })),
+        checks, ok: checks.every((c) => c.ok),
+      };
+      window.__ready = true;
+    }
+
+    run().catch((err) => {
+      $('status').textContent = `Error: ${err.message}`;
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
