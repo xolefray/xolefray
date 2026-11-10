@@ -4,8 +4,11 @@
 import { photoPrint, PHOTO_ASPECT } from '../photos.js';
 
 const GAMMA = 1.78; // one mountain angle — the backdrop is the only vFold
-const COUPLE_H = 1.12; // shared pixel scale (proposal-0 is 1026 px tall)
+const COUPLE_H = 1.6; // hero card: proposal-0's canvas is this tall (staging 1.5–1.7)
 const ANCHOR_X = -0.08; // her centre, in the couple standUp ( +X toward the gutter )
+// Couple hinge, page-local (distance from the gutter). Middle of the left page, front half.
+const COUPLE_X = 1.72;
+const COUPLE_Z = 0.6;
 // Her / pair pixel-x so each frame keeps her (or the hug) planted. Measured from the drawings.
 const ANCHOR_PX = [181, 185, 280];
 const OPEN = 0.985; // α/π above which free pieces (confetti, the photo's swing) may leave the card plane
@@ -125,10 +128,12 @@ export default {
       return m;
     };
 
-    const backdropH = 2.02;
-    let backdropW = backdropH * (1024 / 487);
+    // Tallest layer, stretched a little past the drawing so it spans most of the spread.
+    // Balloons sit on the ends; vFoldLimits at this z0 still holds (checked with the fold test).
+    const backdropH = 2.3;
     const bInfo = info('backdrop');
-    if (bInfo) backdropW = backdropH * (bInfo.w / bInfo.h);
+    const naturalW = backdropH * (bInfo ? bInfo.w / bInfo.h : 1024 / 487);
+    const backdropW = Math.max(naturalW, 5.45);
     const z0 = -0.8;
     const banner = track(popup.vFold({ z0, gamma: GAMMA, width: backdropW, height: backdropH }));
 
@@ -136,13 +141,15 @@ export default {
       const painted = cloneCanvas(paper, art.canvas('backdrop'));
       const { ctx, canvas } = painted;
       const font = (size) => `700 ${size}px ${FONT.hand}`;
-      const size = fitSize(ctx, 'Birthday', font, Math.round(canvas.height * 0.2), canvas.width * 0.34);
+      const size = fitSize(ctx, 'Birthday', font, Math.round(canvas.height * 0.15), canvas.width * 0.26);
       ctx.font = font(size);
       ctx.fillStyle = '#f6ead4';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Happy', canvas.width * 0.30, canvas.height * 0.46);
-      ctx.fillText('Birthday', canvas.width * 0.64, canvas.height * 0.46);
+      // Stacked on the right half. The YES ribbon crosses the left page and the gutter,
+      // and from the film camera it covers that whole left panel.
+      ctx.fillText('Happy', canvas.width * 0.74, canvas.height * 0.40);
+      ctx.fillText('Birthday', canvas.width * 0.74, canvas.height * 0.60);
       const cut = paper.dieCut(canvas, { margin: 8 });
       const halves = paper.splitCard({ canvas: cut, width: backdropW, height: backdropH });
       halves.left.name = 'backdrop-left';
@@ -157,8 +164,8 @@ export default {
         ctx.fillStyle = '#f6ead4';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('Happy', w * 0.27, h * 0.52);
-        ctx.fillText('Birthday', w * 0.73, h * 0.52);
+        ctx.fillText('Happy', w * 0.74, h * 0.40);
+        ctx.fillText('Birthday', w * 0.74, h * 0.60);
       }, { dieCut: 8, seed: 3 });
       const halves = paper.splitCard({ canvas: flat, width: backdropW, height: backdropH });
       banner.left.add(halves.left);
@@ -168,9 +175,9 @@ export default {
     // Balloons live inside the vFold rectangle so they fold with the banner (not their own standUp —
     // a column that tall will not share the right page with the photo).
     const balloonRigs = [];
-    const mountBalloon = (id, side, x, height) => {
+    const mountBalloon = (id, side, x, height, flip) => {
       if (!has(id)) return;
-      const card = characterArt.characterCard(paper, art, id, { height });
+      const card = characterArt.characterCard(paper, art, id, { height, flip: !!flip });
       if (!card) return;
       const meta = art.info(id);
       const s = height / meta.h;
@@ -182,16 +189,17 @@ export default {
       (side === 'left' ? banner.left : banner.right).add(card);
       balloonRigs.push(card);
     };
-    mountBalloon('balloons-left', 'left', -1.62, 1.72);
-    mountBalloon('balloons-right', 'right', 1.66, 1.72);
+    // The right-hand column is the fuller bunch; mirror it so both ends match.
+    mountBalloon('balloons-right', 'left', -2.38, 2.02, true);
+    mountBalloon('balloons-right', 'right', 2.42, 2.02, false);
 
     // ---------------------------------------------------------------- couple (left page, one card — the drawings are a pair)
-    // Hinge is far enough from the gutter that proposal-1's kneeling reach (local +X ≈ 0.56)
-    // and the YES banner stay inside a strict standUp. The cake takes the gutter side.
-    const coupleX = 2.58;
-    const coupleZ = 0.62;
+    // Middle of the left page, front half. The kneeling pose reaches toward the gutter;
+    // loose stand-up height covers the card, and the YES banner collapses with popup.rise.
+    const coupleX = COUPLE_X;
+    const coupleZ = COUPLE_Z;
     const couple = track(popup.standUp({
-      side: 'left', x: coupleX, z: coupleZ, fold: 'back', width: 1.2, height: 1.42,
+      side: 'left', x: coupleX, z: coupleZ, fold: 'back', width: 1.25, height: 1.65,
     }));
     const coupleMount = couple.mount;
     coupleMount.name = 'couple';
@@ -250,27 +258,31 @@ export default {
       frameCards.fallbackKneel = [kneelHer, kneelHim];
     }
 
-    // YES banner: sibling of the couple so the squash does not drag it. Flags only in the art;
-    // the word is cut letters, so it survives a font-less image model.
-    let yesBanner = null;
-    if (has('banner-yes')) {
-      const meta = art.info('banner-yes');
-      const height = 0.247;
-      const painted = cloneCanvas(paper, art.canvas('banner-yes'));
-      const font = (size) => `${size}px ${FONT.display}`;
-      const size = fitSize(painted.ctx, 'YES!', font, Math.round(meta.h * 0.42), meta.w * 0.46);
-      cutWord(painted.ctx, 'YES!', meta.w / 2, meta.h * 0.58, size, FONT, [C.tomato, C.cream, '#2b2622', C.mustard], rng);
-      const built = cardOf(THREE, paper, painted.canvas, meta, height);
-      yesBanner = built.group;
-      yesBanner.name = 'banner-yes';
-      yesBanner.position.set(-0.02, 1.08, 0.01);
-      coupleMount.add(yesBanner);
-    }
+    // YES banner: a wide ribbon above the couple, reaching the gutter. It is a sibling of the
+    // flip-book so the squash does not drag it. yesRig scales toward the hinge with the page
+    // (popup.rise) so the full-size ribbon never has to fold; yesFace scales on both axes to unfurl.
+    const BANNER_W = 3.15;
+    const BANNER_H = 0.8;
+    const yesRig = new THREE.Group();
+    yesRig.name = 'banner-yes';
+    const yesFace = new THREE.Group();
+    yesFace.position.set(0.05, 1.64, -0.02);
+    const yesCanvas = paintYesBanner(paper, FONT, C, rng);
+    const yesCard = paper.card({
+      canvas: paper.dieCut(yesCanvas, { margin: 8 }),
+      width: BANNER_W,
+      height: BANNER_H,
+      anchor: 'bottom-center',
+    });
+    yesCard.name = 'banner-yes';
+    yesFace.add(yesCard);
+    yesRig.add(yesFace);
+    coupleMount.add(yesRig);
 
     // ---------------------------------------------------------------- cake, gifts, streamers, hat, bunch
-    const cakeH = 1.14;
+    const cakeH = 1.25;
     const cake = track(popup.standUp({
-      side: 'left', x: 1.32, z: -0.85, fold: 'front', width: 1.2, height: cakeH,
+      side: 'left', x: 2.72, z: 0.02, fold: 'back', width: 1.3, height: cakeH,
     }));
     const flames = [];
     if (has('cake-table')) {
@@ -296,27 +308,28 @@ export default {
       }
     }
 
-    const giftH = 0.46;
+    // Gifts: gutter-side mid-ground, beside the print. Bunch: outer mid-ground.
+    const giftH = 0.72;
     const gifts = track(popup.standUp({
-      side: 'right', x: 1.08, z: 1.22, fold: 'back', width: 0.7, height: giftH,
+      side: 'right', x: 0.98, z: -0.02, fold: 'back', width: 0.82, height: giftH,
     }));
     if (has('gifts')) addProp(characterArt, paper, art, gifts.mount, 'gifts', giftH, 0, 0);
 
-    const streamH = 0.42;
+    const streamH = 0.32;
     const streamers = track(popup.standUp({
-      side: 'left', x: 1.08, z: 1.22, fold: 'back', width: 0.86, height: streamH,
+      side: 'left', x: 1.85, z: 1.18, fold: 'back', width: 0.64, height: streamH,
     }));
     if (has('streamers')) addProp(characterArt, paper, art, streamers.mount, 'streamers', streamH, 0, 0);
 
-    const hatH = 0.36;
+    const hatH = 0.34;
     const hat = track(popup.standUp({
-      side: 'left', x: 3.32, z: 1.22, fold: 'back', width: 0.28, height: hatH,
+      side: 'right', x: 0.58, z: 1.12, fold: 'back', width: 0.24, height: hatH,
     }));
     if (has('party-hat')) addProp(characterArt, paper, art, hat.mount, 'party-hat', hatH, 0, 0);
 
-    const bunchH = 0.55;
+    const bunchH = 1.12;
     const bunch = track(popup.standUp({
-      side: 'right', x: 1.68, z: 0.15, fold: 'back', width: 0.3, height: bunchH,
+      side: 'right', x: 3.15, z: 0.06, fold: 'back', width: 0.52, height: bunchH,
     }));
     if (has('balloon-bunch')) addProp(characterArt, paper, art, bunch.mount, 'balloon-bunch', bunchH, 0, 0);
 
@@ -331,13 +344,18 @@ export default {
       seed: 5,
     });
     const ratio = shot.height / shot.width;
-    const slack = 0.06;
-    const margin = 0.08;
-    let photoW = (3.6 - margin - slack) / (1 + ratio);
-    let photoH = ratio * photoW;
-    // Closed, the card lies toward −Z and must stay inside z ≥ −1.5.
-    const photoZ = photoH - 1.4;
-    const photoX = photoH + slack + photoW / 2;
+    // Large as the loose stand-up allows, still shorter than the backdrop, with a lane
+    // outside it for the balloon bunch. Hinge sits near the middle of the right page.
+    let photoH = 1.88;
+    let photoW = photoH / ratio;
+    const photoX = 2.05;
+    let photoZ = photoH - 1.38;
+    const photoLim = popup.standUpLimits({ x: photoX, z: photoZ, width: photoW, fold: 'back' });
+    if (photoH > photoLim.maxHeightLoose) {
+      photoH = photoLim.maxHeightLoose * 0.98;
+      photoW = photoH / ratio;
+      photoZ = photoH - 1.38;
+    }
     const photo = track(popup.standUp({
       side: 'right', x: photoX, z: photoZ, fold: 'back', width: photoW, height: photoH,
     }));
@@ -354,17 +372,17 @@ export default {
 
     // ---------------------------------------------------------------- dog, outer left, watching
     const dog = track(popup.standUp({
-      side: 'left', x: 3.26, z: 0.22, fold: 'back', width: 0.4, height: 0.55,
+      side: 'left', x: 2.32, z: 0.36, fold: 'back', width: 0.46, height: 0.62,
     }));
     const dogRig = new THREE.Group();
     dogRig.name = 'dog';
     dog.mount.add(dogRig);
-    const dogSit = placeDog(characterArt, paper, art, characters, figures, dogRig, 'dog-sit', 0.34, 272);
-    const dogJump = placeDog(characterArt, paper, art, characters, figures, dogRig, 'dog-jump', 0.48, 276);
+    const dogSit = placeDog(characterArt, paper, art, characters, figures, dogRig, 'dog-sit', 0.45, 272);
+    const dogJump = placeDog(characterArt, paper, art, characters, figures, dogRig, 'dog-jump', 0.56, 276);
     if (dogJump) dogJump.visible = false;
 
     // ---------------------------------------------------------------- confetti + hearts (one holder, scaled away unless the book is open)
-    const scatter = track(popup.onPage({ side: 'left', x: 2.3, z: 0.35, lift: 0.004 }));
+    const scatter = track(popup.onPage({ side: 'left', x: COUPLE_X, z: 0.42, lift: 0.004 }));
     const bits = new THREE.Group();
     bits.name = 'confetti';
     scatter.mount.add(bits);
@@ -376,7 +394,7 @@ export default {
     const glow = new THREE.PointLight('#ffc2a8', 0, 5.5, 2);
     glow.name = 'yes-glow';
     glow.castShadow = false;
-    glow.position.set(-2.15, 1.2, 0.7);
+    glow.position.set(-1.5, 1.45, 0.75);
     group.add(glow);
 
     const state = {
@@ -394,15 +412,17 @@ export default {
       leftArt,
       rightArt,
       cues: [
-        { t: spread.open, hold: 1.7, at: [0, 0.7, 0], size: 7.5, from: 'front' },
-        { t: kneel + 0.5, hold: 2.2, at: [-2.35, 0.75, 0.5], size: 2.6, from: 'front' },
-        { t: question, hold: 1.5, at: [-2.15, 0.72, 0.5], size: 1.4, from: 'front' },
-        { t: photoReveal + 0.3, hold: 1.4, at: [photoX, photoH * 0.45, photoZ], size: 2.4, from: 'right' },
+        { t: spread.open, hold: 1.7, at: [0, 0.95, 0], size: 7.5, from: 'front' },
+        // Kneeling pair, close. Ring sits in his hands on frame 1 (see sparkle placement).
+        { t: kneel + 0.5, hold: 2.2, at: [-1.48, 0.86, COUPLE_Z], size: 2.1, from: 'front' },
+        { t: question, hold: 1.5, at: [-1.40, 0.8, COUPLE_Z + 0.04], size: 1.2, from: 'front' },
+        { t: photoReveal + 0.3, hold: 1.4, at: [photoX, photoH * 0.46, photoZ], size: 2.2, from: 'right' },
         {
           t: yes + 0.2,
           hold: (spread.close - 0.5) - (yes + 0.2),
-          at: [-2.2, 1.05, 0.4],
-          size: 3.0,
+          // Couple + ribbon + the print, one frame.
+          at: [0.15, 1.15, 0.3],
+          size: 3.2,
           from: 'front',
         },
       ],
@@ -434,17 +454,21 @@ export default {
         }
 
         if (sparkle) {
-          const on = t >= question && t < yes ? 0.15 * (0.72 + 0.28 * Math.sin(t * 16)) : 0;
+          const on = t >= question && t < yes ? 0.22 * (0.72 + 0.28 * Math.sin(t * 16)) : 0;
           sparkle.scale.setScalar(on);
         }
 
-        if (yesBanner) {
+        {
+          // Collapse onto the hinge while the page is not open; unfurl on both axes on the beat.
           const u = smoothstep(yes, yes + 0.55, t);
           let s = ease.outBack(u);
           if (s < 0) s = 0;
-          else if (s > 1.08) s = 1.08;
-          yesBanner.scale.set(s, 1, 1);
-          yesBanner.rotation.z = Math.sin(t * 1.35) * 0.035 * s;
+          else if (s > 1.05) s = 1.05;
+          const show = Math.max(0.0008, s);
+          const lift = Math.max(0.0008, risen);
+          yesRig.scale.set(lift, lift, 1);
+          yesFace.scale.set(show, show, 1);
+          yesFace.rotation.z = Math.sin(t * 1.35) * 0.028 * show * risen;
         }
 
         const party = smoothstep(yes, yes + 0.5, t);
@@ -473,6 +497,8 @@ export default {
         // Swing only while the spread is fully open; otherwise the print is a plain standUp.
         const reveal = smoothstep(photoReveal, photoReveal + 0.9, t);
         photoPivot.rotation.x = open ? (-Math.PI / 2) * (1 - reveal) : 0;
+        // A few degrees toward the couple, only while the print is up and the book is open.
+        photoPivot.rotation.y = open ? -0.18 * reveal : 0;
         photoPivot.scale.setScalar(reveal > 0.001 ? reveal : 0.0008);
 
         // One scale on the holder: pieces collapse onto the page, not to their own offsets.
@@ -486,14 +512,65 @@ export default {
   },
 };
 
-function cardOf(THREE, paper, canvas, info, height) {
-  const cut = paper.dieCut(canvas, { margin: 10 });
-  const s = height / info.h;
-  const card = paper.card({ canvas: cut, width: info.w * s, height, anchor: 'bottom-center' });
-  card.position.set(((info.w / 2) - info.feet[0]) * s, (info.feet[1] - info.h) * s, 0);
-  const group = new THREE.Group();
-  group.add(card);
-  return { group, s };
+// Wide bunting: a ribbon with chunky cut letters and a row of pennants. Blank of any
+// generated text — the word is painted here so it stays readable.
+function paintYesBanner(paper, FONT, C, rng) {
+  const W = 1600;
+  const H = 360;
+  const { canvas, ctx } = paper.makeCanvas(W, H);
+  const ink = '#2b2622';
+  const top = 22;
+  const bot = 214;
+  const pennantColors = [C.tomato, C.cream, ink, C.blush, C.mustard, C.tomato, C.cream, ink, C.blush, C.mustard, C.tomato];
+  const count = pennantColors.length;
+  const left = 118;
+  const right = W - 118;
+  const step = (right - left) / (count - 1);
+  for (let i = 0; i < count; i++) {
+    const x = left + i * step;
+    const pw = 86;
+    const ph = 122;
+    ctx.beginPath();
+    ctx.moveTo(x - pw / 2, bot - 18);
+    ctx.lineTo(x + pw / 2, bot - 18);
+    ctx.lineTo(x, bot - 18 + ph);
+    ctx.closePath();
+    ctx.fillStyle = pennantColors[i];
+    ctx.fill();
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = ink;
+    ctx.stroke();
+  }
+  // Swallowtail ribbon. Forked ends sit inside the canvas so the die-cut border fits.
+  ctx.beginPath();
+  ctx.moveTo(54, top + 36);
+  ctx.lineTo(108, top);
+  ctx.quadraticCurveTo(W / 2, top - 10, W - 108, top);
+  ctx.lineTo(W - 54, top + 36);
+  ctx.lineTo(W - 108, bot);
+  ctx.quadraticCurveTo(W / 2, bot + 16, 108, bot);
+  ctx.closePath();
+  ctx.fillStyle = '#fff8ee';
+  ctx.fill();
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = C.tomato;
+  ctx.stroke();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = C.mustard;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(28, top + 6);
+  ctx.quadraticCurveTo(W / 2, top - 8, W - 28, top + 6);
+  ctx.strokeStyle = '#b08968';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  const font = (size) => `${size}px ${FONT.display}`;
+  const size = fitSize(ctx, 'YES!', font, 168, W * 0.62);
+  cutWord(ctx, 'YES!', W / 2, (top + bot) / 2 + 10, size, FONT, [C.tomato, ink, C.mustard, C.tomato], rng);
+  paper.addGrain(ctx, W, H, { amount: 0.04, seed: 11, mottle: 0.6 });
+  return canvas;
 }
 
 function addProp(characterArt, paper, art, mount, id, height, x, z) {
@@ -610,8 +687,8 @@ function buildBits(THREE, paper, rng, parent, confetti, hearts, C) {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = 'confetti';
     mesh.castShadow = false;
-    const x0 = -0.5 + rng.next() * 5.0;
-    const z0 = -1.35 + rng.next() * 1.9;
+    const x0 = -1.45 + rng.next() * 6.3;
+    const z0 = -1.7 + rng.next() * 2.5;
     const piece = {
       mesh,
       x0, z0,
@@ -625,8 +702,8 @@ function buildBits(THREE, paper, rng, parent, confetti, hearts, C) {
     };
     // Land inside the same safe box the launch used.
     const T = (2 * piece.vy) / piece.g;
-    piece.x1 = clamp(piece.x0 + piece.vx * T, -0.6, 4.7);
-    piece.z1 = clamp(piece.z0 + piece.vz * T, -1.4, 0.55);
+    piece.x1 = clamp(piece.x0 + piece.vx * T, -1.5, 4.95);
+    piece.z1 = clamp(piece.z0 + piece.vz * T, -1.75, 0.88);
     piece.T = T;
     parent.add(mesh);
     confetti.push(piece);
@@ -641,8 +718,8 @@ function buildBits(THREE, paper, rng, parent, confetti, hearts, C) {
     mesh.castShadow = false;
     const piece = {
       mesh,
-      x0: -0.15 + rng.next() * 1.1,
-      z0: -0.35 + rng.next() * 0.7,
+      x0: -0.35 + rng.next() * 1.6,
+      z0: -0.25 + rng.next() * 0.7,
       phase: rng.next() * 6,
       delay: 0.1 + rng.next() * 0.55,
     };
