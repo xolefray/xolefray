@@ -1,9 +1,12 @@
 /**
- * spreads/index.js — the four spread modules in film order (spread k = SPREAD_MODULES[k - 1]).
+ * spreads/index.js — the six spread modules in film order (spread k = SPREAD_MODULES[k - 1];
+ * ids and titles match timeline.js SPREADS).
  */
-import forest from './forest.js';
-import sea from './sea.js';
-import city from './city.js';
-import sky from './sky.js';
+import walmart from './walmart.js';
+import dates from './dates.js';
+import official from './official.js';
+import life from './life.js';
+import proposal from './proposal.js';
+import wedding from './wedding.js';
 
-export const SPREAD_MODULES = [forest, sea, city, sky];
+export const SPREAD_MODULES = [walmart, dates, official, life, proposal, wedding];

@@ -1,11 +1,12 @@
 /**
- * popup.js — the paper engineering of "The Little Paper Boat": pop-up mechanisms posed in the
+ * popup.js — the paper engineering of "Our Love Story" (engine of "The Little Paper Boat", with
+ * the landscape album page 3.6 × 3.0 from dims.js): pop-up mechanisms posed in the
  * SPREAD FRAME (contract 3.1) as a pure function of the opening angle α. Pure math + Object3Ds;
  * it creates no meshes. Spread artists add artwork (paper.card, paper.splitCard …) to the mounts.
  *
  * ── Spread frame ─────────────────────────────────────────────────────────────────────────────
  *   gutter      = the Z axis; reader at +Z; α ∈ [0, π] (0 = closed, π = open flat).
- *   right page  = y = 0, x ∈ [0, PAGE_W = 3], z ∈ [−2, 2]; printed normal +Y. It never moves.
+ *   right page  = y = 0, x ∈ [0, PAGE_W = 3.6], z ∈ [−1.5, 1.5]; printed normal +Y. It never moves.
  *   left page   = half-plane through the Z axis in direction L(α) = (cos α, sin α, 0), printed
  *                 normal N(α) = (sin α, −cos α, 0). It is the open-flat left page (x ≤ 0, y = 0)
  *                 rotated about +Z by α − π, so "open-flat coordinates" fold rigidly with it.
@@ -30,7 +31,7 @@
  *
  * ── Folding rules (zero-thickness paper; respect R1–R3 and nothing ever collides) ───────────
  *   R1 Closed fit: at α = 0 everything lies flat; its closed FOOTPRINT must stay inside the page
- *      rectangle. Use vFoldLimits / standUpLimits / the floatingLayer rule (width/2 + height ≤ 3).
+ *      rectangle. Use vFoldLimits / standUpLimits / the floatingLayer rule (width/2 + height ≤ 3.6).
  *   R2 Own half: a piece that stays between its page and the bisector plane can never touch the
  *      other page or anything on it. vFold halves, floatingLayer (+ everything nested on it
  *      that obeys R2 there) and slider/onPage do this automatically; a standUp does when
@@ -42,10 +43,11 @@
  *   or hide them with rise() before the pages close on them.
  */
 import * as THREE from 'three';
+import { PAGE_D, PAGE_W } from './dims.js';
 
 const PI = Math.PI;
-/** The book page (BOOK.PAGE_W × PAGE_D) as a rectangle x ∈ [0, w], z ∈ [z − d/2, z + d/2]. */
-const PAGE = Object.freeze({ w: 3, d: 4, z: 0 });
+/** The book page (BOOK.PAGE_W × PAGE_D = 3.6 × 3.0) as a rectangle x ∈ [0, w], z ∈ [z − d/2, z + d/2]. */
+export const PAGE = Object.freeze({ w: PAGE_W, d: PAGE_D, z: 0 });
 const EPS = 1e-9;
 
 // Shared temporaries: update() never allocates.
@@ -116,9 +118,9 @@ export function rise(alpha, a0 = 0.15, a1 = 0.95) {
  * The closed footprint is the rectangle spanned from the crease foot (0, z0) by the glue line
  * (half-width w/2 along (sin γ, cos γ)) and the crease (height h along (|cos γ|, ∓sin γ)); it is
  * also the largest the shadow ever gets, so the budget holds for every α.
- *   valley (γ < π/2): crease folds toward −Z → height limited by the FAR edge (z0 − h sin γ ≥ −2)
- *   mountain (γ > π/2): crease folds toward +Z → height limited by the NEAR edge (z0 + h sin γ ≤ 2)
- *   both: glue end z0 + (w/2) cos γ inside [−2, 2] and outer reach (w/2) sin γ + h |cos γ| ≤ 3.
+ *   valley (γ < π/2): crease folds toward −Z → height limited by the FAR edge (z0 − h sin γ ≥ −1.5)
+ *   mountain (γ > π/2): crease folds toward +Z → height limited by the NEAR edge (z0 + h sin γ ≤ 1.5)
+ *   both: glue end z0 + (w/2) cos γ inside [−1.5, 1.5] and outer reach (w/2) sin γ + h |cos γ| ≤ 3.6.
  * Width and height share the x budget, so pass the one you have fixed to get the other's maximum.
  * @param {object} o
  * @param {number} [o.z0=0] crease foot on the gutter
@@ -460,8 +462,8 @@ export function slider({ side = 'right', path, lift = 0.002, smooth = true, u = 
  * symmetric design pose, the one both pages pull it into; every piece keeps its true shape.)
  *   open (α = π): walls vertical, layer flat at y = height, x ∈ [−width/2, width/2].
  *   closed (α = 0): walls fall outward (outer face on the page), everything lies in
- *     x ∈ [0, width/2 + height] on each page.  RULE (R1): width/2 + height ≤ 3 and
- *     |z| + depth/2 ≤ 2; the closed footprint for R3 is x ∈ [0, width/2 + height] ×
+ *     x ∈ [0, width/2 + height] on each page.  RULE (R1): width/2 + height ≤ 3.6 and
+ *     |z| + depth/2 ≤ 1.5; the closed footprint for R3 is x ∈ [0, width/2 + height] ×
  *     z ± depth/2 on BOTH pages. Everything stays in its own half (R2).
  * Nesting: `frame` is an Object3D at F(α) with no rotation — a complete sub-spread whose pages are
  * the layer halves (`page` = its rectangle for the *Limits helpers). layer.add(mech) puts any

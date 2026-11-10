@@ -1,15 +1,22 @@
 /**
- * main.js — bootstrap and frame loop of "The Little Paper Boat".
+ * main.js — bootstrap and frame loop of "Our Love Story" (Brian & Marlin's wedding pop-up film).
  *
- * Boot (while the static intro card in index.html says "folding paper…"): renderer + camera,
- * environment, book, the four spreads (spread k is built with makeRng(1000 + k), its group is
+ * Boot (while the static intro card in index.html says "gluing in the photos…"): renderer + camera;
+ * then the things every painter needs — the vendored fonts (fonts.js; nothing may paint a canvas
+ * before them), the couple's photos (photos.js; each may be null → illustrated fallbacks) and the
+ * paper-doll figures module (imported defensively: if figures.js is missing or incomplete it is
+ * logged once and plain stand-ins are passed instead); then environment, the scrapbook
+ * (createBook({ photos, fonts })) and the six spreads. Spread k is built with makeRng(1000 + k) and
+ * the context { THREE, paper, popup, rng, BOOK, photos, figures, FONT, timeline }; its group is
  * mounted on book.getSpreadAnchor(k) and its art goes to book.setPageArt(k, …); a spread whose
- * build() throws is logged and skipped), titles, audio and camera rig. A warm-up pass then renders
- * the key moments of the film at a tiny size behind the card so every shader and texture is on
- * the GPU before the first page turn (skipped for clean still frames: ui=0 + t without play).
+ * build() throws is logged and skipped. The spreads' camera cues (spread-frame points) are then
+ * converted to WORLD space through each spread anchor at its full-open pose and handed to the camera
+ * rig as getCues(). Finally titles, audio, camera rig, and a warm-up pass that renders the key
+ * moments of the film at a tiny size behind the card so every shader and texture is on the GPU
+ * before the first page turn (skipped for clean still frames: ui=0 + t without play).
  *
- * Frame (contract §4): t = player.time; phis = leafAngles(t); book.setLeafAngles(phis); per
- * spread α = spreadAlpha(k, phis), visible when α > 0.002, update(α, t, t − start); camera rig;
+ * Frame: t = player.time; phis = leafAngles(t) (7 leaves); book.setLeafAngles(phis); per spread
+ * α = spreadAlpha(k, phis), visible when α > 0.002, update(α, t, t − start); camera rig;
  * environment; titles; audio.sync(t, playing); render. The scene is re-posed and re-rendered only
  * when t changes or something asks for a redraw (seek, resize, free-camera motion), so a paused
  * film costs nothing. Each module call is guarded: a failure is logged once and the film goes on.
@@ -20,14 +27,22 @@
  *
  * URL: t=<sec> seek there and pause · play=1 play (from t, else 0) · ui=0 no controls / intro
  * (clean frames; for any parameter the LAST occurrence wins, so a later ui=1 re-enables) ·
- * mute=1 · free=1 OrbitControls debug camera instead of the rig. No t / play: poster frame at
- * t = 20 behind the intro card, whose "Begin" (a user gesture) starts audio and plays from 0.
- * Hooks: window.__film = { seek(t), play(), pause(), time, playing, duration }; window.__ready.
+ * mute=1 · captions=0 hide the narration captions (sets <html data-captions="0">, which titles.js
+ * reads) · photos=0 never load the couple's photos: every print shows its illustrated fallback
+ * (privacy-safe frames) · free=1 OrbitControls debug camera instead of the rig. No t / play:
+ * poster frame at t = 22 behind the intro card, whose "Begin" (a user gesture) starts audio and
+ * plays from 0.
+ * Hooks: window.__film = { seek(t), play(), pause(), time, playing, duration, cues }; window.__ready.
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as timeline from './timeline.js';
 import { CHAPTERS, DURATION, LEAF_TURNS, Player, SPREADS, clamp, leafAngles, spreadAlpha } from './timeline.js';
+import { LEAVES } from './dims.js';
 import { makeRng } from './util/rng.js';
+import { resolveFigures } from './util/figures-fallback.js';
+import { FONT, loadFonts } from './fonts.js';
+import { loadPhotos } from './photos.js';
 import * as paper from './paper.js';
 import * as popup from './popup.js';
 import { BOOK, createBook } from './book.js';
@@ -38,7 +53,7 @@ import { createCameraRig } from './camera.js';
 import { MUTE_KEY, createUI } from './ui.js';
 import { SPREAD_MODULES } from './spreads/index.js';
 
-const POSTER_T = 20;
+const POSTER_T = 22;
 const VISIBLE_ALPHA = 0.002;
 // Keep in sync with the .intro transitions in styles.css.
 const REVEAL_MS = 900; // loading backdrop -> translucent poster
@@ -55,11 +70,16 @@ const hasT = Number.isFinite(tParam);
 const autoplay = param('play') === '1';
 const showUI = param('ui') !== '0';
 const freeCam = param('free') === '1';
+const showCaptions = param('captions') !== '0';
+const usePhotos = param('photos') !== '0';
 const posterMode = showUI && !hasT && !autoplay;
 const stillFrame = !showUI && hasT && !autoplay;
 const startT = hasT ? clamp(tParam, 0, DURATION) : autoplay ? 0 : POSTER_T;
 
 // ---------------------------------------------------------------- state
+
+// titles.js reads this (captions=0 hides the narration captions; page titles and end card stay).
+document.documentElement.dataset.captions = showCaptions ? '1' : '0';
 
 const stage = document.getElementById('stage');
 const overlay = document.getElementById('overlay');
@@ -73,8 +93,12 @@ const player = new Player(DURATION);
 const spreads = [];
 /** Always-visible stand-ins for the spreads' point lights: { src, proxy, group } (see adoptLights). */
 const spreadLights = [];
+/** Camera cues of all spreads in WORLD space, sorted by t (see collectCues); what getCues() returns. */
+let worldCues = [];
 const reported = new Set();
-const phis = [0, 0, 0, 0, 0]; // leaf angles, refilled every pose (no per-frame allocation)
+const phis = new Array(LEAVES).fill(0); // leaf angles, refilled every pose (no per-frame allocation)
+let photos = { cover: null, proposal: null, dog: null };
+let figures = null;
 let renderer = null;
 let scene;
 let camera;
@@ -159,6 +183,10 @@ window.__film = {
     return player.playing;
   },
   duration: DURATION,
+  /** The merged world-space camera cues (read-only; for dev tools). */
+  get cues() {
+    return worldCues;
+  },
 };
 
 // ---------------------------------------------------------------- scene construction
@@ -172,7 +200,7 @@ function createRenderer() {
   r.shadowMap.enabled = true;
   r.shadowMap.type = THREE.PCFSoftShadowMap;
   r.domElement.setAttribute('role', 'img');
-  r.domElement.setAttribute('aria-label', 'A pop-up book on a desk, telling the story of a little paper boat');
+  r.domElement.setAttribute('aria-label', 'A hand-made pop-up scrapbook on a desk, telling how Brian and Marlin met and got engaged');
   r.domElement.addEventListener('webglcontextlost', onContextLost);
   r.domElement.addEventListener('webglcontextrestored', onContextRestored);
   stage.appendChild(r.domElement);
@@ -241,7 +269,7 @@ function buildSpread(mod, info) {
   const { k } = info;
   let api = null;
   try {
-    api = mod.build({ THREE, paper, popup, rng: makeRng(1000 + k), BOOK });
+    api = mod.build({ THREE, paper, popup, rng: makeRng(1000 + k), BOOK, photos, figures, FONT, timeline });
     book.getSpreadAnchor(k).add(api.group);
     book.setPageArt(k, { left: api.leftArt, right: api.rightArt });
   } catch (err) {
@@ -251,7 +279,59 @@ function buildSpread(mod, info) {
   }
   api.group.visible = false;
   adoptLights(api.group);
-  spreads.push({ k, id: info.id, start: info.start, group: api.group, api, failed: false });
+  spreads.push({ k, id: info.id, start: info.start, open: info.open, group: api.group, api, failed: false });
+}
+
+/**
+ * The spreads give their camera cues in SPREAD-FRAME coordinates. The rig wants world points, so
+ * each spread's cues go through its anchor's world matrix with the book posed at that spread's
+ * full-open moment (`open`: the left page lies flat, so spread-frame x < 0 is simply the left page).
+ * Result: [{ t, hold, at: THREE.Vector3 (world), size, from, spread }] sorted by t. A malformed cue
+ * is dropped with one warning; a spread without cues contributes none (the rig has its own wides).
+ */
+function collectCues() {
+  const out = [];
+  for (const s of spreads) {
+    const list = Array.isArray(s.api.cues) ? s.api.cues : [];
+    if (list.length === 0) continue;
+    try {
+      leafAngles(s.open ?? s.start + 3, phis);
+      book.setLeafAngles(phis);
+      book.group.updateMatrixWorld(true);
+      const anchor = book.getSpreadAnchor(s.k);
+      anchor.updateWorldMatrix(true, false);
+      for (const c of list) {
+        const at = c?.at;
+        if (!c || !Number.isFinite(c.t) || !at || ![at[0], at[1], at[2]].every(Number.isFinite)) {
+          report(`a camera cue of spread ${s.k} (${s.id})`, new Error(`malformed cue ${JSON.stringify(c)}`));
+          continue;
+        }
+        out.push({
+          t: c.t,
+          hold: Number.isFinite(c.hold) ? c.hold : 0,
+          at: new THREE.Vector3(at[0], at[1], at[2]).applyMatrix4(anchor.matrixWorld),
+          size: Number.isFinite(c.size) && c.size > 0 ? c.size : 7.5,
+          from: c.from ?? 'front',
+          spread: s.k,
+        });
+      }
+    } catch (err) {
+      report(`camera cues of spread ${s.k} (${s.id})`, err);
+    }
+  }
+  out.sort((a, b) => a.t - b.t);
+  return out;
+}
+
+/** figures.js belongs to another part of the film: load it defensively and patch any gaps. */
+async function loadFigures() {
+  let mod = null;
+  try {
+    mod = await import('./figures.js');
+  } catch (err) {
+    console.warn('[film] figures.js could not be loaded:', err);
+  }
+  return resolveFigures(mod, paper);
 }
 
 function silentAudio() {
@@ -271,7 +351,7 @@ function silentAudio() {
 function fallbackRig() {
   return {
     update() {
-      camera.position.set(0, 7, 9);
+      camera.position.set(0, 8.5, 11);
       camera.lookAt(0, 0.4, 0);
     },
   };
@@ -463,11 +543,18 @@ async function boot() {
   renderer = createRenderer();
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.05, 200);
-  setLoadProgress(0.08);
+  setLoadProgress(0.05);
+  await afterPaint();
+
+  // Fonts first: nothing may paint a canvas before they are usable. Neither loader ever rejects.
+  const [, loadedPhotos, loadedFigures] = await Promise.all([loadFonts(), loadPhotos({ disabled: !usePhotos }), loadFigures()]);
+  photos = loadedPhotos;
+  figures = loadedFigures;
+  setLoadProgress(0.12);
   await afterPaint();
 
   env = createEnvironment({ scene, renderer });
-  book = createBook();
+  book = createBook({ photos, fonts: FONT });
   scene.add(book.group);
   setLoadProgress(0.2);
 
@@ -477,9 +564,11 @@ async function boot() {
     setLoadProgress(0.2 + (0.6 * (i + 1)) / SPREAD_MODULES.length);
   }
 
-  titles = optional('titles', () => createTitles(overlay), { update() {} });
+  worldCues = collectCues();
+
+  titles = optional('titles', () => createTitles(overlay, { captions: showCaptions }), { update() {} });
   audio = optional('audio', () => createAudio(), silentAudio());
-  rig = optional('camera rig', () => createCameraRig(camera), fallbackRig());
+  rig = optional('camera rig', () => createCameraRig(camera, { getCues: () => worldCues }), fallbackRig());
   audio.setMuted(initialMute());
   if (freeCam) setupFreeCamera();
 

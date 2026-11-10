@@ -1,22 +1,27 @@
 <!doctype html>
 <!--
-  index.html — page shell of "The Little Paper Boat".
+  index.html — page shell of "Our Love Story" (Brian & Marlin's wedding pop-up film).
   Layers, bottom to top: #stage (WebGL canvas), #overlay (titles.js captions), #ui (player
   controls, ui.js) and #intro (static loading card that becomes the poster / "Begin" screen;
   main.js drives its data-state: loading -> poster -> leaving -> gone, or error; the module
   script's onerror also shows the error state when the code cannot load at all, e.g. modules blocked
   by CORS in an opaque-origin sandboxed iframe).
-  No external resources: vendored three.js via the import map, system fonts, inline SVG.
+  No external resources: vendored three.js via the import map, two vendored open-licence fonts
+  (fonts/, @font-face in styles.css; preloaded here so the card and the canvases get them early),
+  inline SVG. The couple's photos (photos/, private, not in the repository) are optional.
 -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="The Little Paper Boat — a 96-second real-time pop-up-book film. A folded paper boat sails through a forest, a sea, a lantern city and the morning sky.">
+  <meta name="description" content="Our Love Story — Brian &amp; Marlin. A two-and-a-half-minute pop-up scrapbook film about how they met, drawn live in your browser.">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0c0a09">
-  <title>The Little Paper Boat</title>
+  <title>Our Love Story</title>
   <link rel="icon" href="data:,">
+  <link rel="preload" href="fonts/luckiest-guy-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/caveat-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/caveat-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
   <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/":"./vendor/addons/"}}</script>
   <link rel="modulepreload" href="vendor/three.module.js">
@@ -38,20 +43,24 @@
 
   <section id="intro" class="intro" data-state="loading" aria-labelledby="intro-title">
     <div class="intro__card">
-      <p class="intro__eyebrow">a pop-up film in four pages</p>
-      <h1 class="intro__title" id="intro-title">The Little Paper Boat</h1>
+      <h1 class="intro__title" id="intro-title" aria-label="Our Love Story">
+        <span class="intro__word" aria-hidden="true"><i>O</i><i>u</i><i>r</i></span>
+        <span class="intro__word" aria-hidden="true"><i>L</i><i>o</i><i>v</i><i>e</i></span>
+        <span class="intro__word" aria-hidden="true"><i>S</i><i>t</i><i>o</i><i>r</i><i>y</i></span>
+      </h1>
+      <p class="intro__names">Brian &amp; Marlin</p>
       <div class="intro__rule" aria-hidden="true">
         <span></span>
-        <svg viewBox="0 0 32 22" width="32" height="22">
-          <path d="M2.5 13.5h27l-5 6h-17z M16 2.5l-6.5 11h13z M16 2.5v11" />
+        <svg viewBox="0 0 24 22" width="22" height="20">
+          <path d="M12 20C5.5 15 2 11.4 2 7.4 2 4.4 4.3 2.4 6.9 2.4c1.9 0 3.7 1 5.1 2.9 1.4-1.9 3.2-2.9 5.1-2.9 2.6 0 4.9 2 4.9 5 0 4-3.5 7.6-10 12.6z" />
         </svg>
         <span></span>
       </div>
-      <p class="intro__line">Open the book and follow a little paper boat through four folded worlds.</p>
+      <p class="intro__line">Open the scrapbook and see how it all began.</p>
       <div class="intro__action">
         <div class="intro__status" role="status">
           <span class="intro__fold" aria-hidden="true"></span>
-          <span class="intro__status-text">folding paper…</span>
+          <span class="intro__status-text">gluing in the photos…</span>
           <span class="intro__progress" aria-hidden="true"><i></i></span>
         </div>
         <button class="intro__begin" type="button">
@@ -59,7 +68,7 @@
           Begin
         </button>
       </div>
-      <p class="intro__hint">About a minute and a half · best with sound</p>
+      <p class="intro__hint">About two and a half minutes · best with sound</p>
     </div>
   </section>
 

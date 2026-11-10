@@ -1,11 +1,13 @@
 /**
- * paper.js — the paper look of "The Little Paper Boat": palettes, canvas painting helpers
+ * paper.js — the paper look of "Our Love Story" (engine shared with "The Little Paper Boat"): palettes, canvas painting helpers
  * (fibre grain, die-cut borders), paper materials, printed cut-out cards and folded paper models.
  * Everything is procedural and deterministic (seeded); nothing here allocates per frame.
  * Units: 1 = 10 cm. Typical piece: a 384x512 px canvas on a 0.9 x 1.2 card (~430 px per unit).
  *
- * PAPER, PALETTES — colour constants as '#rrggbb' strings (PALETTES.forest|sea|city|sky.<name>).
- *     ctx.fillStyle = PALETTES.forest.fox;
+ * PAPER, PALETTES — colour constants as '#rrggbb' strings. PALETTES.scrapbook.<name> is this film's
+ * palette (tomato, mustard, teal, sky, leaf, blush, cream, kraft, kraftDeep, leather, spine, vest,
+ * badge, ink); forest|sea|city|sky are kept from the engine's first film for odd jobs.
+ *     ctx.fillStyle = PALETTES.scrapbook.tomato;
  *     const { navy, foam } = PALETTES.sea;
  *     const mat = paperMaterial({ color: PAPER.cream });
  *
@@ -33,8 +35,9 @@
  *     const flat = paint(512, 128, drawBanner, { dieCut: 0 });
  *     const piece = card({ canvas: star, width: 0.4, height: 0.4 });
  *
- * page(draw, { seed=1, tint }) -> 768x1024 page-art canvas (contract 3.2): base colour (tint ??
- * PAPER.white), draw(ctx, 768, 1024), then grain with stronger print mottle. No gutter shading.
+ * page(draw, { seed=1, tint }) -> 1024x853 page-art canvas (landscape album page, dims.js ART_W x
+ * ART_H): base colour (tint ?? PAPER.white), draw(ctx, w, h), then grain with stronger print mottle.
+ * No gutter shading. Top of the canvas = far edge of the page; see the orientation rules.
  *     const rightArt = page((ctx, w, h) => {
  *       ctx.fillStyle = PALETTES.sea.teal; ctx.fillRect(0, h * 0.6, w, h * 0.4);
  *     }, { seed: 21, tint: PAPER.cream });
@@ -42,7 +45,7 @@
  * texture(canvas) -> THREE.CanvasTexture (sRGB, anisotropy 8, trilinear mipmaps). Live: redraw the
  * canvas and set `tex.needsUpdate = true`. For alpha-cut art use cutoutTexture (no dark fringes).
  *     const tex = texture(rightArt);
- *     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(3, 4), paperMaterial({ map: tex }));
+ *     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3), paperMaterial({ map: tex }));
  *     sheet.receiveShadow = true;
  *
  * cutoutTexture(canvas) -> THREE.Texture (same settings): a SNAPSHOT of the canvas whose transparent
@@ -88,6 +91,7 @@
  *     group.add(c);
  */
 import * as THREE from 'three';
+import { ART_H, ART_W } from './dims.js';
 import { mulberry32 } from './util/rng.js';
 
 // ----------------------------------------------------------------------------------------------
@@ -97,6 +101,23 @@ import { mulberry32 } from './util/rng.js';
 export const PAPER = { white: '#fbf7ee', cream: '#f3ead8', ink: '#2b2622' };
 
 export const PALETTES = {
+  // "Our Love Story": the scrapbook's cheerful cut-paper colours (they echo the cover's letters).
+  scrapbook: {
+    tomato: '#e2574c',
+    mustard: '#e9b23e',
+    teal: '#3f9c95',
+    sky: '#78b7dd',
+    leaf: '#7fb069',
+    blush: '#f0a3a0',
+    cream: '#f6edd9',
+    kraft: '#c9a273', // brown wrapping-paper pages
+    kraftDeep: '#a9814f',
+    leather: '#6b4630', // the cover
+    spine: '#b5382f', // red cloth
+    vest: '#1f55c4', // royal-blue store vest
+    badge: '#f4c531', // its yellow name-badge strip
+    ink: '#3a2f2a',
+  },
   forest: {
     deep: '#2c4a36', // pine shadow
     mid: '#4f7d4b', // leaf
@@ -429,7 +450,7 @@ export function paint(w, h, draw, { grain = 0.05, dieCut: margin = 8, seed = 1 }
   return out;
 }
 
-const PAGE_SIZE = { w: 768, h: 1024 };
+const PAGE_SIZE = { w: ART_W, h: ART_H }; // 1024 x 853: the landscape album page (3.6 : 3)
 
 export function page(draw, { seed = 1, tint } = {}) {
   const { w, h } = PAGE_SIZE;

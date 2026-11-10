@@ -1,5 +1,5 @@
 /**
- * ui.js — player controls of "The Little Paper Boat".
+ * ui.js — player controls of "Our Love Story".
  *
  * createUI() builds, inside `root`, a glass control bar — scrubber (chapter-segmented track,
  * time + chapter tooltip on hover/drag, role="slider"), play/pause/replay, current time and
@@ -20,7 +20,7 @@ const PROGRESS_STEPS = 2000;
 const CHAPTER_GAP_PX = 3;
 
 /** localStorage key holding the viewer's mute preference ('1' / '0'). */
-export const MUTE_KEY = 'little-paper-boat:muted';
+export const MUTE_KEY = 'our-love-story:muted';
 
 const svg = (body, cls = '') => `<svg viewBox="0 0 24 24" aria-hidden="true" class="${cls}">${body}</svg>`;
 const ICONS = {

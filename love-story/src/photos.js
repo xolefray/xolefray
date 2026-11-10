@@ -7,12 +7,17 @@
  * and photoPrint(null, …) paints a finished-looking illustrated placeholder (a doodled heart), so
  * every caller gets a usable canvas either way.
  *
- * loadPhotos() -> Promise<{ cover, proposal, dog }>, each an HTMLCanvasElement (the decoded photo,
- * longest side <= 1600 px) or null. Sources: ../photos/cover.jpg, proposal.jpg, dog.jpg — or, when
- * `window.__PHOTOS = { cover: <url | data URI>, … }` exists, those instead (single-file builds;
- * a name missing from __PHOTOS is simply null, the files are not consulted). Memoised.
+ * loadPhotos({ disabled } = {}) -> Promise<{ cover, proposal, dog }>, each an HTMLCanvasElement (the
+ * decoded photo, longest side <= 1600 px) or null. Sources: ../photos/cover.jpg, proposal.jpg,
+ * dog.jpg — or, when `window.__PHOTOS = { cover: <url | data URI>, … }` exists, those instead
+ * (single-file builds; a name missing from __PHOTOS is simply null, the files are not consulted).
+ * Memoised.
  *     const photos = await loadPhotos();
  *     const book = createBook({ photos, fonts: FONT });
+ * PHOTOS OFF: with `disabled: true`, or — when `disabled` is not given — with `photos=0` in the
+ * page URL (photosDisabled()), nothing is fetched or read and all three are null, so every consumer
+ * shows its illustrated fallback. Use it for screenshots that leave the machine. Every page that
+ * calls loadPhotos() honours `?photos=0` without doing anything.
  *
  * photoPrint(photo, { width=512, style='polaroid', caption='', tilt=0, tape=true,
  *                     aspect, focus=[0.5,0.4], seed=1, tapeColor, shadow=false }) -> canvas
@@ -95,7 +100,17 @@ function loadOne(name) {
   });
 }
 
-export function loadPhotos() {
+/** True when the page URL carries `photos=0` (the last occurrence wins, as for the film's other parameters). */
+export function photosDisabled() {
+  try {
+    return new URLSearchParams(location.search).getAll('photos').at(-1) === '0';
+  } catch {
+    return false;
+  }
+}
+
+export function loadPhotos({ disabled } = {}) {
+  if (disabled ?? photosDisabled()) return Promise.resolve({ cover: null, proposal: null, dog: null });
   if (pending) return pending;
   const out = { cover: null, proposal: null, dog: null };
   if (typeof document === 'undefined') {

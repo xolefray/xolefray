@@ -57,6 +57,14 @@
   --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", P052,
     "TeX Gyre Pagella", Georgia, Caladea, "Liberation Serif", serif;
   --font-ui: system-ui, sans-serif;
+  --font-cut: "Luckiest Guy", "Arial Rounded MT Bold", "Trebuchet MS", Impact, sans-serif;
+  --font-hand: "Caveat", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+  /* The scrapbook's cut-paper letter colours (same in every scheme, so not restated below). */
+  --cut-tomato: #e8695e;
+  --cut-mustard: #efbf4f;
+  --cut-teal: #56b3aa;
+  --cut-sky: #8cc5e6;
+  --cut-leaf: #93c27c;
   --ui-safe-bottom: 0px;
 }
 
@@ -265,26 +273,75 @@ body {
   transform: translateY(-6px);
 }
 
-.intro__eyebrow {
-  margin: 0 0 0.55rem;
-  color: var(--gold);
-  font: italic 400 clamp(0.95rem, 2.6vw, 1.12rem) / 1.3 var(--font-display);
-  letter-spacing: 0.04em;
+/* The title in hand-cut letters, like the scrapbook's cover: every letter its own colour, a little askew. */
+.intro__title {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 0.34em;
+  margin: 0;
+  font: 400 clamp(2.5rem, 8.4vw, 5.4rem) / 1.08 var(--font-cut);
+  letter-spacing: 0.035em;
 }
 
-.intro__title {
-  margin: 0;
-  font: 400 clamp(2.25rem, 6.6vw, 4.6rem) / 1.04 var(--font-display);
-  letter-spacing: 0.005em;
-  text-wrap: balance;
-  text-shadow: 0 2px 28px rgba(0, 0, 0, 0.65);
+.intro__word {
+  display: inline-flex;
+  white-space: nowrap;
+}
+
+.intro__word i {
+  display: inline-block;
+  font-style: normal;
+  color: var(--cut-tomato);
+  text-shadow: 0 0.035em 0 rgba(0, 0, 0, 0.42), 0 0.1em 0.5em rgba(0, 0, 0, 0.5);
+  transform: rotate(-3deg);
+}
+
+.intro__word i:nth-child(5n + 2) {
+  color: var(--cut-mustard);
+  transform: rotate(2.5deg) translateY(0.03em);
+}
+
+.intro__word i:nth-child(5n + 3) {
+  color: var(--cut-teal);
+  transform: rotate(-1.5deg) translateY(-0.02em);
+}
+
+.intro__word i:nth-child(5n + 4) {
+  color: var(--cut-sky);
+  transform: rotate(3deg);
+}
+
+.intro__word i:nth-child(5n + 5) {
+  color: var(--cut-leaf);
+  transform: rotate(-2.5deg) translateY(0.02em);
+}
+
+.intro__word:nth-child(2) i:nth-child(1) {
+  color: var(--cut-sky);
+}
+
+.intro__word:nth-child(3) i:nth-child(1) {
+  color: var(--cut-leaf);
+}
+
+.intro__word:nth-child(3) i:nth-child(5) {
+  color: var(--cut-tomato);
+}
+
+.intro__names {
+  margin: 0.5rem 0 0;
+  color: var(--cream);
+  font: 700 clamp(1.7rem, 5vw, 2.7rem) / 1.1 var(--font-hand);
+  letter-spacing: 0.01em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.7);
 }
 
 .intro__rule {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  margin: 1.15rem 0 1rem;
+  margin: 0.9rem 0 0.9rem;
 }
 
 .intro__rule span {
@@ -298,11 +355,9 @@ body {
 }
 
 .intro__rule svg {
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 1.2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
+  fill: var(--cut-tomato);
+  stroke: none;
+  filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.5));
 }
 
 .intro__line {

@@ -1,5 +1,11 @@
+// STUB (T-scaffold) — replaced by the audio owner (T-audio). The synthesis ENGINE below is the
+// engine's own (unchanged) and the API is the contract's (createAudio, renderOffline), but the old
+// film's SCORE is switched off: buildEvents() only schedules the generic paper foley that follows
+// timeline.js (lamp click, cover creak, page whooshes, pop-up flaps, landing thumps) and the final
+// fade. SECTIONS / CUES / BEDS / RUSTLES / chimes are the previous film's music, kept only as a
+// worked example for the new score; nothing plays them. No narration track yet.
 /**
- * audio.js — procedural music-box score and paper foley for "The Little Paper Boat".
+ * audio.js — procedural music-box score and paper foley (engine of "The Little Paper Boat").
  *
  * Everything is synthesized with WebAudio and is deterministic in film time.
  *
@@ -24,7 +30,7 @@
  * Noise, crinkle, creak and reverb buffers are generated once per context with seeded RNGs.
  * If WebAudio is unavailable every method is a silent no-op; no method ever throws.
  */
-import { DURATION, LEAF_TURNS, ease } from './timeline.js';
+import { BEATS, DURATION, END_CARD, LEAF_TURNS, ease } from './timeline.js';
 import { makeRng, mulberry32 } from './util/rng.js';
 
 const LOOKAHEAD = 0.25; // film seconds scheduled ahead of the playhead
@@ -281,7 +287,7 @@ function chimes(rng, out) {
 function foley(rng, out) {
   const fx = (type, t, props) => out.push({ type, layer: 'foley', t, ...props });
   const rustle = (t, dur, vel) => fx('rustle', t, { dur, vel, off: rng.range(0, 2.2), pan: rng.range(-0.6, 0.6) });
-  fx('click', 0.3, { vel: 1 });
+  fx('click', BEATS.lampOn, { vel: 1 });
   for (const turn of LEAF_TURNS) {
     const cover = turn.leaf === 0;
     const dur = turn.end - turn.start;
@@ -299,21 +305,23 @@ function foley(rng, out) {
     // the turned leaf lands on the left-hand stack
     fx('thump', turn.end + 0.02, { vel: cover ? 1 : 0.45, f: cover ? 90 : 140, off: rng.range(0, 5) });
   }
-  for (const t of RUSTLES) rustle(t + rng.range(-0.25, 0.25), rng.range(0.25, 0.55), rng.range(0.6, 1));
-  for (let k = 0; k < 5; k++) rustle(74.3 + k * 0.75 + rng.range(0, 0.15), 0.32, 1.1); // boat -> crane
-  fx('flap', 77.9, { vel: 0.8, f: 2600, pan: 0.2, off: rng.range(0, 5) }); // the wings open
+  // STUB: the old film's timed rustles (RUSTLES, boat -> crane) are not scheduled.
+  void rustle;
 }
 
 /** The whole film as one sorted event list (pure data, film seconds). */
 function buildEvents() {
   const rng = makeRng(20261110);
   const out = [];
-  for (const cue of CUES) compileCue(cue, out);
-  for (const sec of SECTIONS) compileSection(sec, rng, out);
-  chimes(rng, out);
-  for (const bed of BEDS) out.push({ type: 'bed', layer: 'ambience', len: bed.dur, sustain: true, ...bed });
+  // STUB (T-scaffold): no score. The previous film's music stays compiled-out:
+  //   for (const cue of CUES) compileCue(cue, out);
+  //   for (const sec of SECTIONS) compileSection(sec, rng, out);
+  //   chimes(rng, out);
+  //   for (const bed of BEDS) out.push({ type: 'bed', layer: 'ambience', len: bed.dur, sustain: true, ...bed });
+  void [CUES, SECTIONS, BEDS, RUSTLES, compileCue, compileSection, chimes];
   foley(rng, out);
-  out.push({ type: 'fade', layer: 'master', t: 93.5, dur: 2, len: 2, sustain: true });
+  const fadeLen = Math.max(0.5, END_CARD.end - END_CARD.fadeStart - 0.5);
+  out.push({ type: 'fade', layer: 'master', t: END_CARD.fadeStart, dur: fadeLen, len: fadeLen, sustain: true });
   return out.sort((a, b) => a.t - b.t);
 }
 

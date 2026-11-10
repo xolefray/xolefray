@@ -1,7 +1,7 @@
 /**
- * serve.mjs — tiny static file server for popup-film/ (no dependencies).
+ * serve.mjs — tiny static file server for love-story/ (no dependencies).
  *
- * Usage: node popup-film/tools/serve.mjs [port=8080]
+ * Usage: node love-story/tools/serve.mjs [port=8080]
  * Also exports startServer(port) for tools/snap.mjs (port 0 = pick a free port).
  */
 import http from 'node:http';
@@ -19,6 +19,14 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.wav': 'audio/wav',
+  '.mp4': 'video/mp4',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.txt': 'text/plain; charset=utf-8',

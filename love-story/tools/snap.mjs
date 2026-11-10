@@ -2,7 +2,7 @@
  * snap.mjs — headless screenshot + error check for the film and its dev pages.
  *
  * Usage:
- *   node popup-film/tools/snap.mjs --out <dir> [--page index.html] [--times 0,8.5]
+ *   node love-story/tools/snap.mjs --out <dir> [--page index.html] [--times 0,8.5]
  *        [--query "k=v&k2=v"] [--size 1280x720] [--timeout 120000]
  *
  * Starts its own static server on a free port, opens `<page>?t=<time>&ui=0&<query>` for each
@@ -10,6 +10,14 @@
  * WebGL, waits for window.__ready, and writes <out>/<page>-t<time>.png (or <out>/<page>.png;
  * "/" in the page path becomes "-", ".html" is dropped). Prints a JSON summary and exits 1 on
  * any console error, page error, failed request (incl. HTTP >= 400) or __ready timeout.
+ *
+ * OPTIONAL assets — the couple's private photos (photos/*.jpg|jpeg|png|webp) and the recorded
+ * narration (audio/narration.*) — may be absent: the film has fallbacks for them. A 404 for one of
+ * those (and the browser's own "Failed to load resource" console line for it) is listed under
+ * `optionalMissing` in the summary and does not fail the run. Add --query "photos=0" for
+ * privacy-safe frames that never touch the photos.
+ *
+ * Screenshots can show the private photos: write them to a scratch folder, never into the repo.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -47,6 +55,10 @@ function parseArgs(argv) {
 
 const CHROMIUM_ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 
+/** Files the film can run without (see the header). */
+const OPTIONAL = /\/(photos\/[^/?#]+\.(jpe?g|png|webp)|audio\/narration\.[a-z0-9]+)([?#]|$)/i;
+const isOptional = (url) => typeof url === 'string' && OPTIONAL.test(url);
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   fs.mkdirSync(opts.out, { recursive: true });
@@ -55,7 +67,7 @@ async function main() {
   const browser = await chromium.launch({ args: CHROMIUM_ARGS });
   const context = await browser.newContext({ viewport: opts.viewport, deviceScaleFactor: 1 });
 
-  const summary = { ok: true, page: opts.page, shots: [], consoleErrors: [], pageErrors: [], failedRequests: [], warnings: [] };
+  const summary = { ok: true, page: opts.page, shots: [], consoleErrors: [], pageErrors: [], failedRequests: [], warnings: [], optionalMissing: [] };
   const stem = opts.page.replace(/\.html?$/, '').replace(/[\\/]/g, '-');
   const runs = opts.times ?? [null];
 
@@ -66,15 +78,19 @@ async function main() {
     const page = await context.newPage();
     page.on('console', (msg) => {
       const entry = { shot: tag, text: msg.text(), location: msg.location()?.url };
+      if (msg.type() === 'error' && isOptional(entry.location) && /Failed to load resource/i.test(entry.text)) return;
       if (msg.type() === 'error') summary.consoleErrors.push(entry);
       else if (msg.type() === 'warning') summary.warnings.push(entry);
     });
     page.on('pageerror', (err) => summary.pageErrors.push({ shot: tag, text: String(err?.stack ?? err) }));
     page.on('requestfailed', (req) =>
-      summary.failedRequests.push({ shot: tag, url: req.url(), failure: req.failure()?.errorText }),
+      (isOptional(req.url()) ? summary.optionalMissing : summary.failedRequests).push({ shot: tag, url: req.url(), failure: req.failure()?.errorText }),
     );
     page.on('response', (res) => {
-      if (res.status() >= 400) summary.failedRequests.push({ shot: tag, url: res.url(), failure: `HTTP ${res.status()}` });
+      if (res.status() < 400) return;
+      const entry = { shot: tag, url: res.url(), failure: `HTTP ${res.status()}` };
+      if (res.status() === 404 && isOptional(res.url())) summary.optionalMissing.push(entry);
+      else summary.failedRequests.push(entry);
     });
 
     const started = Date.now();

@@ -1,3 +1,7 @@
+// STUB (T-scaffold) — replaced by the environment owner (T-titles-env). The room, desk, lamp and
+// dust are the engine's (unchanged); only the light SCHEDULE was swapped for a placeholder: lamp
+// ignites BEATS.lampOn → 2.8 s, then stays steady and warm, and fades out 147.5 → 152.5 s. The
+// per-spread moods of the contract (rosy party glow on spread 5, golden spread 6) are not done here.
 /**
  * environment.js — the room the film is shot in.
  *
@@ -20,7 +24,7 @@
  * allocates nothing. Physical light units (decay 2), tuned for ACESFilmic at exposure 1.
  */
 import * as THREE from 'three';
-import { seg, smoothstep, ease } from './timeline.js';
+import { BEATS, seg, smoothstep, ease } from './timeline.js';
 import { makeRng } from './util/rng.js';
 
 const LAMP_POS = new THREE.Vector3(-5, 9, 1.5);
@@ -31,6 +35,10 @@ const LAMP_ANGLE = [0.82, 0.45]; // cone half-angle by day / at night (a tighter
 const LAMP_PENUMBRA = [0.75, 0.85];
 const SHADOW_HALF_ANGLE = 0.51; // shadow frustum half-angle (rad), constant: the book + pop-ups
 const DAWN_LAMP = 1.1;
+// STUB schedule (film seconds): ignition window and final fade.
+const LAMP_ON = BEATS.lampOn; // 0.4
+const LAMP_FULL = 2.8;
+const FADE_OUT = [147.5, 152.5];
 
 const DESK_SIZE = 40;
 const TILE_X = 12; // world units covered by one wood texture tile (grain runs along X)
@@ -140,10 +148,10 @@ export function createEnvironment({ scene, renderer }) {
   }
 
   function update(t) {
-    const night = smoothstep(49, 52, t) * (1 - smoothstep(70, 73, t));
-    const dawn = smoothstep(70, 73, t);
-    const warm = ease.inOutSine(seg(t, 0.3, 2.8)); // the room "settles" as the lamp warms up
-    const fade = 1 - ease.inOutSine(seg(t, 89, 95.5));
+    const night = 0; // STUB: no night scene in this film
+    const dawn = 0;
+    const warm = ease.inOutSine(seg(t, LAMP_ON, LAMP_FULL)); // the room "settles" as the lamp warms up
+    const fade = 1 - ease.inOutSine(seg(t, FADE_OUT[0], FADE_OUT[1]));
     const ign = lampIgnition(t);
 
     // Key light: level, and colour temperature (amber while warming or dimmed for the night).
@@ -179,15 +187,16 @@ export function createEnvironment({ scene, renderer }) {
 }
 
 /**
- * Lamp level 0..1 over the ignition window 0.3–2.8 s: a first weak flash, a short dip, then the
- * filament warms up with a small decaying flutter. Exactly 0 before 0.3 and exactly 1 after 2.8.
+ * Lamp level 0..1 over the ignition window LAMP_ON–LAMP_FULL (0.4–2.8 s): a first weak flash, a
+ * short dip, then the filament warms up with a small decaying flutter. Exactly 0 before and 1 after.
  */
 function lampIgnition(t) {
-  if (t <= 0.3) return 0;
-  if (t >= 2.8) return 1;
-  const u = seg(t, 0.3, 2.8);
-  const ramp = ease.inOutSine(seg(t, 0.55, 2.8));
-  const flash = 0.32 * smoothstep(0.3, 0.36, t) * (1 - smoothstep(0.42, 0.55, t));
+  const t0 = LAMP_ON;
+  if (t <= t0) return 0;
+  if (t >= LAMP_FULL) return 1;
+  const u = seg(t, t0, LAMP_FULL);
+  const ramp = ease.inOutSine(seg(t, t0 + 0.25, LAMP_FULL));
+  const flash = 0.32 * smoothstep(t0, t0 + 0.06, t) * (1 - smoothstep(t0 + 0.12, t0 + 0.25, t));
   const flutter = 1 - 0.22 * (1 - u) * (0.5 + 0.5 * Math.sin(t * 41.0) * Math.sin(t * 17.3 + 1.1));
   return Math.min(1, Math.max(ramp, flash) * flutter);
 }

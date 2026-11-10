@@ -74,8 +74,13 @@ async function requestOnce(method, route, body, timeoutMs) {
   const opts = { host: url.hostname, port: url.port || (secure ? 443 : 80), path: url.pathname + url.search, method, headers, agent: false };
   const proxy = proxyFor(url);
   if (proxy) {
+    // The proxy resolves host names; hand the request an agent whose only connection is the tunnel,
+    // so Node never tries a DNS lookup of its own.
     const socket = await tunnel(proxy, url.hostname, opts.port);
-    opts.createConnection = () => tls.connect({ socket, servername: url.hostname });
+    socket.on('error', () => {}); // surfaced through the request below
+    const agent = new https.Agent({ keepAlive: false, maxSockets: 1 });
+    agent.createConnection = () => tls.connect({ socket, servername: url.hostname });
+    opts.agent = agent;
   }
   return new Promise((resolve, reject) => {
     const req = (secure ? https : http).request(opts, (res) => {
