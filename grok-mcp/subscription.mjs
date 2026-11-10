@@ -7,7 +7,8 @@
  *
  * A worker never touches the real project. runAgentCli():
  *   1. copies the project root into a throw-away WORK COPY — git-tracked and unignored files only,
- *      so ignored material (private photos, .env files, build output) is never in it;
+ *      so ignored material (private photos, .env files, build output) is never in it unless you
+ *      name it in `include`;
  *   2. starts `grok` there under a sandbox profile that may write only inside the copy and is
  *      denied the real project, credentials and any extra paths you name;
  *   3. when Grok finishes, copies back ONLY the files matching `own` and reports everything else
@@ -126,7 +127,7 @@ You are working in a private COPY of the project (your current directory). Rules
  * Run a Grok worker on a subscription. Same result shape as grok.mjs runAgent, plus
  * `ignoredChanges` (files it changed that it does not own), `costEstimateUsd` and `workDir`.
  */
-export async function runAgentCli({ brief, root, own = [], attach = [], deny = [], model, maxSteps = 120, timeoutMs = 3600000, keepWorkDir = true, onEvent = () => {}, isCancelled = () => false } = {}) {
+export async function runAgentCli({ brief, root, own = [], attach = [], include = [], deny = [], model, maxSteps = 120, timeoutMs = 3600000, keepWorkDir = true, onEvent = () => {}, isCancelled = () => false } = {}) {
   const bin = cliReady();
   if (!bin) throw new Error('the grok CLI is not installed or not signed in (run `grok login`)');
   if (!brief) throw new Error('runAgentCli: brief is required');
@@ -143,6 +144,12 @@ export async function runAgentCli({ brief, root, own = [], attach = [], deny = [
     const to = path.join(work, rel);
     fs.mkdirSync(path.dirname(to), { recursive: true });
     fs.copyFileSync(from, to);
+  }
+  // `include`: git-ignored files or folders the worker is explicitly allowed to have, at their usual place.
+  for (const inc of include) {
+    const from = path.resolve(root, inc);
+    if (!from.startsWith(root + path.sep) || !fs.existsSync(from)) continue;
+    fs.cpSync(from, path.join(work, path.relative(root, from)), { recursive: true });
   }
   const attached = [];
   if (attach.length) {

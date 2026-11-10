@@ -50,6 +50,7 @@ const TOOLS = [
         root: { ...str, description: 'Project root, relative to the server directory. Default ".".' },
         own: { ...strList, description: 'Files/folders (relative to root) the worker may write.' },
         attach: { ...strList, description: 'Extra reference files (any path) to hand the worker alongside the brief (subscription backend).' },
+        include: { ...strList, description: 'Git-ignored files/folders (relative to root) the worker may have in its copy anyway (subscription backend).' },
         deny: { ...strList, description: 'Extra paths the worker must not be able to read (subscription backend).' },
         scratch: { ...str, description: 'Folder for the worker\'s scratch files and screenshots (API backend; the subscription backend uses ./.scratch in its copy).' },
         allow_run: { ...strList, description: 'Node scripts (relative to root) the worker may run, e.g. a test or screenshot tool.' },
@@ -96,7 +97,7 @@ const handlers = {
     const res = backendName() === 'cli' ? await chatCli({ prompt, system, model }) : await chat({ prompt, system, model, temperature, maxTokens: max_tokens });
     return `${res.text}\n\n[model ${res.model}${res.usage ? ` · tokens in ${res.usage.prompt_tokens} / out ${res.usage.completion_tokens}` : ''}]`;
   },
-  async grok_agent_start({ brief, root, own = [], attach = [], deny = [], scratch, allow_run = [], allow_images = false, model, max_steps }) {
+  async grok_agent_start({ brief, root, own = [], attach = [], include = [], deny = [], scratch, allow_run = [], allow_images = false, model, max_steps }) {
     const id = crypto.randomBytes(4).toString('hex');
     const run = { id, state: 'running', started: Date.now(), steps: 0, usage: { prompt: 0, completion: 0 }, files: new Set(), events: [], cancelled: false, model, result: null, error: null };
     runs.set(id, run);
@@ -111,7 +112,7 @@ const handlers = {
     };
     const common = { brief, root: resolveRoot(root), own, model, maxSteps: max_steps, onEvent, isCancelled: () => run.cancelled };
     run.promise = (backendName() === 'cli'
-      ? runAgentCli({ ...common, attach, deny })
+      ? runAgentCli({ ...common, attach, include, deny })
       : runAgent({ ...common, scratch: scratch ? path.resolve(BASE_ROOT, scratch) : null, allowRun: allow_run, allowImages: allow_images }))
       .then((result) => { run.result = result; run.model = result.model; run.steps = result.steps; run.usage = result.usage; result.filesWritten.forEach((f) => run.files.add(f)); run.state = result.ok ? 'finished' : 'stopped'; })
       .catch((err) => { run.error = err.message; run.state = 'failed'; });

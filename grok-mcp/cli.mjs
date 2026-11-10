@@ -6,7 +6,7 @@
  *   node grok-mcp/cli.mjs chat "question" [--model id] [--system "…"]
  *   node grok-mcp/cli.mjs agent --brief-file brief.md [--root .] [--own a.js,dir/] [--scratch dir]
  *        [--allow-run tools/test.mjs,…] [--allow-images] [--model id] [--max-steps 80] [--log run.jsonl]
- *        [--attach doc1.md,doc2.md] [--deny /private/path,…] [--backend cli|api]
+ *        [--attach doc1.md,doc2.md] [--include ignored/dir/,…] [--deny /private/path,…] [--backend cli|api]
  *
  * Backend: `cli` = xAI's `grok` command-line agent signed in with a Grok subscription (the worker runs
  * in a sandboxed copy of the project; --attach/--deny apply), `api` = metered API key (--scratch,
@@ -48,6 +48,7 @@ try {
       root: flags.root || '.',
       own: list(flags.own),
       attach: list(flags.attach),
+      include: list(flags.include),
       deny: list(flags.deny),
       scratch: typeof flags.scratch === 'string' ? flags.scratch : null,
       allowRun: list(flags['allow-run']),
