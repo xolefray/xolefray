@@ -1,0 +1,73 @@
+/* Basic layout (stub-level; a later task styles the overlays properly). */
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #120f0e;
+  color: #f3ead4;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+#film {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+#fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 1;
+}
+
+#captions .card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  opacity: 0;
+  padding: 0 16px;
+}
+#captions .card h1 { margin: 0; font-size: clamp(28px, 6vw, 64px); font-weight: normal; }
+#captions .card p { margin: 0.4em 0 0; font-size: clamp(16px, 2.5vw, 24px); font-style: italic; }
+
+#captions .caption {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 12%;
+  margin: 0 auto;
+  max-width: 40em;
+  text-align: center;
+  font-size: clamp(16px, 2.6vw, 26px);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+}
+
+#ui {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+}
+#ui .ui-play { min-width: 64px; }
+#ui .ui-scrub { flex: 1; min-width: 0; }
+#ui .ui-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
