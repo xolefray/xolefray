@@ -1,6 +1,21 @@
 {
   "version": 1,
   "items": {
+    "bouquet": {
+      "id": "bouquet",
+      "file": "bouquet.webp",
+      "w": 687,
+      "h": 933,
+      "feet": [
+        341,
+        908
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 1.05
+    },
     "calendar": {
       "id": "calendar",
       "file": "calendar.webp",
@@ -75,6 +90,36 @@
       ],
       "scene": "official",
       "units": 0.56
+    },
+    "heart-balloons": {
+      "id": "heart-balloons",
+      "file": "heart-balloons.webp",
+      "w": 672,
+      "h": 1024,
+      "feet": [
+        337.5,
+        1001
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 1.65
+    },
+    "heart-stick": {
+      "id": "heart-stick",
+      "file": "heart-stick.webp",
+      "w": 561,
+      "h": 959,
+      "feet": [
+        284,
+        934
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 1.5
     },
     "page-left": {
       "id": "page-left",

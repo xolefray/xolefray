@@ -15,13 +15,13 @@ const APT_Z = 0.18;
 const APT_H = 1.5;
 const BOX_X = 2.32;
 const BOX_Z = 0.7;
-const BOX_H = 1.32;
-const DOG_X = 1.58;
-const DOG_Z = 0.42;
-const DOG_H = 1.28;
-const HOP_X = 2.02;
-const HOP_Z = 0.98;
-const HOP_H = 0.46;
+const BOX_H = 1.55;
+const DOG_X = 1.02;
+const DOG_Z = 0.48;
+const DOG_H = 1.55;
+const HOP_X = 1.28;
+const HOP_Z = 1.05;
+const HOP_H = 0.54;
 const BED_X = 1.22;
 const BED_Z = 1.12;
 const BED_H = 0.36;
@@ -33,18 +33,19 @@ const HOUSE_H = 1.62;
 const TORII_X = 3.12;
 const TORII_Z = 0.05;
 const TORII_H = 1.4;
-const JAPAN_X = 2.9;
+const JAPAN_X = 3.18;
 const JAPAN_Z = 0.52;
-const JAPAN_H = 1.26;
+const JAPAN_H = 1.55;
+const KEYS_H = 1.55;
 const CASE_X = 2.28;
 const CASE_Z = 1.02;
 const CASE_H = 0.5;
 
 const LIGHT_AT = [
-  [-2.2, 1.55, 1.35],
-  [-1.35, 1.45, 1.45],
-  [1.65, 1.6, 1.4],
-  [2.65, 1.55, 1.35],
+  [-2.5, 1.5, 1.3],
+  [-1.25, 1.45, 1.25],
+  [1.55, 1.5, 1.3],
+  [2.85, 1.45, 1.25],
 ];
 
 function bump(t, at) {
@@ -103,6 +104,7 @@ export default {
     };
 
     // ---------------------------------------------------------------- sky (mountain vFold) + Fuji on the right half
+    let fujiCard = null;
     const sky = track(popup.vFold({ z0: SKY_Z0, gamma: GAMMA, width: SKY_W, height: SKY_H }));
     if (has('sky-band')) {
       const src = art.canvas('sky-band');
@@ -120,6 +122,7 @@ export default {
         // Right half spans x ∈ [0, SKY_W/2]. Keep the whole card inside that half.
         fuji.position.set(1.55, 0.18 + (fm.h - fm.feet[1]) * fs, 0.012);
         fuji.name = 'fuji';
+        fujiCard = fuji;
         sky.right.add(fuji);
       }
     } else {
@@ -138,12 +141,29 @@ export default {
     // ---------------------------------------------------------------- vignette pieces
     const vignetteRigs = [[], [], [], []];
     const vignetteMats = [[], [], [], []];
+    // One couple at a time. Parallel arrays so update() allocates nothing.
+    const castRigs = [];
+    const castArrive = [];
+    const castLeave = [];
+    const castPhase = [];
 
     const addRig = (index, stand, name) => {
       const rig = new THREE.Group();
       rig.name = name;
       stand.mount.add(rig);
       vignetteRigs[index].push(rig);
+      return rig;
+    };
+
+    const addCast = (stand, name, arrive, leave, phase) => {
+      const rig = new THREE.Group();
+      rig.name = name;
+      rig.scale.set(0, 0, 1);
+      stand.mount.add(rig);
+      castRigs.push(rig);
+      castArrive.push(arrive);
+      castLeave.push(leave);
+      castPhase.push(phase);
       return rig;
     };
 
@@ -188,7 +208,7 @@ export default {
     const boxers = track(popup.standUp({
       side: 'left', x: BOX_X, z: BOX_Z, fold: 'back', width: 0.85, height: BOX_H,
     }));
-    const boxRig = addRig(0, boxers, 'life-box');
+    const boxRig = addCast(boxers, 'life-box', first, dogBeat, 0.2);
     const boxCard = characterArt.actor(paper, characters, figures, 'life-box', {
       who: 'him', outfit: 'casual', pose: 'stand', facing: 'left',
     }, { height: BOX_H });
@@ -200,9 +220,10 @@ export default {
 
     // (2) a dog of their own — the cuddle, the hop, the bed, the polaroid
     const dogStand = track(popup.standUp({
-      side: 'left', x: DOG_X, z: DOG_Z, fold: 'back', width: 0.78, height: DOG_H,
+      // Width is the gutter-side reach, not the centred drawing: the cuddle sits outward.
+      side: 'left', x: DOG_X, z: DOG_Z, fold: 'back', width: 0.36, height: DOG_H,
     }));
-    const dogRig = addRig(1, dogStand, 'life-dog');
+    const dogRig = addCast(dogStand, 'life-dog', dogBeat, home, 1.1);
     const cuddle = characterArt.actor(paper, characters, figures, 'life-dogcuddle', {
       who: 'her', outfit: 'casual', pose: 'stand', facing: 'right',
     }, { height: DOG_H });
@@ -215,7 +236,7 @@ export default {
     const hopStand = track(popup.standUp({
       side: 'left', x: HOP_X, z: HOP_Z, fold: 'back', width: 0.4, height: HOP_H,
     }));
-    const hopRig = addRig(1, hopStand, 'dog-hop');
+    const hopRig = addCast(hopStand, 'dog-hop', dogBeat, null, 2.0);
     const hop = new THREE.Group();
     hop.name = 'dog-jump';
     hopRig.add(hop);
@@ -340,14 +361,14 @@ export default {
     }
 
     const owners = track(popup.standUp({
-      side: 'right', x: HOUSE_X - 0.15, z: HOUSE_Z + 0.62, fold: 'back', width: 0.85, height: 1.3,
+      side: 'right', x: HOUSE_X - 0.15, z: HOUSE_Z + 0.62, fold: 'back', width: 0.85, height: KEYS_H,
     }));
-    const ownerRig = addRig(2, owners, 'life-keys');
+    const ownerRig = addCast(owners, 'life-keys', home, japan, 0.6);
     const keysCard = characterArt.actor(paper, characters, figures, 'life-keys', {
       who: 'her', outfit: 'casual', pose: 'stand', facing: 'left',
-    }, { height: 1.3 });
+    }, { height: KEYS_H });
     if (keysCard) {
-      liftFeet(keysCard, characters, 'life-keys', 1.3);
+      liftFeet(keysCard, characters, 'life-keys', KEYS_H);
       ownerRig.add(keysCard);
       watch(2, keysCard);
     }
@@ -365,9 +386,10 @@ export default {
     }
 
     const tourists = track(popup.standUp({
-      side: 'right', x: JAPAN_X, z: JAPAN_Z, fold: 'back', width: 0.95, height: JAPAN_H,
+      // Outer reach is small; a centred width this far out would hang off the page.
+      side: 'right', x: JAPAN_X, z: JAPAN_Z, fold: 'back', width: 0.5, height: JAPAN_H,
     }));
-    const japanRig = addRig(3, tourists, 'life-japan');
+    const japanRig = addCast(tourists, 'life-japan', japan, null, 1.7);
     const japanCard = characterArt.actor(paper, characters, figures, 'life-japan', {
       who: 'him', outfit: 'casual', pose: 'wave', facing: 'left',
     }, { height: JAPAN_H });
@@ -429,10 +451,10 @@ export default {
       rightArt,
       cues: [
         { t: spread.open, hold: 1.6, at: [0, 0.85, 0.1], size: 7.5, from: 'front' },
-        { t: round2(first + 0.2), hold: 1.8, at: [-2.35, 0.9, 0.35], size: 2.4, from: 'left' },
-        { t: round2(dogBeat + 0.2), hold: 1.8, at: [-1.4, 0.85, 0.5], size: 2.3, from: 'front' },
-        { t: round2(home + 0.2), hold: 2.2, at: [1.7, 1.05, 0.2], size: 2.5, from: 'right' },
-        { t: round2(japan + 0.3), hold: 2.0, at: [2.75, 1.0, 0.2], size: 2.4, from: 'right' },
+        { t: round2(first + 0.2), hold: 1.8, at: [-2.5, 1.05, 0.55], size: 2.7, from: 'left' },
+        { t: round2(dogBeat + 0.2), hold: 1.8, at: [-1.25, 0.95, 0.5], size: 2.7, from: 'front' },
+        { t: round2(home + 0.2), hold: 2.2, at: [1.55, 1.1, 0.45], size: 2.8, from: 'right' },
+        { t: round2(japan + 0.3), hold: 2.0, at: [2.9, 1.05, 0.4], size: 2.8, from: 'right' },
         {
           t: round2((n21 ? n21.end : japan + 2.6) + 0.3),
           hold: 1.2,
@@ -453,16 +475,16 @@ export default {
         else if (t >= dogBeat) current = 1;
         else if (t >= first) current = 0;
 
+        // Set pieces stay up for the whole scene and give a small pop on their beat.
         for (let v = 0; v < 4; v++) {
           const pop = bump(t, beats[v]);
           const cascade = bump(t, filled + v * 0.42);
-          const grow = (v === current ? 0.1 : 0) * risen;
-          const breathe = 1 + Math.sin(t * 1.7 + v * 1.3) * 0.012;
-          const s = breathe * (1 + grow + 0.045 * cascade);
-          const sx = s * (1 - 0.06 * pop);
-          const sy = s * (1 + 0.09 * pop);
-          const bob = Math.sin(t * 1.55 + v) * 0.01 * (v === current ? 1.3 : 0.65);
-          const lean = Math.sin(t * 1.25 + v * 0.8) * 0.02 * (v === current ? 1.2 : 0.6);
+          const breathe = 1 + Math.sin(t * 1.7 + v * 1.3) * 0.008;
+          const s = breathe * (1 + 0.03 * cascade);
+          const sx = s * (1 - 0.04 * pop);
+          const sy = s * (1 + 0.06 * pop);
+          const bob = Math.sin(t * 1.55 + v) * 0.008;
+          const lean = Math.sin(t * 1.25 + v * 0.8) * 0.012;
           const rigs = vignetteRigs[v];
           for (let i = 0; i < rigs.length; i++) {
             rigs[i].scale.set(sx, sy, 1);
@@ -472,6 +494,16 @@ export default {
           const mats = vignetteMats[v];
           const warm = (v === current ? 0.24 : 0.035) * risen;
           for (let i = 0; i < mats.length; i++) mats[i].emissiveIntensity = warm;
+        }
+
+        for (let i = 0; i < castRigs.length; i++) {
+          poseCast(castRigs[i], t, castArrive[i], castLeave[i], castPhase[i], ease.outBack);
+        }
+        if (fujiCard) {
+          const pop = bump(t, japan);
+          const breathe = 1 + Math.sin(t * 1.4 + 2) * 0.008;
+          const s = breathe * (1 + 0.05 * pop);
+          fujiCard.scale.set(s * (1 - 0.03 * pop), s * (1 + 0.05 * pop), 1);
         }
 
         // Key on a ribbon at the apartment door, and the spare key by the mailbox.
@@ -548,6 +580,37 @@ export default {
 
 function round2(n) {
   return Math.round(n * 100) / 100;
+}
+
+// Pop in on `arrive` (squash-and-stretch), then shrink to nothing over 0.4 s at `leave`.
+// leave === null stays until the page turns. Scale stays ≤ ~1.07 so a pop cannot pierce.
+function poseCast(rig, t, arrive, leave, phase, outBack) {
+  let s = 0;
+  let squash = 0;
+  if (t >= arrive) {
+    const u = (t - arrive) / 0.36;
+    if (u >= 1) s = 1;
+    else {
+      s = outBack(u);
+      if (s < 0) s = 0;
+      else if (s > 1) s = 1;
+      squash = Math.sin(u * Math.PI);
+    }
+    if (leave != null && t > leave) {
+      const v = (t - leave) / 0.4;
+      if (v >= 1) s = 0;
+      else {
+        const k = v * v * (3 - 2 * v);
+        s *= 1 - k;
+      }
+      squash = 0;
+    }
+  }
+  const live = s > 0.001;
+  const breathe = live ? 1 + Math.sin(t * 1.7 + phase) * 0.012 : 1;
+  rig.scale.set(s * breathe * (1 - 0.06 * squash), s * breathe * (1 + 0.08 * squash), 1);
+  rig.position.y = live ? Math.sin(t * 1.55 + phase) * 0.012 : 0;
+  rig.rotation.z = live ? Math.sin(t * 1.25 + phase) * 0.018 : 0;
 }
 
 function liftFeet(card, characters, id, height) {

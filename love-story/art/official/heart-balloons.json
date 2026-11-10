@@ -1,0 +1,15 @@
+{
+  "id": "heart-balloons",
+  "file": "heart-balloons.webp",
+  "w": 672,
+  "h": 1024,
+  "feet": [
+    337.5,
+    1001
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 1.65
+}

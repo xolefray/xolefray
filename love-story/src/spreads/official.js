@@ -5,11 +5,12 @@
 // collapsed unless the book is fully open, so a half-turned page never carries them out.
 import { PAGE_W } from '../dims.js';
 
-const CAL_H = 2;
-const CAL_GAMMA = 1.78; // mountain: the page faces the reader, crease falls toward +Z
-const CAL_Z0 = -0.52;
-const COUPLE_H = 1.6;
-const GAR_H = 0.52;
+const CAL_H = 2.3;
+const CAL_WIDE = 1.16; // wider than the drawing, so the date reads across the spread
+const CAL_GAMMA = 1.66; // mountain, close to flat so the page faces the reader
+const CAL_Z0 = -0.84;
+const COUPLE_H = 1.7;
+const GAR_H = 0.86;
 const OPEN = 0.985; // α/π above which free pieces may leave their card plane
 const SEAT = 0.012; // plane bottoms sit this far above the hinge so y stays ≥ −0.03
 
@@ -80,7 +81,6 @@ export default {
     let rightArt;
     if (has('page-left') && has('page-right')) {
       const L = cloneCanvas(paper, art.canvas('page-left'));
-      letterLeft(L.ctx, L.canvas.width, L.canvas.height, FONT, C);
       leftArt = L.canvas;
       const R = cloneCanvas(paper, art.canvas('page-right'));
       letterRight(R.ctx, R.canvas.width, R.canvas.height, FONT, C);
@@ -88,7 +88,6 @@ export default {
     } else {
       leftArt = paper.page((c, w, h) => {
         doodleFloor(c, w, h, rng, C, false);
-        letterLeft(c, w, h, FONT, C);
       }, { seed: 3, tint: '#f7dcd6' });
       rightArt = paper.page((c, w, h) => {
         doodleFloor(c, w, h, rng, C, true);
@@ -107,12 +106,8 @@ export default {
     // Giant tear-off calendar. Mountain V so it faces the reader. Month word lives on the
     // left half of the header, the 7 and the year on the right, so the crease never cuts a glyph.
     const calInfo = info('calendar');
-    const calW = CAL_H * ((calInfo ? calInfo.w : 789) / (calInfo ? calInfo.h : 817));
+    const calW = CAL_H * ((calInfo ? calInfo.w : 789) / (calInfo ? calInfo.h : 817)) * CAL_WIDE;
     const calendar = track(popup.vFold({ z0: CAL_Z0, gamma: CAL_GAMMA, width: calW, height: CAL_H }));
-
-    const sg = Math.sin(CAL_GAMMA);
-    const acg = Math.abs(Math.cos(CAL_GAMMA));
-    const calOuter = (calW / 2) * sg + CAL_H * acg;
 
     let calCanvas;
     if (calInfo) {
@@ -138,7 +133,7 @@ export default {
     // inside that half — setDrawRange hides the stroke, it does not delete it.
     const dayX = (0.74 - 0.5) * calW;
     const dayY = (1 - 0.43) * CAL_H;
-    const heart = heartRibbon(THREE, dayX, dayY, 0.30, 0.42, 0.024, '#b4232c');
+    const heart = heartRibbon(THREE, dayX, dayY, 0.38, 0.50, 0.028, '#b4232c');
     heart.mesh.position.z = 0.012;
     heart.mesh.name = 'heart-circle';
     calendar.right.add(heart.mesh);
@@ -146,7 +141,7 @@ export default {
     // Wax "OFFICIAL" stamp on the left half, clear of the crease. Thumps on the beat.
     const stampX = (0.28 - 0.5) * calW;
     const stampY = (1 - 0.56) * CAL_H;
-    const STAMP = 0.44;
+    const STAMP = 0.52;
     const stamp = stampMesh(THREE, paper, FONT, STAMP);
     stamp.position.set(stampX, stampY, 0.01);
     stamp.name = 'stamp';
@@ -160,8 +155,9 @@ export default {
     const garSrcW = garMeta ? garMeta.w : 1024;
     const garSrcH = garMeta ? garMeta.h : 195;
     const garW = GAR_H * ((garSrcW / 2) / garSrcH);
-    const garX = garW / 2 + GAR_H + 0.1;
-    const garZ = -1.5 + GAR_H + 0.06;
+    // Loose stand-up: a short banner may sit nearer the gutter than the strict rule.
+    const garX = garW / 2 + GAR_H * 0.5 + 0.12;
+    const garZ = -0.42;
     const garlandL = track(popup.standUp({
       side: 'left', x: garX, z: garZ, fold: 'back', width: garW, height: GAR_H,
     }));
@@ -210,14 +206,13 @@ export default {
       gutterReach = Math.max(a.maxX, b.maxX);
       outerReach = Math.max(-a.minX, -b.minX);
     }
-    const breathePad = 1.018;
-    const coupleTop = (COUPLE_H - SEAT) * breathePad;
-    const coupleX = Math.max(
-      gutterReach * breathePad + coupleTop + 0.06,
-      calOuter + 0.08 + gutterReach * breathePad,
-    );
-    const coupleZ = 0.82;
-    const coupleW = gutterReach + outerReach;
+    // Loose stand-up (height ≤ 2·edge). The pop can stretch them ~10%, so the hinge
+    // sits just far enough out that the gutter-side corner still clears the facing page.
+    const popScale = 1.1;
+    const coupleX = gutterReach * popScale + (COUPLE_H * popScale) * 0.5 + 0.08;
+    const coupleZ = 0.72;
+    // Check width is the gutter-side reach. The drawing sits outward of the hinge.
+    const coupleW = gutterReach * 2;
     const couple = track(popup.standUp({
       side: 'left', x: coupleX, z: coupleZ, fold: 'back', width: coupleW, height: COUPLE_H,
     }));
@@ -270,12 +265,11 @@ export default {
       tail: 'left',
     });
     himBubble.name = 'bubble-him';
-    // Pivot stays inside the strict standUp; the plane itself sits above his head.
-    himBubble.geometry.translate(0.16, 0.76, 0);
-    himBubble.position.set(0.18, 1.46, 0.012);
+    // Centre of the plane. Above his head and his raised finger, clear of her bubble.
+    himBubble.position.set(0.16, 2.02, 0.02);
     coupleMount.add(himBubble);
-    const HIM_W = 1.06;
-    const HIM_H = 0.50;
+    const HIM_W = 0.92;
+    const HIM_H = 0.44;
 
     const herBubble = speechBubble(THREE, paper, FONT, C, {
       w: 300, h: 180,
@@ -285,8 +279,7 @@ export default {
       tail: 'right',
     });
     herBubble.name = 'bubble-her';
-    herBubble.geometry.translate(-0.12, 1.15, 0);
-    herBubble.position.set(-0.58, 1.26, 0.012);
+    herBubble.position.set(-0.70, 1.86, 0.02);
     coupleMount.add(herBubble);
     const HER_W = 0.52;
     const HER_H = 0.32;
@@ -297,47 +290,29 @@ export default {
     glow.position.set(-0.05, 1.15, 0.2);
     coupleMount.add(glow);
 
-    // ---------------------------------------------------------------- right-page props, each strict, footprints z- or x-disjoint
-    const envH = 0.72;
-    const envExt = propExtents(info('envelope-pile'), 835, 597, 441.5, envH);
-    const envX = envExt.gutter + Math.max(envExt.top + 0.05, calOuter + 0.1);
-    const envZ = 0.5;
-    const envelopes = track(popup.standUp({
-      side: 'right', x: envX, z: envZ, fold: 'back', width: envExt.width, height: envH,
-    }));
-    addProp(characterArt, paper, art, figures, envelopes.mount, 'envelope-pile', envH, envExt);
-
-    const photoH = 1.12;
-    const photoExt = propExtents(info('photo-booth-strip'), 367, 1024, 183.5, photoH);
-    const envOuter = envX + envExt.outer;
-    const photoX = photoExt.gutter + Math.max(envOuter + 0.1, 3.05);
-    const photoZ = -0.02;
-    const photo = track(popup.standUp({
-      side: 'right', x: Math.min(photoX, PAGE_W - photoExt.outer - 0.04), z: photoZ, fold: 'back',
-      width: photoExt.width, height: photoH,
-    }));
-    addProp(characterArt, paper, art, figures, photo.mount, 'photo-booth-strip', photoH, photoExt);
-
-    const clusterH = 0.44;
-    const clusterExt = propExtents(info('confetti-cluster'), 769, 678, 399.5, clusterH);
-    const clusterX = clusterExt.gutter + Math.max(clusterExt.top + 0.05, calOuter + 0.16) + 0.35;
-    const clusterZ = 1.16;
-    const cluster = track(popup.standUp({
-      side: 'right', x: clusterX, z: clusterZ, fold: 'back', width: clusterExt.width, height: clusterH,
-    }));
-    addProp(characterArt, paper, art, figures, cluster.mount, 'confetti-cluster', clusterH, clusterExt);
-
-    // Candle table on the outer left, in front of the couple, x-clear of their breathed reach.
-    const candleH = 0.6;
-    const candleExt = propExtents(info('candle-table'), 765, 586, 388.5, candleH);
-    const coupleOuter = coupleX + outerReach * breathePad;
-    const candleInner = coupleOuter + 0.1;
-    const candleX = Math.min(candleInner + candleExt.gutter, PAGE_W - candleExt.outer - 0.04);
-    const candleZ = 1.0;
-    const candle = track(popup.standUp({
-      side: 'left', x: candleX, z: candleZ, fold: 'back', width: candleExt.width, height: candleH,
-    }));
-    addProp(characterArt, paper, art, figures, candle.mount, 'candle-table', candleH, candleExt);
+    // Mid-ground and foreground on both pages. x is clamped to the loose stand-up
+    // rule using the drawing's real gutter reach, not a centred width.
+    const stageProp = (id, side, height, z, xWant, fallback) => {
+      const ext = propExtents(info(id), fallback[0], fallback[1], fallback[2], height);
+      const minX = ext.gutter + height * 0.5 + 0.07;
+      const maxX = PAGE_W - ext.outer - 0.05;
+      let x = xWant < minX ? minX : xWant;
+      if (x > maxX) x = maxX;
+      const zMin = height - 1.45;
+      let zz = z < zMin ? zMin : z;
+      if (zz > 1.42) zz = 1.42;
+      const stand = track(popup.standUp({
+        side, x, z: zz, fold: 'back', width: ext.width, height,
+      }));
+      addProp(characterArt, paper, art, figures, stand.mount, id, height, ext);
+    };
+    stageProp('heart-stick', 'left', 1.5, 0.2, 2.48, [561, 959, 284]);
+    stageProp('candle-table', 'left', 1.12, 0.98, 2.88, [765, 586, 388.5]);
+    stageProp('envelope-pile', 'right', 1.15, 0.4, 1.88, [835, 597, 441.5]);
+    stageProp('heart-balloons', 'right', 1.65, 0.22, 2.52, [672, 1024, 337.5]);
+    stageProp('photo-booth-strip', 'right', 1.58, 0.52, 3.22, [367, 1024, 183.5]);
+    stageProp('bouquet', 'right', 1.02, 1.05, 1.72, [687, 933, 341]);
+    stageProp('confetti-cluster', 'right', 0.9, 1.12, 2.58, [769, 678, 399.5]);
 
     // ---------------------------------------------------------------- drifting hearts + the official-beat tumble (scaled away unless fully open)
     const bits = new THREE.Group();
@@ -362,12 +337,12 @@ export default {
       rightArt,
       cues: [
         { t: spread.open, hold: 1.4, at: [0, 0.8, 0], size: 7.5, from: 'front' },
-        { t: calendarAt + 0.5, hold: 5, at: [0.15, 1.15, CAL_Z0], size: 3.2, from: 'front' },
+        { t: calendarAt + 0.5, hold: 5, at: [0.08, 1.25, CAL_Z0], size: 4.4, from: 'front' },
         {
           t: alreadyAt + 0.2,
           hold: (spread.close - 1) - (alreadyAt + 0.2),
-          at: [coupleAimX, 1.12, coupleZ],
-          size: 2.4,
+          at: [coupleAimX, 1.4, coupleZ],
+          size: 3.1,
           from: 'front',
         },
       ],
@@ -461,42 +436,22 @@ function pill(ctx, x, y, w, h, fill) {
   ctx.restore();
 }
 
-function letterLeft(ctx, w, h, FONT, C) {
+function letterRight(ctx, w, h, FONT, C) {
   ctx.save();
-  const x = w * 0.58;
-  const y = h * 0.80;
-  const font = (size) => `700 ${size}px ${FONT.hand}`;
-  const px = fitSize(ctx, 'finally official!', font, Math.round(h * 0.055), w * 0.34);
-  ctx.font = font(px);
-  const tw = ctx.measureText('finally official!').width;
-  pill(ctx, x, y, tw + px * 1.4, px * 1.7, 'rgba(246, 237, 217, 0.94)');
+  // Above the caption band and clear of the stand-ups on the left page.
+  const fx = w * 0.22;
+  const fy = h * 0.64;
+  const hand = (size) => `700 ${size}px ${FONT.hand}`;
+  const fpx = fitSize(ctx, 'finally official!', hand, Math.round(h * 0.05), w * 0.42);
+  ctx.font = hand(fpx);
+  const fw = ctx.measureText('finally official!').width;
+  pill(ctx, fx, fy, fw + fpx * 1.3, fpx * 1.65, 'rgba(246, 237, 217, 0.94)');
   ctx.fillStyle = C.ink;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = font(px);
-  ctx.fillText('finally official!', x, y + px * 0.06);
-  // Arrow toward the gutter (and the calendar).
-  ctx.strokeStyle = C.tomato;
-  ctx.fillStyle = C.tomato;
-  ctx.lineWidth = Math.max(3, px * 0.09);
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(x + tw * 0.52, y - px * 0.15);
-  ctx.quadraticCurveTo(x + tw * 0.85, y - px * 1.15, x + tw * 0.7, y - px * 1.7);
-  ctx.stroke();
-  const ax = x + tw * 0.7;
-  const ay = y - px * 1.7;
-  ctx.beginPath();
-  ctx.moveTo(ax, ay);
-  ctx.lineTo(ax - px * 0.28, ay + px * 0.42);
-  ctx.lineTo(ax + px * 0.22, ay + px * 0.28);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
+  ctx.font = hand(fpx);
+  ctx.fillText('finally official!', fx, fy + fpx * 0.06);
 
-function letterRight(ctx, w, h, FONT, C) {
-  ctx.save();
   // Lower, gutter side of the confetti cluster so the line stays in the open cream.
   const x = w * 0.34;
   const y = h * 0.90;
