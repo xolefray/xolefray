@@ -40,13 +40,13 @@ const BOARD_R = 0.006; // edge rounding radii
 const COVER_R = 0.009;
 const SHEET_LIFT = 0.0008; // endpaper sheets sit this far off the cover cloth
 const DECAL_LIFT = 0.0006; // gold foil decals float this far off the cloth
-const CLOTH_TILE = 0.4; // world units covered by one cloth texture tile
+const CLOTH_TILE = 0.3; // world units covered by one cloth texture tile
 const EDGE_TILE = 1.0; // world units covered by one layered-edge texture tile
 const THICK = [COVER_T, T, T, T, COVER_T];
 const SERIF = 'Georgia, "Bitstream Charter", Caladea, "Liberation Serif", "DejaVu Serif", serif';
 const FOIL_RGB = [238, 200, 118];
 const BLANK_PAGE = '#f3ead8';
-const GOLD_ENV_INTENSITY = 1.15;
+const GOLD_ENV_INTENSITY = 1.35;
 const SPINE_SEGMENTS = 16;
 const SPINE_BULGE = 0.35; // spine control-point offset as a fraction of the cover-to-cover chord
 
@@ -99,7 +99,7 @@ const clamp255 = (v) => (v < 0 ? 0 : v > 255 ? 255 : v);
  */
 function paintCloth(baseHex, seed) {
   const S = 512;
-  const P = 8; // thread pitch in px (≈0.6 mm)
+  const P = 8; // thread pitch in px (≈0.5 mm)
   const N = S / P;
   const rand = mulberry32(seed);
   const base = srgb255(baseHex);
@@ -127,10 +127,10 @@ function paintCloth(baseHex, seed) {
       const h = Math.pow(Math.sin(Math.PI * across), 0.7) * (0.8 + 0.2 * Math.sin(Math.PI * along));
       const m = sampleLattice(mottle, 8, (x / S) * 8, (y / S) * 8);
       const f = sampleLattice(fuzz, 64, (x / S) * 64, (y / S) * 64);
-      const shade = (0.68 + 0.4 * h + (warpOver ? warp[i] : weft[j]) + 0.05 * m + 0.03 * f) * (warpOver ? 1.04 : 0.95);
+      const shade = (0.8 + 0.24 * h + (warpOver ? warp[i] : weft[j]) + 0.05 * m + 0.03 * f) * (warpOver ? 1.03 : 0.96);
       const k = (y * S + x) * 4;
-      cd.data[k] = clamp255(base[0] * shade + 6 * h);
-      cd.data[k + 1] = clamp255(base[1] * shade + 2 * h);
+      cd.data[k] = clamp255(base[0] * shade + 5 * h);
+      cd.data[k + 1] = clamp255(base[1] * shade + 1.5 * h);
       cd.data[k + 2] = clamp255(base[2] * shade);
       cd.data[k + 3] = 255;
       sd.data[k] = clamp255(255 * (0.12 + 0.78 * h + 0.05 * f));
@@ -193,24 +193,36 @@ function paintGrain(seed) {
   return canvas;
 }
 
-/** Small warm equirectangular "room" the gold foil reflects (PMREM'd by the renderer). */
+/**
+ * Small warm equirectangular "room" the gold foil reflects (PMREM'd by the renderer): dark desk
+ * below the horizon, a glowing ceiling, the lamp and a few soft window strips, so the foil shows
+ * the light-dark contrast that reads as metal.
+ */
 function paintGoldEnv() {
   const { canvas, ctx } = makeCanvas(512, 256);
   const sky = ctx.createLinearGradient(0, 0, 0, 256);
-  sky.addColorStop(0, '#fff3da');
-  sky.addColorStop(0.3, '#e8c48e');
-  sky.addColorStop(0.5, '#8a6440');
-  sky.addColorStop(0.62, '#3c2a1c');
-  sky.addColorStop(1, '#140d08');
+  sky.addColorStop(0, '#f6dfb4');
+  sky.addColorStop(0.24, '#cfa46a');
+  sky.addColorStop(0.42, '#5a3f28');
+  sky.addColorStop(0.5, '#2e2016');
+  sky.addColorStop(1, '#0e0a07');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, 512, 256);
-  for (const [x, y, r, a] of [[150, 40, 70, 1], [400, 70, 90, 0.55]]) {
-    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, `rgba(255,248,230,${a})`);
-    g.addColorStop(1, 'rgba(255,240,210,0)');
+  const glow = (x, y, rx, ry, a) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(rx / ry, 1);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, ry);
+    g.addColorStop(0, `rgba(255,246,224,${a})`);
+    g.addColorStop(0.5, `rgba(255,226,170,${a * 0.35})`);
+    g.addColorStop(1, 'rgba(255,220,160,0)');
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 512, 256);
-  }
+    ctx.fillRect(-ry, -ry, 2 * ry, 2 * ry);
+    ctx.restore();
+  };
+  glow(140, 34, 46, 30, 1); // the lamp, up and to the left
+  for (const x of [250, 330, 410, 470]) glow(x, 92, 12, 40, 0.55); // window strips
+  glow(40, 100, 30, 26, 0.4);
   return canvas;
 }
 
@@ -391,15 +403,15 @@ function foilTextures(w, h, draw, seed) {
       const k = (y * w + x) * 4;
       const a = md[k + 3] / 255;
       const shadow = (hd[k + 3] / 255) * 0.32 * (1 - a);
-      const n = sampleLattice(crinkle, 64, x / 9, y / 9) * 0.7 + (rand() - 0.5) * 0.3;
+      const n = sampleLattice(crinkle, 64, x / 4, y / 4) * 0.7 + (rand() - 0.5) * 0.3;
       const outA = a + shadow;
-      const g = (0.93 + 0.1 * n) * (outA > 0 ? a / outA : 0);
+      const g = (0.95 + 0.06 * n) * (outA > 0 ? a / outA : 0);
       cd.data[k] = clamp255(FOIL_RGB[0] * g);
       cd.data[k + 1] = clamp255(FOIL_RGB[1] * g);
       cd.data[k + 2] = clamp255(FOIL_RGB[2] * g);
       cd.data[k + 3] = clamp255(255 * outA);
-      sd.data[k] = clamp255(255 * (0.3 + 0.55 * a + 0.12 * n * a));
-      sd.data[k + 1] = clamp255(255 * (0.9 - a * (0.62 - 0.1 * n)));
+      sd.data[k] = clamp255(255 * (0.3 + 0.5 * a + 0.06 * n * a));
+      sd.data[k + 1] = clamp255(255 * (0.9 - a * (0.62 - 0.06 * n)));
       sd.data[k + 2] = clamp255(255 * a);
       sd.data[k + 3] = 255;
     }
@@ -537,7 +549,7 @@ function foilMaterial(textures, envMap) {
     roughness: 1,
     roughnessMap: textures.surfaceTex,
     bumpMap: textures.surfaceTex,
-    bumpScale: 0.6,
+    bumpScale: 0.45,
     envMap,
     envMapIntensity: GOLD_ENV_INTENSITY,
     polygonOffset: true,
@@ -718,7 +730,7 @@ export function createBook({ title = 'The Little Paper Boat', coverColor = '#7a2
     roughness: 1,
     roughnessMap: clothSurface,
     bumpMap: clothSurface,
-    bumpScale: 1.2,
+    bumpScale: 0.7,
     sheen: 0.7,
     sheenColor: sheen,
     sheenRoughness: 0.5,
@@ -751,7 +763,7 @@ export function createBook({ title = 'The Little Paper Boat', coverColor = '#7a2
       // Endpaper (the spread's printed page) pasted on the cover's inside.
       const mat = pageMaterial(isFront ? 1 : 0, grainTex);
       const endpaper = sheet({ x0: 0, x1: W, z0: -D / 2, z1: D / 2, y: isFront ? 0 : t, up: !isFront, mirrorU: isFront, uw: W, ud: D });
-      pivot.add(shadowed(new THREE.Mesh(endpaper, mat), false));
+      pivot.add(shadowed(new THREE.Mesh(endpaper, mat)));
       if (isFront) {
         back[i] = mat;
         const r = COVER_R;

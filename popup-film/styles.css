@@ -166,9 +166,13 @@ body {
   overflow: hidden;
   text-align: center;
   background: radial-gradient(ellipse 70% 65% at 50% 50%, rgba(8, 6, 5, 0.52) 0%, rgba(8, 6, 5, 0.7) 60%, var(--vignette) 100%);
+  transition: opacity 1.2s ease;
+}
+
+/* Soften the (static) poster frame; only here, never while the scene underneath is animating. */
+.intro[data-state="poster"] {
   -webkit-backdrop-filter: blur(2.5px);
   backdrop-filter: blur(2.5px);
-  transition: opacity 1.2s ease;
 }
 
 /* While the poster is up its captions are noise: hide the titles layer until the film starts. */
