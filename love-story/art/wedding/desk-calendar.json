@@ -1,0 +1,15 @@
+{
+  "id": "desk-calendar",
+  "file": "desk-calendar.webp",
+  "w": 639,
+  "h": 630,
+  "feet": [
+    554.8,
+    605
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "wedding",
+  "units": 1.0
+}
