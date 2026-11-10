@@ -1,0 +1,15 @@
+{
+  "id": "apartment",
+  "file": "apartment.webp",
+  "w": 668,
+  "h": 765,
+  "feet": [
+    195.0,
+    740
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "life",
+  "units": 1.55
+}

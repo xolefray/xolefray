@@ -1,0 +1,15 @@
+{
+  "id": "house",
+  "file": "house.webp",
+  "w": 716,
+  "h": 767,
+  "feet": [
+    456.0,
+    742
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "life",
+  "units": 1.85
+}

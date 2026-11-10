@@ -1,0 +1,15 @@
+{
+  "id": "suitcase-stickers",
+  "file": "suitcase-stickers.webp",
+  "w": 435,
+  "h": 729,
+  "feet": [
+    315.0,
+    704
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "life",
+  "units": 0.62
+}

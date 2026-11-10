@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "items": {
+    "apartment": {
+      "id": "apartment",
+      "file": "apartment.webp",
+      "w": 668,
+      "h": 765,
+      "feet": [
+        195,
+        740
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 1.55
+    },
+    "dog-bed": {
+      "id": "dog-bed",
+      "file": "dog-bed.webp",
+      "w": 660,
+      "h": 403,
+      "feet": [
+        359,
+        378
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 0.42
+    },
+    "fuji": {
+      "id": "fuji",
+      "file": "fuji.webp",
+      "w": 1024,
+      "h": 346,
+      "feet": [
+        566.5,
+        323
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 1.15
+    },
+    "house": {
+      "id": "house",
+      "file": "house.webp",
+      "w": 716,
+      "h": 767,
+      "feet": [
+        456,
+        742
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 1.85
+    },
+    "page-left": {
+      "id": "page-left",
+      "file": "page-left.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 3
+    },
+    "page-right": {
+      "id": "page-right",
+      "file": "page-right.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 3
+    },
+    "paper-plane": {
+      "id": "paper-plane",
+      "file": "paper-plane.webp",
+      "w": 620,
+      "h": 408,
+      "feet": [
+        526,
+        383
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 0.28
+    },
+    "sky-band": {
+      "id": "sky-band",
+      "file": "sky-band.webp",
+      "w": 1024,
+      "h": 506,
+      "feet": [
+        474,
+        488
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 2.05
+    },
+    "suitcase-stickers": {
+      "id": "suitcase-stickers",
+      "file": "suitcase-stickers.webp",
+      "w": 435,
+      "h": 729,
+      "feet": [
+        315,
+        704
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 0.62
+    },
+    "torii": {
+      "id": "torii",
+      "file": "torii.webp",
+      "w": 621,
+      "h": 662,
+      "feet": [
+        470,
+        637
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 1.55
+    }
+  },
+  "cycles": {}
+}
