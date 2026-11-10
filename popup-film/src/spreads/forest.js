@@ -95,7 +95,6 @@ const C = {
   dot: '#f8efe0',
   stem: '#efe3cc',
   brown: '#a8704a',
-  plaster: '#f1e3c4',
   timber: '#6b4a33',
   roof: ['#c08052', '#9a5e3c', '#6e3f2a'],
   glow: '#ffcf6e',
