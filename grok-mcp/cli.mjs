@@ -7,6 +7,7 @@
  *   node grok-mcp/cli.mjs agent --brief-file brief.md [--root .] [--own a.js,dir/] [--scratch dir]
  *        [--allow-run tools/test.mjs,…] [--allow-images] [--model id] [--max-steps 80] [--log run.jsonl]
  *        [--attach doc1.md,doc2.md] [--include ignored/dir/,…] [--deny /private/path,…] [--backend cli|api]
+ *        [--timeout-min 60]
  *
  * Backend: `cli` = xAI's `grok` command-line agent signed in with a Grok subscription (the worker runs
  * in a sandboxed copy of the project; --attach/--deny apply), `api` = metered API key (--scratch,
@@ -55,6 +56,7 @@ try {
       allowImages: Boolean(flags['allow-images']),
       model: typeof flags.model === 'string' ? flags.model : undefined,
       maxSteps: flags['max-steps'] ? Number(flags['max-steps']) : undefined,
+      ...(flags['timeout-min'] ? { timeoutMs: Number(flags['timeout-min']) * 60000 } : {}),
       onEvent(e) {
         log?.write(`${JSON.stringify({ at: new Date().toISOString(), ...e })}\n`);
         if (e.type === 'tool') console.error(`[${e.step + 1}] ${e.name} ${e.ok ? JSON.stringify(e.args) : `FAILED: ${e.error}`}`.slice(0, 220));
