@@ -31,9 +31,10 @@
  *               paper.card({ canvas: c, width: 1.1, height: 1.1 * c.height / c.width });
  *   caption hand-written in FONT.hand (call after loadFonts()); shrinks to fit one line.
  *   tilt    radians, positive = clockwise.      tape  a strip of washi tape over the top edge.
- *   aspect  width / height of the picture window (default: the photo's own, within sane limits);
- *           the photo is cover-fitted around `focus` (fractions of the photo; default slightly above
- *           the middle, where faces are).
+ *   aspect  width / height of the picture window (default: the photo's own, within sane limits —
+ *           0.8 when the photo is null; pass PHOTO_ASPECT.<name> for a layout that does not depend
+ *           on the file being there). The photo is cover-fitted around `focus` (fractions of the
+ *           photo; default slightly above the middle, where faces are).
  *   shadow  true paints a soft drop shadow under the piece (for pieces drawn INTO flat page art;
  *           leave false for 3D cards, which cast real shadows).
  *   The canvas carries its piece's geometry in `canvas.print = { x, y, w, h, tilt }` (the untilted
@@ -49,6 +50,11 @@ import { PAPER, addGrain, makeCanvas } from './paper.js';
 import { mulberry32 } from './util/rng.js';
 
 const NAMES = ['cover', 'proposal', 'dog'];
+/**
+ * Width / height of the three prepared photos (tools/prep-photos.py). Pass `aspect: PHOTO_ASPECT.dog`
+ * to photoPrint to get the same-sized piece whether or not the file is present.
+ */
+export const PHOTO_ASPECT = Object.freeze({ cover: 0.8, proposal: 0.82, dog: 0.7 });
 const MAX_SIDE = 1600;
 const LOAD_TIMEOUT_MS = 12000;
 const PHOTO_DIR = new URL('../photos/', import.meta.url);
@@ -343,7 +349,7 @@ export function washiTape(length = 220, { height, color, seed = 1 } = {}) {
 
 function paintPolaroid(photo, W, { caption, aspect, focus }, rnd) {
   const b = W * 0.06;
-  const a = clamp(aspect ?? (photo ? photo.width / photo.height : 1), 0.72, 1.4);
+  const a = clamp(aspect ?? (photo ? photo.width / photo.height : 0.8), 0.68, 1.4);
   const ww = W - 2 * b;
   const wh = ww / a;
   const bottom = W * 0.2;

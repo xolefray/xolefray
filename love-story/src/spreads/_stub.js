@@ -217,7 +217,8 @@ export function buildStubSpread(ctx, spec) {
   if (lines[2]) cues.push({ t: lines[2].start + 0.6, hold: 2, at: [0, 0.6, -0.4], size: 3.4, from: 'front' });
   if (lines[3]) cues.push({ t: lines[3].start + 0.6, hold: 2, at: [1.9, 0.5, 0.6], size: 3.2, from: 'right' });
   const last = lines[lines.length - 1];
-  if (last && lines.length > 1) cues.push({ t: last.start + 0.8, hold: 1.5, at: [0, 0.35, 0], size: 7.5, from: 'high' });
+  if (last && lines.length > 2) cues.push({ t: last.start + 0.8, hold: 1.5, at: [0, 0.35, 0], size: 7.5, from: 'high' });
+  for (const c of cues) c.t = Math.round(c.t * 100) / 100;
 
   return {
     group,

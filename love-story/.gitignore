@@ -4,9 +4,6 @@ photos/*
 !photos/README.md
 !photos/.gitignore
 
-# Optional recorded narration (added later, also kept out of the repository until cleared).
-audio/narration.*
-
 # Local tooling leftovers
 node_modules/
 .DS_Store

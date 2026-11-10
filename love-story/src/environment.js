@@ -27,7 +27,9 @@ import * as THREE from 'three';
 import { BEATS, seg, smoothstep, ease } from './timeline.js';
 import { makeRng } from './util/rng.js';
 
-const LAMP_POS = new THREE.Vector3(-5, 9, 1.5);
+// STUB: moved toward the reader (z 1.5 -> 4) so upright cards that face the reader — the paper-doll
+// figures on standUps — are lit by the lamp instead of grazed by it (N·L was ~0.07).
+const LAMP_POS = new THREE.Vector3(-5, 9, 4);
 const LAMP_AIM = new THREE.Vector3(0.3, 0.4, -0.3);
 const LAMP_CANDELA = 400; // ≈ 3 lux-equivalent on the pages at full level
 const NIGHT_LAMP = 0.35;
@@ -53,7 +55,7 @@ const LOOKS = {
   },
   day: {
     top: '#050404', horizon: '#0c0908', spill: '#2e1d12', window: '#2a3346', windowAmt: 0.3,
-    hemiSky: '#ffe3c2', hemiGround: '#3a2417', hemi: 0.45, fillColor: '#ffd8b0', fill: 0.35, dawn: 0,
+    hemiSky: '#ffe3c2', hemiGround: '#3a2417', hemi: 0.55, fillColor: '#ffd8b0', fill: 0.7, dawn: 0, // STUB: fuller front fill
   },
   night: {
     top: '#03050a', horizon: '#05080d', spill: '#140e0b', window: '#5a8cb8', windowAmt: 0.75,

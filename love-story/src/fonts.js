@@ -3,9 +3,10 @@
 // Two vendored open-licence faces live in ../fonts/ (latin subset: basic Latin + Latin-1 incl. é,
 // curly quotes “ ” ‘ ’, dashes, &); their @font-face rules are in styles.css:
 //
-//   FONT.display  "Luckiest Guy" 400  — chunky, friendly, hand-cut-looking CAPITALS (lowercase letters
-//                 are drawn as the same capitals). Headline / cut-out letters. Apache License 2.0
-//                 (fonts/LICENSE-luckiest-guy.txt).
+//   FONT.display  "Luckiest Guy" 400  — chunky, friendly, hand-cut-looking capitals. Lowercase letters
+//                 are cap-height alternates (a few — e, n, u … — keep a lowercase shape), so mixed
+//                 case reads as a playful cut-letter mix and ALL CAPS as uniform. One weight only.
+//                 Headline / cut-out letters. Apache License 2.0 (fonts/LICENSE-luckiest-guy.txt).
 //   FONT.hand     "Caveat" 400 + 700  — legible handwriting for captions and notes. SIL OFL 1.1
 //                 (fonts/LICENSE-caveat.txt).
 //   FONT.serif    system storybook serif stack (no file).

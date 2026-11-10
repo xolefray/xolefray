@@ -1,6 +1,7 @@
 /**
- * paper.js — the paper look of "Our Love Story" (engine shared with "The Little Paper Boat"): palettes, canvas painting helpers
- * (fibre grain, die-cut borders), paper materials, printed cut-out cards and folded paper models.
+ * paper.js — the paper look of "Our Love Story" (engine shared with "The Little Paper Boat"):
+ * palettes, canvas painting helpers (fibre grain, die-cut borders), paper materials, printed cut-out
+ * cards and folded paper models.
  * Everything is procedural and deterministic (seeded); nothing here allocates per frame.
  * Units: 1 = 10 cm. Typical piece: a 384x512 px canvas on a 0.9 x 1.2 card (~430 px per unit).
  *
