@@ -203,8 +203,8 @@ function readPage() {
   if (description == null) throw new Error('index.html has no <meta name="description">');
   const bodyMatch = html.match(/<body\b[^>]*>([\s\S]*)<\/body>/i);
   if (!bodyMatch) throw new Error('index.html has no <body>');
-  if (/<body\b[^>]*\b(class|style|id)\s*=/i.test(bodyMatch[0].slice(0, bodyMatch[0].indexOf('>') + 1))) {
-    throw new Error('index.html <body> has attributes the fragment cannot carry (the host owns <body>)');
+  if (/^<body\s+[^\s>]/i.test(bodyMatch[0])) {
+    throw new Error('index.html <body> has attributes, which the fragment cannot carry (the host owns <body>)');
   }
 
   let body = bodyMatch[1]
@@ -269,7 +269,7 @@ async function main() {
   const sum = (re) => inputs.filter((i) => re.test(i.p)).reduce((s, i) => s + i.n, 0);
   const scriptBytes = Buffer.byteLength(script);
   const cssBytes = Buffer.byteLength(css) + Buffer.byteLength(COMPAT_CSS);
-  console.log(`[build-artifact] wrote ${path.relative(process.cwd(), file) || file}`);
+  console.log(`[build-artifact] wrote ${file}`);
   console.log(`  total      ${fmt(bytes)} (${bytes.toLocaleString('en-US')} bytes; limit ${fmt(MAX_BYTES)})`);
   console.log(`  script     ${fmt(scriptBytes)} — ${inputs.length} modules, esm, minified, ${opts.target}, esbuild ${esbuild.version}`);
   console.log(`               three.js ${fmt(sum(/vendor\//))} (${threeCopies} copy) · film code ${fmt(sum(/^src\//))}`);
