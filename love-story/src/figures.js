@@ -1873,7 +1873,7 @@ export function paintFigure(who = 'him', opts = {}) {
   if (hold === undefined) hold = pose === 'surprised' || pose === 'kneel' ? undefined : OUTFITS[who][outfit].hold;
   if (hold && !HOLD_ARM[hold]) throw new Error(`paintFigure: unknown hold "${hold}" (${FIGURE_OPTIONS.hold.join(' | ')})`);
   const handY = opts.handY ?? HOLD_Y;
-  const key = ['fig', who, outfit, pose, facing, px, seed, hold, opts.expression, handY, opts.backpack].join('|');
+  const key = ['fig', who, outfit, pose, facing, px, seed, String(hold), opts.expression, handY, opts.backpack].join('|');
   const hit = cache.get(key);
   if (hit) return hit;
 

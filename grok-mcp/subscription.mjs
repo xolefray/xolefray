@@ -157,6 +157,9 @@ export async function runAgentCli({ brief, root, own = [], attach = [], deny = [
   const home = os.homedir();
   const denied = [...new Set([repoTop, root, path.join(home, '.ssh'), path.join(home, '.claude'), path.join(home, '.ccr'), path.join(home, '.aws'), path.join(home, '.config', 'gh'), '**/.env', '**/*.pem',
     ...(process.env.GROK_MCP_DENY || '').split(path.delimiter).filter(Boolean), ...deny.map((d) => (d.includes('*') ? d : path.resolve(d)))])];
+  // A path inside another denied folder is already covered (and nested entries break the sandbox mount).
+  const covered = (p) => !p.includes('*') && denied.some((q) => q !== p && !q.includes('*') && p.startsWith(q + path.sep));
+  for (let i = denied.length - 1; i >= 0; i--) if (covered(denied[i])) denied.splice(i, 1);
   fs.mkdirSync(path.join(work, '.grok'), { recursive: true });
   fs.writeFileSync(path.join(work, '.grok', 'sandbox.toml'), `[profiles.${PROFILE}]\nextends = "workspace"\ndeny = [\n${denied.map((d) => `  ${JSON.stringify(d)},`).join('\n')}\n]\n`);
   const promptFile = path.join(work, '.brief-prompt.md');
