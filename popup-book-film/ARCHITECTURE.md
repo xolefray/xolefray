@@ -89,6 +89,7 @@ styles.css            page + overlay layout
 src/constants.js      world/book geometry constants (pure)
 src/util.js           clamp/lerp/easing/envelope/seeded rng (pure, no three)
 src/timeline.js       segments, SPREADS text, getFilmState(t) (pure, no three)
+src/layout.js         SPREAD_LAYOUT: fox spot, camera focus, scenery peak per spread (pure, no three)
 src/main.js           renderer, wiring, playback clock, window.__film
 src/book.js           the book: six rigid leaves + spread anchors
 src/stage.js          desk, backdrop, ALL lights, scene.background/fog
@@ -104,8 +105,8 @@ tools/serve.mjs       static server (importable: startServer({port}))
 tools/smoke.mjs       smoke test / frame grabber
 ```
 
-`src/timeline.js`, `src/util.js` and `src/constants.js` must never import
-three.js: Node tools import them directly.
+`src/timeline.js`, `src/util.js`, `src/constants.js` and `src/layout.js` must
+never import three.js: Node tools import them directly.
 
 ---
 
@@ -269,7 +270,9 @@ captions.js  export function createCaptions(ctx)     -> { update(state) }
              // owns ALL DOM film overlays: #fade, title card, captions, end card
 ui.js        export function createUI(ctx, film)     -> { update(state) }   // player controls inside #ui
 audio.js     export function createAudio(ctx, film)  -> { update(state), setMuted(bool), get muted }
-             // must do nothing audible until a user gesture
+             // must do nothing audible until a user gesture. main.js creates it BEFORE the
+             // UI and exposes it as film.audio (= __film.audio); the player's sound button
+             // calls film.audio.setMuted(b) and reflects film.audio.muted (also key M).
 scenes/*.js  export function createScene(ctx)        -> { left, right, center /* THREE.Group each */, update(state, spread) }
              // spread = { index, open /* 0..1 */, theta /* π·open */, time /* state.spreadTime[index] */ }
 scenes/index.js  export const sceneFactories = [forest, village, sea, mountain, night]  // createScene fns, in order
@@ -307,6 +310,49 @@ Full-viewport `<canvas id="film">`, then `<div id="overlay">` containing
 scrollbars, works at phone widths (the camera backs off for narrow aspects).
 
 ---
+
+## Spread layout (`src/layout.js`, pure, no three)
+
+The staging contract between the camera and the scene authors. Spread-frame
+coordinates (see Spread anchors); world position on a flat-open spread is
+approximately the same x and z with y + `PAGE_SURFACE_Y` (0.2).
+
+| k | id | fox (side, x, z) | focus [x, y, z] | peak |
+|---|---|---|---|---|
+| 0 | forest   | right, 1.15, 0.85 | [0.6, 0.7, 0.3]   | 2.6 |
+| 1 | village  | left, -1.2, 0.95  | [-0.3, 0.8, 0.2]  | 2.8 |
+| 2 | sea      | left, -0.7, 0.5   | [0.2, 0.7, 0.2]   | 2.9 |
+| 3 | mountain | right, 0.7, 0.7   | [0.3, 1.3, -0.2]  | 3.2 |
+| 4 | night    | right, 0.9, 0.9   | [0.4, 0.7, 0.4]   | 2.6 |
+
+- `fox`: where the heroine stands (on the `side` page). Put her there: the close
+  shots are aimed at her and, on narrow screens, dolly back to keep her in frame.
+- `focus`: the point the camera favours during the hold.
+- `peak`: the tallest any scenery may rise above the page. Stay under it: the
+  wide framings (turns, cover open, the night reveal) fit the boards plus a box
+  x in [-2.7, 2.7], z in [-1.8, 1.8] up to `peak` on every aspect from 9:19.5 to
+  21:9. Anything taller or outside that box may be cropped. Close shots during the
+  holds may crop the page edges and the tops of tall pieces (by design).
+- Exports: `SPREAD_LAYOUT`, `PAGE_SURFACE_Y`, `MAX_PEAK`, `spreadToWorld(x,y,z)`,
+  `foxWorld(k)`, `focusWorld(k)`.
+
+## Camera, captions and player (summary)
+
+- `camera.js` also exports `cameraPose(t, aspect)` (pure; target, yaw, pitch,
+  dist, fov, roll). One continuous take: shots are closed-form functions of t,
+  cross-blended with smootherstep weights; a sub-degree closed-form handheld sway
+  is added. Narrow viewports widen the lens (up to +20 deg vertical) and dolly back.
+  The camera stays above y ~ 2.2 and in front of the book (z > 3) at all times.
+- Caption timing (captions.js `captionOpacity(k, t)`): fades in 1.2-2.2 s after a
+  hold begins, gone 0.25 s before the next turn. Title card in the upper part of
+  the frame (the intro shot frames the cover low while it shows); "The End" sits
+  above the closed book, which the outro frames low. Film overlays never use CSS
+  transitions/animations.
+- Player (`#ui`, hidden by `controls=0`): play/pause, scrubber with ticks at
+  segment starts, time, chapter name, sound, fullscreen, "Watch again" at the end.
+  Keys: Space/K play-pause, Left/Right -/+5 s, Home/End, F fullscreen, M mute.
+  Mouse click on the picture toggles playback, double-click toggles fullscreen.
+  The bar auto-hides after 2.8 s without activity while playing.
 
 ## Story and art direction
 
