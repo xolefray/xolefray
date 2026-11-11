@@ -1,60 +1,64 @@
-// Spread 6 — "Building our life". One couple card at a time, big and centred on its stop:
-// moving boxes and a ribbon, a first apartment, Cherry, a home, Japan, then the next chapter.
+// Spread 6 — "Building our life". Four stops along a path: moving in, Cherry,
+// a home, Japan. One couple card at a time, big and centred on its stop.
 // Times come from timeline.BEATS / NARRATION / SPREADS. update() allocates nothing.
 import { L } from '../i18n.js';
 import { photoPrint, PHOTO_ASPECT } from '../photos.js';
 
 const GAMMA = 1.78;
-const SKY_W = 6.0;
-const SKY_H = 1.7;
-const SKY_Z0 = -0.45;
+const SKY_W = 5.7;
+const SKY_H = 1.6;
+const SKY_Z0 = -0.42;
 const OPEN = 0.92;
 const CLEAR = 0.02;
-const SMALL = 0.42;
+const SMALL = 0.34;
 
 // Page distance from the gutter. Spread x is −x on the left page and +x on the right.
-// The sky wall sits near z = −0.5, so every prop stays in front of it (z ≥ −0.25).
-const BOX_X = 3.02;
-const BOX_Z = 0.85;
-const BOX_H = 1.22;
-const APT_X = 2.2;
-const APT_Z = -0.05;
-const APT_H = 1.32;
-const BOXER_X = 1.9;
-const BOXER_Z = 0.5;
-const BOXER_H = 1.56;
-const CUDDLE_X = 1.72;
-const CUDDLE_Z = 0.42;
+const BOX_X = 3.12;
+const BOX_Z = 0.02;
+const BOX_H = 1.18;
+const APT_X = 1.15;
+const APT_Z = -0.02;
+const APT_H = 1.02;
+const BOXER_X = 2.02;
+const BOXER_Z = 0.86;
+const BOXER_H = 1.32;
+const CUDDLE_X = 1.68;
+const CUDDLE_Z = 0.58;
 const CUDDLE_H = 1.5;
-const JUMP_X = 1.55;
-const JUMP_Z = 0.95;
-const JUMP_H = 0.52;
-const BED_X = 2.18;
-const BED_Z = 0.32;
-const BED_H = 0.58;
-const RIBBON_X = 2.72;
-const RIBBON_Z = -0.15;
-const RIBBON_W = 1.55;
-const RIBBON_H = 0.56;
-const HOUSE_X = 1.48;
-const HOUSE_Z = 0.08;
-const HOUSE_H = 1.46;
-const HOME_X = 1.24;
-const HOME_Z = 0.78;
-const DEED_H = 1.08;
-const KEYS_H = 1.42;
-const TRAVEL_X = 1.55;
-const TRAVEL_Z = 0.62;
-const TRAVEL_H = 1.48;
-const GATE_X = 2.58;
-const GATE_Z = 0.36;
-const GATE_H = 1.68;
-const TORII_X = 3.05;
-const TORII_Z = -0.08;
-const TORII_H = 1.12;
-const SELFIE_X = 1.9;
-const SELFIE_Z = 1.0;
-const SELFIE_H = 1.5;
+const JUMP_X = 2.35;
+const JUMP_Z = 0.88;
+const JUMP_H = 0.7;
+const BED_X = 1.75;
+const BED_Z = 0.22;
+const BED_H = 0.5;
+// Banner sits above the couple's heads (local y), hinged further back than they stand.
+const RIBBON_X = 2.2;
+const RIBBON_Z = 0.48;
+const RIBBON_W = 2.05;
+const RIBBON_H = 0.5;
+const RIBBON_LIFT = 1.4;
+const HOUSE_X = 2.05;
+const HOUSE_Z = 0.16;
+const HOUSE_H = 1.22;
+const HOME_X = 1.72;
+const HOME_Z = 0.7;
+const DEED_H = 1.16;
+const KEYS_H = 1.38;
+const TRAVEL_X = 1.7;
+const TRAVEL_Z = 0.55;
+const TRAVEL_H = 1.4;
+const GATE_X = 2.15;
+const GATE_Z = 0.06;
+const GATE_H = 1.42;
+const TORII_X = 3.02;
+const TORII_Z = -0.4;
+const TORII_H = 0.88;
+const SELFIE_X = 1.95;
+const SELFIE_Z = 0.76;
+const SELFIE_H = 1.6;
+
+// Bands of moving-boxes.webp, bottom box first (pixel rows).
+const BOX_BANDS = [[515, 852], [355, 515], [190, 355], [24, 190]];
 
 export default {
   id: 'life',
@@ -69,7 +73,6 @@ export default {
     const group = new THREE.Group();
     group.name = 'life';
 
-    // Scratch for instance matrices. Created once; update() only writes them.
     const pos = new THREE.Vector3();
     const quat = new THREE.Quaternion();
     const scl = new THREE.Vector3();
@@ -86,10 +89,10 @@ export default {
     const japan = BEATS.japan;
     const next = BEATS.nextChapter;
     const travelAt = h4 ? h4.start : (home + japan) * 0.5;
-    const cuddleAt = cherry + (home - cherry) * 0.4;
+    const cuddleAt = cherry + 1.15;
     const keysAt = home + (travelAt - home) * 0.5;
 
-    const pages = paintPages(paper, art, has, C, rng);
+    const pages = paintPages(paper, art, has, C);
     const leftArt = pages.left;
     const rightArt = pages.right;
 
@@ -112,6 +115,7 @@ export default {
     const photoRigs = [];
     const tagHolds = [];
     const tagAt = [];
+    const tagLeave = [];
     const mats = [[], [], [], [], []];
 
     const addShow = (rig, at) => {
@@ -158,27 +162,26 @@ export default {
     let fujiCard = null;
     const sky = track(popup.vFold({ z0: SKY_Z0, gamma: GAMMA, width: SKY_W, height: SKY_H }));
     if (has('sky-band')) {
-      const cut = paper.dieCut(art.canvas('sky-band'), { margin: 6 });
+      const cut = paper.dieCut(art.canvas('sky-band'), { margin: 4 });
       const halves = paper.splitCard({ canvas: cut, width: SKY_W, height: SKY_H });
       halves.left.name = 'sky-left';
       halves.right.name = 'sky-right';
       sky.left.add(halves.left);
       sky.right.add(halves.right);
       if (has('fuji')) {
-        const fujiH = 0.86;
+        const fujiH = 0.72;
         fujiCard = characterArt.characterCard(paper, art, 'fuji', { height: fujiH });
-        const fm = meta('fuji');
-        const fs = fujiH / fm.h;
-        fujiCard.position.set(1.55, 0.18 + (fm.h - fm.feet[1]) * fs, 0.012);
+        fujiCard.position.set(1.55, 0.06, 0.02);
         fujiCard.name = 'fuji';
-        fujiCard.scale.set(0, 0, 1);
+        fujiCard.scale.set(0.001, 0.001, 1);
         sky.right.add(fujiCard);
       }
     } else {
-      const flat = paper.paint(1200, 360, (g, w, h) => {
+      const flat = paper.paint(1200, 340, (g, w, h) => {
         const grd = g.createLinearGradient(0, 0, 0, h);
-        grd.addColorStop(0, '#9fd0ea');
-        grd.addColorStop(1, '#f6e7c8');
+        grd.addColorStop(0, '#7eb6e0');
+        grd.addColorStop(0.55, '#f6c98a');
+        grd.addColorStop(1, '#f3a56a');
         g.fillStyle = grd;
         g.fillRect(0, 0, w, h);
       }, { dieCut: 0, seed: 4 });
@@ -187,7 +190,7 @@ export default {
       sky.right.add(halves.right);
     }
 
-    // ---------------------------------------------------------------- dotted path (flat on the pages, draws itself)
+    // ---------------------------------------------------------------- dotted path
     const path = buildPath();
     const dotsL = makeDots(THREE, paper, path.left.n);
     const dotsR = makeDots(THREE, paper, path.right.n);
@@ -198,14 +201,18 @@ export default {
     const sparkL = makeSparks(THREE, paper, pageL.mount, 3);
     const sparkR = makeSparks(THREE, paper, pageR.mount, 3);
 
-    // ---------------------------------------------------------------- opening: boxes + ribbon
-    const boxW = propW(meta('moving-boxes'), BOX_H, 0.86);
-    const boxes = stand('left', BOX_X, BOX_Z, boxW, BOX_H);
-    const boxRig = addShow(rigOn(boxes, 'moving-boxes'), spread.open - 1);
-    watch(0, mountDrawing(boxRig, 'art', 'moving-boxes', BOX_H));
+    // ---------------------------------------------------------------- opening: boxes stack, couple walks in, ribbon unfurls
+    const boxStand = stand('left', BOX_X, BOX_Z, 0.9, BOX_H);
+    const boxRig = rigOn(boxStand, 'moving-boxes');
+    const boxSlices = buildBoxStack(paper, THREE, has('moving-boxes') ? art.canvas('moving-boxes') : null, BOX_H);
+    for (let i = 0; i < boxSlices.length; i++) {
+      boxSlices[i].mesh.name = 'moving-boxes';
+      boxRig.add(boxSlices[i].mesh);
+      watch(0, boxSlices[i].mesh);
+    }
 
-    const ribbon = stand('right', RIBBON_X, RIBBON_Z, RIBBON_W, RIBBON_H);
-    const ribbonRig = addShow(rigOn(ribbon, 'ribbon'), spread.open - 1);
+    const ribbon = stand('left', RIBBON_X, RIBBON_Z, RIBBON_W, RIBBON_LIFT + RIBBON_H);
+    const ribbonRig = rigOn(ribbon, 'ribbon');
     const ribbonCard = paper.card({
       canvas: paintRibbon(paper, FONT, C, L('building our life', 'construyendo nuestra vida')),
       width: RIBBON_W,
@@ -213,12 +220,12 @@ export default {
       anchor: 'bottom-center',
     });
     ribbonCard.name = 'ribbon';
-    ribbonCard.position.y = CLEAR;
+    ribbonCard.position.y = RIBBON_LIFT;
     ribbonRig.add(ribbonCard);
     watch(0, ribbonCard);
 
     // ---------------------------------------------------------------- first place
-    const aptW = propW(meta('apartment'), APT_H, 1.2);
+    const aptW = propW(meta('apartment'), APT_H, 1.0);
     const apt = stand('left', APT_X, APT_Z, aptW, APT_H);
     const aptRig = addShow(rigOn(apt, 'apartment'), first);
     const aptCard = mountDrawing(aptRig, 'art', 'apartment', APT_H);
@@ -238,57 +245,62 @@ export default {
 
     const boxerW = propW(charInfo('life-box'), BOXER_H, 0.94);
     const boxers = stand('left', BOXER_X, BOXER_Z, boxerW, BOXER_H);
-    const boxerRig = addCast(rigOn(boxers, 'life-box'), first, cherry, 0.2);
-    watch(1, mountDrawing(boxerRig, 'char', 'life-box', BOXER_H, {
+    const boxerRig = addCast(rigOn(boxers, 'life-box'), building, cherry, 0.2);
+    watch(0, mountDrawing(boxerRig, 'char', 'life-box', BOXER_H, {
       who: 'him', outfit: 'casual', pose: 'stand', facing: 'left',
     }));
-    const firstTag = layTag(paper, THREE, popup, track, FONT, 'left', 2.58, 1.22, 1.32, 0.28,
-      L('our first place', 'nuestro primer hogar'), C, 3);
+    const firstTag = layTag(paper, THREE, popup, track, FONT, 'left', 2.15, 0.5, 1.75, 0.4,
+      L('our first place', 'nuestro primer hogar'), C, 3, 1.36);
     tagHolds.push(firstTag);
     tagAt.push(first);
+    tagLeave.push(cherry);
 
     // ---------------------------------------------------------------- Cherry
-    const bedW = propW(meta('dog-bed'), BED_H, 0.6);
+    const bedW = propW(meta('dog-bed'), BED_H, 0.7);
     const bed = stand('left', BED_X, BED_Z, bedW, BED_H);
     const bedRig = addShow(rigOn(bed, 'dog-bed'), cherry);
     watch(2, mountDrawing(bedRig, 'art', 'dog-bed', BED_H));
 
-    const jumpW = propW(charInfo('dog-jump'), JUMP_H, 0.4);
+    const jumpW = propW(charInfo('dog-jump'), JUMP_H, 0.5);
     const jumpStand = stand('left', JUMP_X, JUMP_Z, jumpW, JUMP_H);
     const jumpRig = addCast(rigOn(jumpStand, 'dog-jump'), cherry, cuddleAt, 1.4);
-    const jumpCard = mountDrawing(jumpRig, 'char', 'dog-jump', JUMP_H, { who: 'dog', pose: 'run' });
-    watch(2, jumpCard);
-    const jump = jumpRig;
+    watch(2, mountDrawing(jumpRig, 'char', 'dog-jump', JUMP_H, { who: 'dog', pose: 'run' }));
 
     const cuddleW = propW(charInfo('life-dogcuddle'), CUDDLE_H, 0.86);
-    const cuddleStand = stand('left', CUDDLE_X, CUDDLE_Z, cuddleW, CUDDLE_H);
+    const cuddleStand = stand('left', CUDDLE_X, CUDDLE_Z, Math.max(cuddleW, 1.15), 2.0);
     const cuddleRig = addCast(rigOn(cuddleStand, 'life-dogcuddle'), cuddleAt, home, 0.6);
     watch(2, mountDrawing(cuddleRig, 'char', 'life-dogcuddle', CUDDLE_H, {
       who: 'her', outfit: 'casual', pose: 'stand', facing: 'right',
     }));
+    const cherryTag = paper.card({
+      canvas: paintTag(paper, FONT, L('Cherry ♥', 'Cherry ♥'), C, 5, true),
+      width: 1.15,
+      height: 0.4,
+      anchor: 'bottom-center',
+    });
+    cherryTag.name = 'cherry-tag';
+    cherryTag.position.y = 1.56;
+    cherryTag.scale.set(0.001, 0.001, 1);
+    cuddleStand.mount.add(cherryTag);
+    watch(2, cherryTag);
 
-    const cherryTag = layTag(paper, THREE, popup, track, FONT, 'left', 1.08, 1.22, 0.86, 0.26,
-      L('Cherry ♥', 'Cherry ♥'), C, 5);
-    tagHolds.push(cherryTag);
-    tagAt.push(cherry);
     layPhoto(paper, THREE, popup, track, photoRigs, photos ? photos.dog : null, {
       caption: L('Cherry, our girl', 'Cherry, nuestra niña'),
       aspect: PHOTO_ASPECT.dog,
       seed: 4,
       side: 'left',
-      x: 0.7,
-      z: 0.48,
-      long: 1.16,
-      tilt: -0.06,
-      at: cherry,
+      x: 1.02,
+      z: 0.36,
+      long: 1.02,
+      tilt: -0.05,
+      at: cuddleAt,
       shrink: home,
-      retireX: 0.42,
-      retireZ: 1.16,
     });
 
     // ---------------------------------------------------------------- home
-    const house = stand('right', HOUSE_X, HOUSE_Z, propW(meta('house'), HOUSE_H, 1.38), HOUSE_H);
-    const houseRig = addShow(rigOn(house, 'house'), home);
+    const houseW = Math.max(propW(meta('house'), HOUSE_H, 1.2), 1.7);
+    const house = stand('right', HOUSE_X, HOUSE_Z, houseW, 1.62);
+    const houseRig = rigOn(house, 'house');
     let sold = null;
     const smokes = [];
     if (has('house')) {
@@ -302,16 +314,27 @@ export default {
       const s = HOUSE_H / hm.h;
       sold = new THREE.Group();
       sold.name = 'sold';
-      sold.position.set((616 - hm.feet[0]) * s, (hm.feet[1] - 618) * s, 0.04);
+      // Sit on the blank yard sign, pulled in so it clears the couple in front.
+      sold.position.set((590 - hm.feet[0]) * s, (hm.feet[1] - 600) * s, 0.04);
       const soldCard = paper.card({
         canvas: paintSold(paper, FONT, C, rng, L('SOLD', 'VENDIDA')),
-        width: 220 * s,
-        height: 124 * s,
+        width: 340 * s,
+        height: 150 * s,
         anchor: 'bottom-center',
       });
       soldCard.name = 'sold';
       sold.add(soldCard);
       card.add(sold);
+      const homeBanner = paper.card({
+        canvas: paintTag(paper, FONT, L('a home of our own', 'nuestra propia casa'), C, 7, false),
+        width: 1.68,
+        height: 0.34,
+        anchor: 'bottom-center',
+      });
+      homeBanner.name = 'home-tag';
+      homeBanner.position.y = 1.26;
+      houseRig.add(homeBanner);
+      watch(3, homeBanner);
 
       const puff = puffTex(paper, THREE);
       const chimneyX = (490 - hm.feet[0]) * s;
@@ -329,9 +352,9 @@ export default {
       }
     }
 
-    const deedW = propW(charInfo('life-deed'), DEED_H, 1.02);
-    const keysW = propW(charInfo('life-keys'), KEYS_H, 0.9);
-    const homeStand = stand('right', HOME_X, HOME_Z, keysW, KEYS_H);
+    const keysW = propW(charInfo('life-keys'), KEYS_H, 0.85);
+    const deedW = propW(charInfo('life-deed'), DEED_H, 1.05);
+    const homeStand = stand('right', HOME_X, HOME_Z, Math.max(deedW, keysW), KEYS_H);
     const deedRig = addCast(rigOn(homeStand, 'life-deed'), home, keysAt, 0.4);
     watch(3, mountDrawing(deedRig, 'char', 'life-deed', DEED_H, {
       who: 'him', outfit: 'casual', pose: 'sit', facing: 'right',
@@ -341,74 +364,71 @@ export default {
       who: 'her', outfit: 'casual', pose: 'stand', facing: 'left',
     }));
 
-    const homeTag = layTag(paper, THREE, popup, track, FONT, 'right', 0.98, 1.26, 1.32, 0.28,
-      L('a home of our own', 'nuestra propia casa'), C, 7);
-    tagHolds.push(homeTag);
-    tagAt.push(home);
     layPhoto(paper, THREE, popup, track, photoRigs, photos ? photos.deed : null, {
       caption: L('signing the deed', 'firmando las escrituras'),
       aspect: PHOTO_ASPECT.deed,
       seed: 6,
       side: 'right',
-      x: 2.55,
-      z: 0.72,
-      long: 1.22,
-      tilt: 0.05,
+      x: 0.78,
+      z: 0.18,
+      long: 0.76,
+      tilt: 0.04,
       at: home,
       shrink: japan,
-      retireX: 3.15,
-      retireZ: 0.42,
     });
 
     // ---------------------------------------------------------------- Japan
-    const travelW = propW(charInfo('life-japan'), TRAVEL_H, 1.06);
+    const travelW = propW(charInfo('life-japan'), TRAVEL_H, 1.0);
     const travel = stand('right', TRAVEL_X, TRAVEL_Z, travelW, TRAVEL_H);
     const travelRig = addCast(rigOn(travel, 'life-japan'), travelAt, japan, 0.3);
-    watch(4, mountDrawing(travelRig, 'char', 'life-japan', TRAVEL_H, {
+    watch(3, mountDrawing(travelRig, 'char', 'life-japan', TRAVEL_H, {
       who: 'him', outfit: 'casual', pose: 'wave', facing: 'left',
     }));
 
-    const toriiW = propW(meta('torii'), TORII_H, 1.15);
+    const toriiW = propW(meta('torii'), TORII_H, 0.9);
     const torii = stand('right', TORII_X, TORII_Z, toriiW, TORII_H);
     const toriiRig = addShow(rigOn(torii, 'torii'), japan);
     watch(4, mountDrawing(toriiRig, 'art', 'torii', TORII_H));
 
-    const gateW = propW(meta('temple-gate'), GATE_H, 1.64);
+    const gateW = propW(meta('temple-gate'), GATE_H, 1.55);
     const gate = stand('right', GATE_X, GATE_Z, gateW, GATE_H);
     const gateRig = addShow(rigOn(gate, 'temple-gate'), japan);
     watch(4, mountDrawing(gateRig, 'art', 'temple-gate', GATE_H));
 
     const selfieW = propW(charInfo('japan-selfie'), SELFIE_H, 1.0);
-    const selfieStand = stand('right', SELFIE_X, SELFIE_Z, selfieW, SELFIE_H);
+    const selfieStand = stand('right', SELFIE_X, SELFIE_Z, Math.max(selfieW, 1.82), 2.02);
     const selfieRig = addCast(rigOn(selfieStand, 'japan-selfie'), japan, null, 1.6);
     watch(4, mountDrawing(selfieRig, 'char', 'japan-selfie', SELFIE_H, {
       who: 'him', outfit: 'casual', pose: 'wave', facing: 'right',
     }));
-
-    const japanTag = layTag(paper, THREE, popup, track, FONT, 'right', 1.55, 0.98, 1.55, 0.28,
-      L('our two-year anniversary', 'nuestro segundo aniversario'), C, 9);
-    tagHolds.push(japanTag);
-    tagAt.push(japan);
+    const japanTag = paper.card({
+      canvas: paintTag(paper, FONT, L('our two-year anniversary', 'nuestro segundo aniversario'), C, 9, true),
+      width: 1.78,
+      height: 0.36,
+      anchor: 'bottom-center',
+    });
+    japanTag.name = 'japan-tag';
+    japanTag.position.y = 1.64;
+    selfieRig.add(japanTag);
+    watch(4, japanTag);
     layPhoto(paper, THREE, popup, track, photoRigs, photos ? photos.tokyo : null, {
       caption: L('Tokyo · 2 years', 'Tokio · 2 años'),
       aspect: PHOTO_ASPECT.tokyo,
       seed: 8,
       side: 'right',
-      x: 0.92,
-      z: 0.22,
-      long: 1.18,
-      tilt: -0.05,
+      x: 2.78,
+      z: 0.46,
+      long: 1.12,
+      tilt: -0.04,
       at: japan,
-      shrink: 0,
-      retireX: 0.92,
-      retireZ: 0.22,
+      shrink: next,
     });
 
-    const nextTag = layTag(paper, THREE, popup, track, FONT, 'right', 2.45, 1.24, 1.7, 0.3,
+    const nextTag = layTag(paper, THREE, popup, track, FONT, 'right', 1.45, 1.12, 2.05, 0.48,
       L('next chapter →', 'próximo capítulo →'), C, 11);
-    // The anniversary tag sits here until the chapter line replaces it.
     tagHolds.push(nextTag);
     tagAt.push(next);
+    tagLeave.push(0);
 
     // Paper plane + a few petals. Scaled in Y by rise so the arc lies flat while the page turns.
     const flight = new THREE.Group();
@@ -439,27 +459,34 @@ export default {
       petals.push(mesh);
     }
 
-    const glow = new THREE.PointLight('#ffd0a4', 0, 4.2, 2);
+    const glow = new THREE.PointLight('#ffe0b8', 0, 6.5, 2);
     glow.name = 'life-glow';
     glow.castShadow = false;
-    glow.position.set(0, 1.3, 0.4);
+    glow.position.set(0, 1.5, 0.6);
     group.add(glow);
+    const fill = new THREE.PointLight('#fff4e4', 0, 10, 2);
+    fill.name = 'life-fill';
+    fill.castShadow = false;
+    fill.position.set(0.2, 2.5, 1.5);
+    group.add(fill);
 
     const lightAt = [
-      [-1.6, 1.3, 0.45],
-      [-1.9, 1.25, 0.4],
-      [-1.15, 1.2, 0.3],
-      [1.7, 1.2, 0.55],
-      [2.15, 1.25, 0.55],
+      [-1.9, 1.55, 0.9],
+      [-1.85, 1.45, 0.85],
+      [-1.35, 1.5, 0.95],
+      [1.55, 1.45, 1.05],
+      [2.05, 1.7, 1.2],
     ];
 
     const cues = [
-      { t: spread.open, hold: 2.6, at: [0, 0.85, 0.1], size: 7.5, from: 'front' },
-      { t: round2(first + 0.5), hold: 2.2, at: [-1.85, 1.0, 0.4], size: 2.6, from: 'left' },
-      { t: round2(cuddleAt + 0.45), hold: 2.0, at: [-1.22, 0.62, 0.45], size: 3.6, from: 'front' },
-      { t: round2(home + 0.65), hold: 2.2, at: [1.85, 0.95, 0.6], size: 3.5, from: 'right' },
-      { t: round2(japan + 0.6), hold: 2.0, at: [1.55, 1.05, 0.45], size: 3.6, from: 'front' },
-      { t: round2(next + 0.45), hold: 2.2, at: [0.35, 0.9, 0.15], size: 7.5, from: 'high' },
+      { t: spread.open, hold: 0.7, at: [0, 0.9, 0.05], size: 7.5, from: 'front' },
+      { t: round2(building + 0.35), hold: 4.0, at: [-2.28, 1.22, 0.32], size: 4.5, from: 'front' },
+      { t: round2(first + 0.4), hold: 2.0, at: [-1.85, 1.15, 0.2], size: 3.6, from: 'left' },
+      { t: round2(cherry + 1.15), hold: 2.3, at: [-1.4, 0.98, 0.42], size: 2.6, from: 'front' },
+      { t: round2(home + 0.5), hold: 2.6, at: [1.35, 1.05, 0.22], size: 3.6, from: 'front' },
+      { t: round2(travelAt + 0.4), hold: 1.2, at: [1.55, 1.0, 0.35], size: 3.6, from: 'front' },
+      { t: round2(japan + 0.55), hold: 2.0, at: [2.05, 1.1, 0.4], size: 2.8, from: 'front' },
+      { t: round2(next + 0.4), hold: 2.85, at: [0.15, 0.82, 0.02], size: 7.6, from: 'high' },
     ];
 
     return {
@@ -480,36 +507,73 @@ export default {
         else if (t >= cherry) zone = 2;
         else if (t >= first) zone = 1;
 
+        const finale = t >= next ? 1 : 0;
+
+        for (let i = 0; i < boxSlices.length; i++) {
+          const at = building + i * 0.72;
+          const pop = appear(t, at, outBack);
+          const b = bump(t, at);
+          const sx = pop * (1 - 0.06 * b);
+          const sy = pop * (1 + 0.08 * b);
+          boxSlices[i].mesh.scale.set(sx > 0.001 ? sx : 0.001, sy > 0.001 ? sy : 0.001, 1);
+        }
+
+        {
+          const tuck = smoothstep(first - 0.2, first + 0.4, t);
+          const yk = appear(t, building, outBack) * (1 - tuck);
+          const xk = smoothstep(building, building + 0.5, t) * (1 - tuck);
+          const bob = yk > 0.2 ? 1 + Math.sin(t * 1.5) * 0.01 : 1;
+          ribbonRig.scale.set(xk > 0.001 ? xk : 0.001, (yk > 0.001 ? yk : 0.001) * bob, 1);
+        }
+
         for (let i = 0; i < showRigs.length; i++) {
           const pop = appear(t, showAt[i], outBack);
           const breathe = pop > 0.2 ? 1 + Math.sin(t * 1.6 + i) * 0.008 : 1;
-          const bumpAt = i === 0 || i === 1 ? building : showAt[i];
-          const b = bump(t, bumpAt);
+          const b = bump(t, showAt[i]);
           const sx = pop * breathe * (1 - 0.05 * b);
           const sy = pop * breathe * (1 + 0.06 * b);
-          showRigs[i].scale.set(sx, sy, 1);
+          showRigs[i].scale.set(sx > 0.001 ? sx : 0.001, sy > 0.001 ? sy : 0.001, 1);
           showRigs[i].position.y = pop > 0.2 ? Math.sin(t * 1.4 + i) * 0.008 : 0;
         }
         if (fujiCard) {
           const pop = appear(t, japan, outBack);
           const b = bump(t, japan);
-          fujiCard.scale.set(pop * (1 - 0.04 * b), pop * (1 + 0.05 * b), 1);
+          fujiCard.scale.set(pop * (1 - 0.04 * b) || 0.001, pop * (1 + 0.05 * b) || 0.001, 1);
         }
 
         for (let i = 0; i < castRigs.length; i++) {
           poseCast(castRigs[i], t, castAt[i], castLeave[i], castPhase[i], outBack);
         }
-        // Cherry's hop, then a smaller bounce until the cuddle card takes over.
-        if (jump) {
+        {
+          const walk = smoothstep(building, building + 1.15, t);
+          boxerRig.position.x = (1 - walk) * -0.22;
+        }
+        {
           const age = t - cherry;
-          const alive = t >= cherry && t < cuddleAt + 0.4;
+          const alive = t >= cherry && t < cuddleAt + 0.35;
           const hopY = alive && age > 0
-            ? Math.abs(Math.sin(age * 7.2)) * (0.02 + 0.07 * Math.exp(-age * 0.8))
+            ? Math.abs(Math.sin(age * 6.4)) * (0.04 + 0.14 * Math.exp(-age * 0.55))
             : 0;
-          jump.position.y = hopY;
+          jumpRig.position.y += hopY;
+        }
+        if (t > next) {
+          const k = 1 - 0.34 * smoothstep(next, next + 0.45, t);
+          selfieRig.scale.x *= k;
+          selfieRig.scale.y *= k;
         }
         if (keyPivot) keyPivot.rotation.z = Math.sin(t * 2.2) * (0.22 + 0.4 * bump(t, first));
 
+        {
+          const amount = houseAmount(t, home, japan, next, outBack, smoothstep);
+          const breathe = amount > 0.2 ? 1 + Math.sin(t * 1.5) * 0.008 : 1;
+          const b = bump(t, home);
+          const s = amount * breathe;
+          houseRig.scale.set(
+            (s > 0.001 ? s : 0.001) * (1 - 0.04 * b),
+            (s > 0.001 ? s : 0.001) * (1 + 0.05 * b),
+            1,
+          );
+        }
         if (sold) {
           const u = smoothstep(home, home + 0.55, t);
           let swing = outBack(u);
@@ -517,44 +581,43 @@ export default {
           else if (swing > 1.06) swing = 1.06;
           sold.rotation.x = open ? (1 - swing) * (Math.PI / 2) : 0;
         }
-        const houseUp = t >= home ? 1 : 0;
+        const houseUp = houseAmount(t, home, japan, next, outBack, smoothstep);
         for (let i = 0; i < smokes.length; i++) {
           const mesh = smokes[i];
           const loop = (t * 0.28 + mesh.userData.phase) % 1;
-          mesh.position.y = mesh.userData.baseY + open * houseUp * loop * 0.06;
+          mesh.position.y = mesh.userData.baseY + open * loop * 0.06;
           mesh.position.x = mesh.userData.baseX + Math.sin(t * 1.4 + i) * 0.012 * open;
           mesh.material.opacity = open * houseUp * (1 - loop) * 0.85;
           mesh.scale.setScalar(0.8 + loop * 0.35);
+        }
+
+        {
+          const tagIn = appear(t, cuddleAt, outBack);
+          const settle = smoothstep(home, home + 0.5, t);
+          const s = tagIn * (1 - settle * 0.28);
+          cherryTag.scale.set(s > 0.001 ? s : 0.001, s > 0.001 ? s : 0.001, 1);
+          cherryTag.position.y = 1.56 - settle * 0.7;
         }
 
         for (let i = 0; i < photoRigs.length; i++) {
           const p = photoRigs[i];
           const s = photoK(t, p.at, p.shrink, outBack);
           p.hold.scale.setScalar(s > 0.001 ? s : 0.001);
-          let k = 0;
-          if (p.shrink > 0 && t > p.shrink) {
-            const v = (t - p.shrink) / 0.5;
-            k = v >= 1 ? 1 : v * v * (3 - 2 * v);
-          }
-          p.hold.position.set(
-            p.sign * (p.x0 + (p.x1 - p.x0) * k),
-            0,
-            p.z0 + (p.z1 - p.z0) * k,
-          );
-        }
-        // The house stays, smaller, once Japan takes the right page.
-        if (houseRig) {
-          const tuck = smoothstep(japan, japan + 0.55, t);
-          const k = 1 - tuck * 0.42;
-          houseRig.scale.x *= k;
-          houseRig.scale.y *= k;
         }
         for (let i = 0; i < tagHolds.length; i++) {
-          const s = appear(t, tagAt[i], outBack);
+          let s = appear(t, tagAt[i], outBack);
+          const leave = tagLeave[i];
+          if (leave > 0 && t > leave) {
+            const v = (t - leave) / 0.4;
+            const k = v >= 1 ? 1 : (v <= 0 ? 0 : v * v * (3 - 2 * v));
+            s *= 1 - k;
+          }
           tagHolds[i].scale.setScalar(s > 0.001 ? s : 0.001);
         }
 
-        const progress = pathProgress(t, building, first, cherry, home, japan, next, path.markU, smoothstep);
+        const progress = pathProgress(t, [
+          building, building + 1.45, first, home, japan, next,
+        ], path.markU, smoothstep);
         layDots(dotsL, path.left, progress, pos, quat, scl, mat);
         layDots(dotsR, path.right, progress, pos, quat, scl, mat);
         const sparkling = t >= next ? 1 : 0;
@@ -562,13 +625,13 @@ export default {
         placeSparks(sparkR, path.right, t, next, sparkling);
 
         flight.scale.set(1, risen, 1);
-        const uFly = smoothstep(travelAt, japan + 0.7, t);
+        const uFly = smoothstep(travelAt, japan + 0.4, t);
         const showPlane = smoothstep(travelAt - 0.2, travelAt + 0.25, t)
-          * (1 - smoothstep(japan + 0.9, japan + 1.5, t));
+          * (1 - smoothstep(japan + 0.35, japan + 0.9, t));
         if (plane) {
-          const x = 0.55 + (2.85 - 0.55) * uFly;
-          const z = 0.15 + (-0.15 - 0.15) * uFly;
-          const y = 1.2 + Math.sin(uFly * Math.PI) * 0.28;
+          const x = 0.4 + (2.7 - 0.4) * uFly;
+          const z = 0.2 + (-0.1 - 0.2) * uFly;
+          const y = 1.15 + Math.sin(uFly * Math.PI) * 0.32;
           plane.scale.setScalar(showPlane > 0.001 ? showPlane : 0.001);
           plane.position.x = x;
           plane.position.z = z;
@@ -576,7 +639,7 @@ export default {
           plane.rotation.z = -0.5 * Math.cos(uFly * Math.PI);
           plane.rotation.x = -0.3;
         }
-        const petalShow = smoothstep(japan - 0.2, japan + 0.35, t);
+        const petalShow = smoothstep(japan - 0.2, japan + 0.35, t) * (finale ? 0.45 : 1);
         for (let i = 0; i < petals.length; i++) {
           const p = petals[i];
           const loop = (t * p.userData.speed + p.userData.phase) % 1;
@@ -593,9 +656,13 @@ export default {
         glow.position.x = at[0];
         glow.position.y = at[1];
         glow.position.z = at[2];
-        glow.intensity = risen * (zone === 0 ? 0.35 : 0.55);
+        let key = zone === 0 ? 1.05 : 0.9;
+        if (zone === 4 && !finale) key = 1.65;
+        if (finale) key = 1.2;
+        glow.intensity = risen * key;
+        fill.intensity = risen * (zone === 4 || finale ? 0.9 : 0.62);
         for (let v = 0; v < mats.length; v++) {
-          const warm = (v === zone ? 0.22 : 0.03) * risen;
+          const warm = (finale ? 0.14 : (v === zone ? 0.28 : 0.07)) * risen;
           const list = mats[v];
           for (let i = 0; i < list.length; i++) list[i].emissiveIntensity = warm;
         }
@@ -639,6 +706,12 @@ function appear(t, at, outBack) {
   return s;
 }
 
+function houseAmount(t, home, japan, _next, outBack, smoothstep) {
+  const up = appear(t, home, outBack);
+  const down = smoothstep(japan, japan + 0.5, t);
+  return up * (1 - down);
+}
+
 function poseCast(rig, t, arrive, leave, phase, outBack) {
   let s = 0;
   let squash = 0;
@@ -678,8 +751,7 @@ function photoK(t, arrive, shrink, outBack) {
   return s;
 }
 
-function pathProgress(t, building, first, cherry, home, japan, next, markU, smoothstep) {
-  const marks = [building, first, cherry, home, japan, next];
+function pathProgress(t, marks, markU, smoothstep) {
   if (t <= marks[0]) return 0;
   if (t >= marks[5]) return 1;
   for (let i = 0; i < 5; i++) {
@@ -700,10 +772,9 @@ function layDots(mesh, pack, progress, pos, quat, scl, mat) {
   for (let i = 0; i < n; i++) {
     const d = (progress - us[i]) * 22;
     let s = d <= 0 ? 0 : d >= 1 ? 1 : d;
-    if (us[i] > 0.985) s *= 2.4;
-    // Base geometry stays tiny at the gutter (the fold test ignores instance matrices).
+    if (us[i] > 0.985) s *= 2.6;
     pos.set(xs[i], 0.006, zs[i]);
-    scl.set(s * 10, 1, s * 10);
+    scl.set(s * 12, 1, s * 12);
     mat.compose(pos, quat, scl);
     mesh.setMatrixAt(i, mat);
   }
@@ -729,7 +800,7 @@ function placeSparks(list, pack, t, next, on) {
       0.02,
       pack.z[a] + (pack.z[b] - pack.z[a]) * k,
     );
-    const pulse = 0.14 + 0.05 * Math.sin(t * 6 + mesh.userData.phase * 10);
+    const pulse = 0.16 + 0.05 * Math.sin(t * 6 + mesh.userData.phase * 10);
     mesh.scale.setScalar(pulse);
     mesh.material.opacity = 0.55 + 0.4 * Math.sin(t * 5 + i);
   }
@@ -738,21 +809,21 @@ function placeSparks(list, pack, t, next, on) {
 // Spread-frame polyline. u is arc length, 0 at the boxes and 1 at the page-edge arrow.
 function buildPath() {
   const pts = [
-    [-2.85, 0.72],
-    [-2.05, 0.2],
-    [-1.35, 0.4],
-    [-0.4, 0.22],
-    [0.45, 0.18],
-    [1.4, 0.4],
-    [2.35, 0.35],
-    [3.15, 0.95],
-    [3.46, 1.2],
+    [-2.95, -0.22],
+    [-2.5, 0.12],
+    [-2.05, 0.4],
+    [-1.55, 0.46],
+    [-0.7, 0.16],
+    [0.5, 0.02],
+    [1.2, -0.02],
+    [1.9, 0.08],
+    [2.5, 0.06],
+    [3.15, 0.16],
   ];
-  // Chevron pointing at the outer edge, arriving with the last point.
   const chevron = [
-    [3.28, 1.34],
-    [3.48, 1.2],
-    [3.28, 1.06],
+    [2.92, 0.4],
+    [3.34, 0.16],
+    [2.92, -0.06],
   ];
   const seg = [];
   let total = 0;
@@ -783,7 +854,7 @@ function buildPath() {
   }
   for (let i = 0; i < chevron.length; i++) raw.push([chevron[i][0], chevron[i][1], 0.995]);
 
-  const stopIdx = [0, 4, 10, 20, 26, raw.length - 1];
+  const stopIdx = [0, 10, 16, 22, 28, raw.length - 1];
   const markU = [];
   for (let i = 0; i < stopIdx.length; i++) markU.push(raw[Math.min(stopIdx[i], raw.length - 1)][2]);
   markU[0] = 0;
@@ -814,7 +885,7 @@ function takeSide(raw, side) {
 }
 
 function makeDots(THREE, paper, n) {
-  const geo = new THREE.PlaneGeometry(0.009, 0.009);
+  const geo = new THREE.PlaneGeometry(0.018, 0.018);
   geo.rotateX(-Math.PI / 2);
   const mat = new THREE.MeshBasicMaterial({
     map: paper.texture(dotCanvas(paper)),
@@ -835,11 +906,11 @@ function makeDots(THREE, paper, n) {
 
 function dotCanvas(paper) {
   const { canvas, ctx } = paper.makeCanvas(32, 32);
-  ctx.fillStyle = '#6b442c';
+  ctx.fillStyle = '#5c3a28';
   ctx.beginPath();
-  ctx.arc(16, 16, 11, 0, Math.PI * 2);
+  ctx.arc(16, 16, 12, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#f3e2c4';
+  ctx.fillStyle = '#f6e7c8';
   ctx.beginPath();
   ctx.arc(16, 16, 4, 0, Math.PI * 2);
   ctx.fill();
@@ -886,13 +957,22 @@ function starCanvas(paper) {
   return canvas;
 }
 
-function layTag(paper, THREE, popup, track, FONT, side, x, z, w, h, text, C, seed) {
-  const page = track(popup.onPage({ side, x, z, lift: 0.016 + seed * 0.0004 }));
+function layTag(paper, THREE, popup, track, FONT, side, x, z, w, h, text, C, seed, lift) {
+  const raised = lift > 0;
+  const page = raised
+    ? track(popup.standUp({ side, x, z, fold: 'back', width: w, height: h + lift }))
+    : track(popup.onPage({ side, x, z, lift: 0.018 + seed * 0.0004 }));
   const hold = new THREE.Group();
   hold.name = 'tag';
   hold.scale.setScalar(0.001);
-  const canvas = paintTag(paper, FONT, text, C, seed);
-  const mesh = flatMesh(THREE, paper, canvas, w, h);
+  const canvas = paintTag(paper, FONT, text, C, seed, false);
+  let mesh;
+  if (raised) {
+    mesh = paper.card({ canvas, width: w, height: h, anchor: 'bottom-center' });
+    mesh.position.y = lift;
+  } else {
+    mesh = flatMesh(THREE, paper, canvas, w, h);
+  }
   mesh.name = 'tag';
   hold.add(mesh);
   page.mount.add(hold);
@@ -919,37 +999,29 @@ function layPhoto(paper, THREE, popup, track, photoRigs, photo, opts) {
     h = opts.long;
     w = opts.long * aspect;
   }
-  const maxW = 2 * Math.min(opts.x - 0.1, 3.5 - opts.x);
-  const maxH = 2 * Math.min(opts.z + 1.42, 1.42 - opts.z);
-  if (w > maxW && maxW > 0.2) {
-    h *= maxW / w;
-    w = maxW;
-  }
-  if (h > maxH && maxH > 0.2) {
-    w *= maxH / h;
-    h = maxH;
-  }
-  const sign = opts.side === 'left' ? -1 : 1;
-  const page = track(popup.onPage({ side: opts.side, x: 0, z: 0, lift: 0.02 }));
+  const stand = track(popup.standUp({
+    side: opts.side,
+    x: opts.x,
+    z: opts.z,
+    fold: 'back',
+    width: w,
+    height: h,
+  }));
   const hold = new THREE.Group();
   hold.name = 'photo';
   hold.scale.setScalar(0.001);
-  hold.position.set(sign * opts.x, 0, opts.z);
-  hold.rotation.y = opts.tilt * 0.4;
-  const mesh = flatMesh(THREE, paper, paper.dieCut(shot, { margin: 4 }), w, h);
-  mesh.name = 'photo';
-  hold.add(mesh);
-  page.mount.add(hold);
-  photoRigs.push({
-    hold,
-    sign,
-    x0: opts.x,
-    z0: opts.z,
-    x1: opts.retireX,
-    z1: opts.retireZ,
-    at: opts.at,
-    shrink: opts.shrink,
+  const mesh = paper.card({
+    canvas: paper.dieCut(shot, { margin: 4 }),
+    width: w,
+    height: h,
+    anchor: 'bottom-center',
   });
+  mesh.name = 'photo';
+  mesh.position.y = CLEAR;
+  mesh.rotation.z = opts.tilt;
+  hold.add(mesh);
+  stand.mount.add(hold);
+  photoRigs.push({ hold, at: opts.at, shrink: opts.shrink });
   return hold;
 }
 
@@ -970,40 +1042,57 @@ function flatMesh(THREE, paper, canvas, w, h) {
   return mesh;
 }
 
-function paintPages(paper, art, has, C, rng) {
+function buildBoxStack(paper, THREE, src, totalH) {
+  if (!src) return [];
+  let bandH = 0;
+  for (let i = 0; i < BOX_BANDS.length; i++) bandH += BOX_BANDS[i][1] - BOX_BANDS[i][0];
+  const worldW = totalH * src.width / bandH;
+  const slices = [];
+  let y = 0;
+  for (let i = 0; i < BOX_BANDS.length; i++) {
+    const y0 = BOX_BANDS[i][0];
+    const y1 = BOX_BANDS[i][1];
+    const ch = y1 - y0;
+    const h = totalH * (ch / bandH);
+    const { canvas, ctx } = paper.makeCanvas(src.width, ch);
+    ctx.drawImage(src, 0, y0, src.width, ch, 0, 0, src.width, ch);
+    const mesh = paper.card({
+      canvas,
+      width: worldW,
+      height: h,
+      anchor: 'bottom-center',
+    });
+    mesh.position.y = y + CLEAR;
+    mesh.scale.set(0.001, 0.001, 1);
+    slices.push({ mesh, at: i });
+    y += h;
+  }
+  return slices;
+}
+
+function paintPages(paper, art, has, C) {
   let left;
   let right;
   if (has('page-left') && has('page-right')) {
     const Lft = cloneCanvas(paper, art.canvas('page-left'));
     const Rgt = cloneCanvas(paper, art.canvas('page-right'));
-    sprinkle(Lft.ctx, Lft.canvas.width, Lft.canvas.height, 'left', C, rng);
-    sprinkle(Rgt.ctx, Rgt.canvas.width, Rgt.canvas.height, 'right', C, rng);
-    paper.addGrain(Lft.ctx, Lft.canvas.width, Lft.canvas.height, { amount: 0.03, seed: 41, mottle: 0.7 });
-    paper.addGrain(Rgt.ctx, Rgt.canvas.width, Rgt.canvas.height, { amount: 0.03, seed: 42, mottle: 0.7 });
+    paper.addGrain(Lft.ctx, Lft.canvas.width, Lft.canvas.height, { amount: 0.025, seed: 41, mottle: 0.55 });
+    paper.addGrain(Rgt.ctx, Rgt.canvas.width, Rgt.canvas.height, { amount: 0.025, seed: 42, mottle: 0.55 });
     left = Lft.canvas;
     right = Rgt.canvas;
   } else {
     left = paper.page((ctx, w, h) => {
       ctx.fillStyle = '#f3e6d0';
       ctx.fillRect(0, 0, w, h);
-      sprinkle(ctx, w, h, 'left', C, rng);
+      doodleHeart(ctx, w * 0.2, h * 0.2, 14, C.tomato);
     }, { seed: 41, tint: '#f3e6d0' });
     right = paper.page((ctx, w, h) => {
       ctx.fillStyle = '#f7efe2';
       ctx.fillRect(0, 0, w, h);
-      sprinkle(ctx, w, h, 'right', C, rng);
+      doodleHeart(ctx, w * 0.75, h * 0.3, 14, C.mustard);
     }, { seed: 42, tint: '#f7efe2' });
   }
   return { left, right };
-}
-
-function sprinkle(ctx, w, h, side, C, rng) {
-  const colors = [C.blush, C.tomato, C.mustard];
-  for (let i = 0; i < 3; i++) {
-    const x = side === 'left' ? w * (0.08 + rng.next() * 0.38) : w * (0.55 + rng.next() * 0.32);
-    const y = h * (0.08 + rng.next() * 0.18);
-    doodleHeart(ctx, x, y, 7 + rng.next() * 5, colors[i]);
-  }
 }
 
 function doodleHeart(ctx, x, y, r, color) {
@@ -1019,31 +1108,31 @@ function doodleHeart(ctx, x, y, r, color) {
 }
 
 function paintRibbon(paper, FONT, C, text) {
-  const W = 1100;
-  const H = 280;
+  const W = 1200;
+  const H = 300;
   const { canvas, ctx } = paper.makeCanvas(W, H);
   ctx.fillStyle = C.tomato;
   ctx.beginPath();
-  ctx.moveTo(78, 46);
-  ctx.lineTo(W - 78, 46);
-  ctx.lineTo(W - 24, H / 2);
-  ctx.lineTo(W - 78, H - 46);
-  ctx.lineTo(78, H - 46);
-  ctx.lineTo(24, H / 2);
+  ctx.moveTo(70, 40);
+  ctx.lineTo(W - 70, 40);
+  ctx.lineTo(W - 18, H / 2);
+  ctx.lineTo(W - 70, H - 40);
+  ctx.lineTo(70, H - 40);
+  ctx.lineTo(18, H / 2);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = '#fff6ea';
   ctx.beginPath();
-  ctx.moveTo(108, 78);
-  ctx.lineTo(W - 108, 78);
-  ctx.lineTo(W - 70, H / 2);
-  ctx.lineTo(W - 108, H - 78);
-  ctx.lineTo(108, H - 78);
-  ctx.lineTo(70, H / 2);
+  ctx.moveTo(102, 72);
+  ctx.lineTo(W - 102, 72);
+  ctx.lineTo(W - 62, H / 2);
+  ctx.lineTo(W - 102, H - 72);
+  ctx.lineTo(102, H - 72);
+  ctx.lineTo(62, H / 2);
   ctx.closePath();
   ctx.fill();
   const font = (size) => `700 ${size}px ${FONT.hand}`;
-  const size = fitSize(ctx, text, font, 118, W * 0.7);
+  const size = fitSize(ctx, text, font, 108, W * 0.78);
   ctx.font = font(size);
   ctx.fillStyle = C.ink;
   ctx.textAlign = 'center';
@@ -1053,25 +1142,37 @@ function paintRibbon(paper, FONT, C, text) {
   return paper.dieCut(canvas, { margin: 6 });
 }
 
-function paintTag(paper, FONT, text, C, seed) {
-  const W = 760;
-  const H = 200;
+function paintTag(paper, FONT, text, C, seed, hero) {
+  const W = hero ? 860 : 780;
+  const H = hero ? 240 : 200;
   const { canvas, ctx } = paper.makeCanvas(W, H);
   ctx.fillStyle = seed % 2 ? '#fff6ea' : '#fde7c2';
   ctx.strokeStyle = C.ink;
-  ctx.lineWidth = 8;
+  ctx.lineWidth = hero ? 10 : 8;
   ctx.beginPath();
-  ctx.roundRect(16, 28, W - 32, H - 56, 28);
+  ctx.roundRect(16, 24, W - 32, H - 48, 28);
   ctx.fill();
   ctx.stroke();
   const font = (size) => `700 ${size}px ${FONT.hand}`;
-  const size = fitSize(ctx, text, font, 92, W * 0.86);
-  ctx.font = font(size);
+  const maxW = W * 0.86;
+  let size = fitSize(ctx, text, font, hero ? 96 : 78, maxW);
   ctx.fillStyle = C.ink;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, W / 2, H / 2 + size * 0.04);
-  if (seed === 5) doodleHeart(ctx, W * 0.86, H * 0.38, 16, '#e2574c');
+  const lines = size < (hero ? 58 : 46) ? wrapTwo(text) : [text];
+  if (lines.length > 1) {
+    size = Math.min(
+      fitSize(ctx, lines[0], font, hero ? 78 : 64, maxW),
+      fitSize(ctx, lines[1], font, hero ? 78 : 64, maxW),
+    );
+    ctx.font = font(size);
+    ctx.fillText(lines[0], W / 2, H * 0.4);
+    ctx.fillText(lines[1], W / 2, H * 0.68);
+  } else {
+    ctx.font = font(size);
+    ctx.fillText(text, W / 2, H / 2 + size * 0.04);
+  }
+  if (hero) doodleHeart(ctx, W * 0.9, H * 0.34, 18, '#e2574c');
   paper.addGrain(ctx, W, H, { amount: 0.035, seed, mottle: 0.4 });
   return paper.dieCut(canvas, { margin: 6 });
 }
@@ -1102,7 +1203,7 @@ function letterMailbox(ctx, FONT, C, names) {
 }
 
 function paintSold(paper, FONT, C, rng, text) {
-  const W = 520;
+  const W = 560;
   const H = 300;
   const { canvas, ctx } = paper.makeCanvas(W, H);
   ctx.fillStyle = '#f7f4ec';
@@ -1115,7 +1216,7 @@ function paintSold(paper, FONT, C, rng, text) {
   ctx.fillStyle = C.tomato;
   ctx.fillRect(16, 16, W - 32, 34);
   const font = (size) => `${size}px ${FONT.display}`;
-  const size = fitSize(ctx, text, font, 118, W * 0.84);
+  const size = fitSize(ctx, text, font, 108, W * 0.82);
   ctx.font = font(size);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
@@ -1145,6 +1246,23 @@ function paintSold(paper, FONT, C, rng, text) {
   return paper.dieCut(canvas, { margin: 6 });
 }
 
+function wrapTwo(text) {
+  const words = text.split(' ');
+  if (words.length < 2) return [text];
+  let cut = 1;
+  let best = Infinity;
+  for (let i = 1; i < words.length; i++) {
+    const a = words.slice(0, i).join(' ').length;
+    const b = words.slice(i).join(' ').length;
+    const score = Math.abs(a - b);
+    if (score < best) {
+      best = score;
+      cut = i;
+    }
+  }
+  return [words.slice(0, cut).join(' '), words.slice(cut).join(' ')];
+}
+
 function fitSize(ctx, text, font, px, maxW) {
   let size = px;
   ctx.font = font(size);
@@ -1168,7 +1286,6 @@ function cardFromCanvas(THREE, paper, canvas, feet, height, name) {
     height,
     anchor: 'bottom-center',
   });
-  // Feet pixel on the group origin; seat() then centres the sheet on the hinge.
   mesh.position.set(((canvas.width / 2) - feet[0]) * s, (feet[1] - canvas.height) * s, 0);
   const group = new THREE.Group();
   group.name = name;

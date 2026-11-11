@@ -124,17 +124,17 @@
     "sky-band": {
       "id": "sky-band",
       "file": "sky-band.webp",
-      "w": 1024,
-      "h": 506,
+      "w": 1280,
+      "h": 360,
       "feet": [
-        474,
-        488
+        640,
+        359
       ],
       "who": [
         "prop"
       ],
       "scene": "life",
-      "units": 2.05
+      "units": 1.6
     },
     "suitcase-stickers": {
       "id": "suitcase-stickers",
