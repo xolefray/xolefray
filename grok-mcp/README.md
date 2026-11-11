@@ -39,8 +39,13 @@ How a subscription worker is contained:
   Git-ignored material, such as private photos or `.env` files, is never in the copy.
 - A sandbox lets it write only inside that copy and denies it the real project, credential
   folders and any extra paths you pass as `deny`.
-- When it finishes, only files matching `own` are copied back. Anything else it changed is
-  listed as discarded.
+- Before the worker starts, every file in the copy is snapshotted (size and a sha1). Afterwards
+  a file counts as changed only when the worker created it or its hash differs from that snapshot.
+  Only changed files matching `own` are copied back. Anything else it changed is listed as
+  discarded (`ignoredChanges`). An owned file that the real project also changed during the run
+  is still copied — the worker owns it — and its path is listed in `overwroteNewer` for review.
+  Files the worker never touched are not copied, even if the real project changed them meanwhile.
+  A file the worker deleted in the copy is not deleted in the real project.
 
 Work done this way counts against your plan's usage allowance. The CLI prints a cost estimate
 per run; that is an estimate, not a charge.
@@ -88,7 +93,7 @@ node grok-mcp/cli.mjs agent --brief-file brief.md --root . --own src/feature.js,
 `--allow-images` apply to the API backend.
 
 `agent` prints progress to stderr and a JSON result to stdout (`ok`, `report`, `model`, `steps`,
-`filesWritten`, `usage`).
+`filesWritten`, `usage`). A subscription run also includes `ignoredChanges` and `overwroteNewer`.
 
 ## Check it
 
@@ -96,7 +101,7 @@ node grok-mcp/cli.mjs agent --brief-file brief.md --root . --own src/feature.js,
 node grok-mcp/selftest.mjs
 ```
 
-Runs 23 checks against local stand-ins for the API and the CLI (no key, no network): the sandbox rules above
+Runs 25 checks against local stand-ins for the API and the CLI (no key, no network): the sandbox rules above
 and the MCP handshake.
 
 ## Files

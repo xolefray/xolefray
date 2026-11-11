@@ -11,10 +11,14 @@
  *      name it in `include`;
  *   2. starts `grok` there under a sandbox profile that may write only inside the copy and is
  *      denied the real project, credentials and any extra paths you name;
- *   3. when Grok finishes, copies back ONLY the files matching `own` and reports everything else
- *      it changed as ignored.
+ *   3. when Grok finishes, copies back ONLY files matching `own` that differ from a snapshot
+ *      taken before the run (a new file, or a different sha1). Everything else it changed is
+ *      reported as ignored. An owned file the real project also changed during the run is
+ *      still copied and listed in `overwroteNewer`. A file the worker deleted in the copy
+ *      is left in place in the real project.
  * Whatever Grok reads in the copy is sent to xAI under the signed-in account.
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
@@ -107,8 +111,24 @@ function projectFiles(root) {
   }
 }
 
-function same(a, b) {
-  try { const x = fs.readFileSync(a); const y = fs.readFileSync(b); return x.length === y.length && x.equals(y); } catch { return false; }
+/** Size and sha1 of one file. */
+function fileId(abs) {
+  const data = fs.readFileSync(abs);
+  return { size: data.length, hash: crypto.createHash('sha1').update(data).digest('hex') };
+}
+
+/** Snapshot of `dir`: relative path → { size, hash }. Skips the same directories as the copy-back walk. */
+function snapshotWork(dir) {
+  const snap = new Map();
+  (function walk(d) {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const abs = path.join(d, e.name);
+      if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(abs); continue; }
+      if (!e.isFile()) continue;
+      snap.set(path.relative(dir, abs), fileId(abs));
+    }
+  })(dir);
+  return snap;
 }
 
 const PREAMBLE = (own, attach) => `You are one worker on a shared codebase; an orchestrator wrote this brief and will review your result.
@@ -125,7 +145,10 @@ You are working in a private COPY of the project (your current directory). Rules
 
 /**
  * Run a Grok worker on a subscription. Same result shape as grok.mjs runAgent, plus
- * `ignoredChanges` (files it changed that it does not own), `costEstimateUsd` and `workDir`.
+ * `ignoredChanges` (files it changed that it does not own), `overwroteNewer` (owned files
+ * it changed that were also changed in the real project during the run; the worker's
+ * version is still copied), `costEstimateUsd` and `workDir`.
+ * A file removed from the work copy is not removed from the real project.
  */
 export async function runAgentCli({ brief, root, own = [], attach = [], include = [], deny = [], model, maxSteps = 120, timeoutMs = 3600000, keepWorkDir = true, onEvent = () => {}, isCancelled = () => false } = {}) {
   const bin = cliReady();
@@ -172,6 +195,10 @@ export async function runAgentCli({ brief, root, own = [], attach = [], include 
   const promptFile = path.join(work, '.brief-prompt.md');
   fs.writeFileSync(promptFile, PREAMBLE(own, attached) + brief);
 
+  // Baseline of the work copy, taken after the copy is made and before the CLI starts.
+  // Copy-back trusts this, not the live project, to decide what the worker changed.
+  const snapshot = snapshotWork(work);
+
   // 3. run
   const args = ['--prompt-file', promptFile, '--cwd', work, '--sandbox', PROFILE, '--always-approve', '--output-format', 'json', '--no-auto-update', '--disable-web-search', '--max-turns', String(maxSteps)];
   if (model) args.push('-m', model);
@@ -179,21 +206,31 @@ export async function runAgentCli({ brief, root, own = [], attach = [], include 
   const { code, out, err } = await run(bin, args, { cwd: work, timeoutMs, isCancelled });
   const res = parseResult(out);
 
-  // 4. bring back only what the worker owns
+  // 4. bring back only owned files the worker itself changed. Deletions in the copy are not applied.
   const ownAbs = own.map((p) => ({ abs: path.resolve(work, p), dir: /[\\/]$/.test(p) }));
   const mine = (abs) => ownAbs.some((o) => (o.dir ? abs === o.abs || abs.startsWith(o.abs + path.sep) : abs === o.abs));
   const filesWritten = [];
   const ignoredChanges = [];
+  const overwroteNewer = [];
   (function walk(dir) {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const abs = path.join(dir, e.name);
       if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(abs); continue; }
       if (!e.isFile() || abs === promptFile) continue;
       const rel = path.relative(work, abs);
+      const now = fileId(abs);
+      const before = snapshot.get(rel);
+      if (before && before.size === now.size && before.hash === now.hash) continue;
       const real = path.join(root, rel);
-      if (same(abs, real)) continue;
-      if (mine(abs)) { fs.mkdirSync(path.dirname(real), { recursive: true }); fs.copyFileSync(abs, real); filesWritten.push(rel); }
-      else ignoredChanges.push(rel);
+      if (!mine(abs)) { ignoredChanges.push(rel); continue; }
+      if (before) {
+        let realId = null;
+        try { if (fs.statSync(real).isFile()) realId = fileId(real); } catch { /* missing, or not a file */ }
+        if (realId && realId.hash !== before.hash && realId.hash !== now.hash) overwroteNewer.push(rel);
+      }
+      fs.mkdirSync(path.dirname(real), { recursive: true });
+      fs.copyFileSync(abs, real);
+      filesWritten.push(rel);
     }
   })(work);
 
@@ -202,5 +239,5 @@ export async function runAgentCli({ brief, root, own = [], attach = [], include 
   const stopped = ok ? undefined : isCancelled() ? 'cancelled' : `grok exited ${code}: ${(err || out).slice(-600)}`;
   onEvent({ type: 'done', steps: res?.num_turns || 0, usage, stopped: stopped || '' });
   if (!keepWorkDir) await fsp.rm(work, { recursive: true, force: true });
-  return { ok, report: res?.text || '', model: Object.keys(res?.modelUsage || {})[0] || model || 'default', steps: res?.num_turns || 0, filesWritten, ignoredChanges, usage, costEstimateUsd: res?.total_cost_usd ?? null, workDir: keepWorkDir ? work : null, ...(stopped ? { stopped } : {}) };
+  return { ok, report: res?.text || '', model: Object.keys(res?.modelUsage || {})[0] || model || 'default', steps: res?.num_turns || 0, filesWritten, ignoredChanges, overwroteNewer, usage, costEstimateUsd: res?.total_cost_usd ?? null, workDir: keepWorkDir ? work : null, ...(stopped ? { stopped } : {}) };
 }

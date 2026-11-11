@@ -76,8 +76,14 @@ const a = process.argv.slice(2);
 if (a[0] === 'models') { console.log('Available models:\\n  * grok-4.7 (default)\\n  - grok-4.6'); process.exit(0); }
 const cwd = a[a.indexOf('--cwd') + 1];
 const prompt = fs.readFileSync(a[a.indexOf('--prompt-file') + 1], 'utf8');
+const real = ${JSON.stringify(root)};
+// Stand in for another writer changing the real project while this worker runs.
+fs.mkdirSync(real + '/out', { recursive: true });
+fs.writeFileSync(real + '/out/untouched.txt', 'newer from outside');
+fs.writeFileSync(real + '/out/both.txt', 'newer from outside');
 fs.mkdirSync(cwd + '/out', { recursive: true });
 fs.writeFileSync(cwd + '/out/owned.txt', 'from the worker');
+fs.writeFileSync(cwd + '/out/both.txt', 'from the worker');
 fs.writeFileSync(cwd + '/notes.txt', 'trampled');
 const seesPhotos = fs.existsSync(cwd + '/photos/private.txt');
 const sandbox = fs.readFileSync(cwd + '/.grok/sandbox.toml', 'utf8');
@@ -88,11 +94,16 @@ fs.writeFileSync(path.join(tmp, 'extra.md'), 'extra');
 process.env.GROK_CLI = fakeCli;
 const sub = await import('./subscription.mjs');
 check('subscription backend is detected', sub.backendName() === 'cli' && (await sub.listModelsCli()).join() === 'grok-4.7,grok-4.6');
+fs.mkdirSync(path.join(root, 'out'), { recursive: true });
+fs.writeFileSync(path.join(root, 'out', 'untouched.txt'), 'original untouched');
+fs.writeFileSync(path.join(root, 'out', 'both.txt'), 'original both');
 const cliRun = await sub.runAgentCli({ brief: 'do the thing', root, own: ['out/'], attach: [path.join(tmp, 'extra.md')], keepWorkDir: false });
 check('subscription worker returns its report', cliRun.ok && cliRun.report.includes('brief=true') && cliRun.report.includes('attach=true'), JSON.stringify(cliRun));
 check('work copy has no photos/ and the sandbox denies the real project', cliRun.report.includes('photos=false') && cliRun.report.includes('denied=true'), cliRun.report);
-check('only owned files come back', cliRun.filesWritten.join() === 'out/owned.txt' && fs.readFileSync(path.join(root, 'out/owned.txt'), 'utf8') === 'from the worker');
-check('changes to files it does not own are discarded', cliRun.ignoredChanges.includes('notes.txt') && fs.readFileSync(path.join(root, 'notes.txt'), 'utf8') === 'a note', JSON.stringify(cliRun.ignoredChanges));
+check('only owned files come back', cliRun.filesWritten.slice().sort().join() === 'out/both.txt,out/owned.txt' && fs.readFileSync(path.join(root, 'out/owned.txt'), 'utf8') === 'from the worker');
+check('changes to files it does not own are discarded', cliRun.ignoredChanges.slice().sort().join() === 'notes.txt' && fs.readFileSync(path.join(root, 'notes.txt'), 'utf8') === 'a note', JSON.stringify(cliRun.ignoredChanges));
+check('untouched owned file keeps the newer real content', !cliRun.filesWritten.includes('out/untouched.txt') && !cliRun.ignoredChanges.includes('out/untouched.txt') && fs.readFileSync(path.join(root, 'out/untouched.txt'), 'utf8') === 'newer from outside');
+check('owned file changed on both sides is listed in overwroteNewer', cliRun.overwroteNewer.slice().sort().join() === 'out/both.txt' && cliRun.filesWritten.includes('out/both.txt') && fs.readFileSync(path.join(root, 'out/both.txt'), 'utf8') === 'from the worker');
 delete process.env.GROK_CLI;
 process.env.GROK_BACKEND = 'api';
 
