@@ -132,30 +132,36 @@ const CSS = `
 }
 
 .tt-end {
-  position: absolute; inset: 0; z-index: 6; padding: 0 4vw 3vh;
-  display: flex; align-items: center; justify-content: center; text-align: center;
+  position: absolute; inset: 0; z-index: 6; padding: clamp(10px, 2.4vh, 28px) 4vw 0;
+  display: flex; align-items: flex-start; justify-content: center; text-align: center;
 }
 .tt-end-glow {
-  position: absolute; inset: 0; z-index: -1;
-  background: radial-gradient(ellipse 46% 38% at 50% 46%, rgba(var(--tt-ink), .62), rgba(var(--tt-ink), .3) 46%, rgba(var(--tt-ink), 0) 74%);
+  position: absolute; left: 0; right: 0; top: 0; height: 36%; z-index: -1;
+  background: radial-gradient(ellipse 58% 78% at 50% 12%, rgba(var(--tt-ink), .5), rgba(var(--tt-ink), .16) 52%, rgba(var(--tt-ink), 0) 76%);
 }
-.tt-end-stack { display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.7vh, 30px); max-width: 100%; }
+.tt-end-stack {
+  --tt-name: clamp(1.7rem, min(8vw, 9.4vh), 6.4rem);
+  display: flex; flex-direction: column; align-items: center;
+  gap: clamp(2px, 0.5vh, 10px);
+  width: min(92vw, 16em); max-width: min(92vw, 16em); min-width: 0;
+  overflow: visible;
+}
 .tt-end-names {
   margin: 0; max-width: 100%;
   font-family: ${FONT.display}; font-weight: 400; font-style: normal;
-  font-size: clamp(1.55rem, min(7.2vw, 12vh), 10rem); line-height: 1.02; letter-spacing: 0.005em;
+  font-size: var(--tt-name); line-height: 0.92; letter-spacing: 0.005em;
   text-wrap: balance; overflow-wrap: break-word;
   text-shadow: 0 0.035em 0.1em rgba(var(--tt-ink), .55), 0 0 0.4em rgba(var(--tt-ink), .32);
 }
 .tt-heart {
-  width: clamp(18px, min(2.6vw, 3.6vh), 58px); height: auto; display: block;
+  width: clamp(14px, min(1.9vw, 2.5vh), 40px); height: auto; display: block;
   fill: #e15a4e; filter: drop-shadow(0 0.12em 0.2em rgba(var(--tt-ink), .45));
 }
 .tt-end-date {
-  margin: 0; max-width: 100%;
+  margin: 0; width: max-content; max-width: 92vw;
   font-family: ${FONT.hand}; font-weight: 700; font-style: normal; color: var(--tt-gold);
-  font-size: clamp(1.35rem, min(3.6vw, 6vh), 4rem); line-height: 1.15;
-  text-wrap: balance; overflow-wrap: break-word;
+  font-size: calc(var(--tt-name) * 0.6); line-height: 1.05;
+  white-space: nowrap;
   text-shadow: 0 1px 1px rgba(var(--tt-ink), .6), 0 0 0.45em rgba(var(--tt-ink), .35);
 }
 `;
@@ -215,6 +221,29 @@ class Layer {
       this.node.style.transform = Math.abs(y) < 5e-4 ? 'none' : `translate3d(0,${y.toFixed(3)}vh,0)`;
     }
     return true;
+  }
+}
+
+/**
+ * Shrink the end-card stack until the names and the date sit in the top band.
+ * Viewport only — never called from the per-frame update.
+ */
+function fitEndCard(stack) {
+  const names = stack.querySelector('.tt-end-names');
+  const date = stack.querySelector('.tt-end-date');
+  if (!names || !date) return;
+  stack.style.removeProperty('--tt-name');
+  const maxH = (window.innerHeight || 720) * 0.3;
+  const nameMax = Math.max(stack.clientWidth, 40);
+  /* The date may run wider than the name lockup; it only has to fit the frame. */
+  const dateMax = Math.max((window.innerWidth || 1280) * 0.92, 40);
+  for (let i = 0; i < 8; i++) {
+    const wide = names.scrollWidth > nameMax + 1 || date.scrollWidth > dateMax + 1;
+    const tall = stack.offsetHeight > maxH;
+    if (!wide && !tall) return;
+    const cur = parseFloat(getComputedStyle(names).fontSize);
+    if (!(cur > 12)) return;
+    stack.style.setProperty('--tt-name', `${(cur * 0.9).toFixed(2)}px`);
   }
 }
 
@@ -361,6 +390,9 @@ export function createTitles(container, { captions } = {}) {
 
   root.append(veil.node, scrim.node, ...pages.map((p) => p.layer.node), caps, endNode);
   container.appendChild(root);
+  const refitEnd = () => fitEndCard(stack);
+  refitEnd();
+  window.addEventListener('resize', refitEnd);
 
   const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 

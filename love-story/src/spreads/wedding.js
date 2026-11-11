@@ -12,17 +12,24 @@ const ARCH_Z = -0.9;
 const ARCH_H = 2.38;
 const ARCH_EXTRA = 336;
 const GARLAND_Z = -0.64;
-const RIB_Z = 0.34;
-const RIB_H = 1.12;
-const RIB_W = 6.2;
+const RIB_Z = 0.08;
+const RIB_H = 1.42;
+const RIB_W = 6.5;
 const HIDDEN = 0.001;
 const PI = Math.PI;
+// Mountain easel: tall enough to read, feet clear of the groom. See the easel block.
+const EASEL_H = 2.26;
+const EASEL_Z = -0.6;
+const EASEL_FEET_LX = 1.9;
+const EASEL_ART_H = 921;
+const EASEL_FEET_PX = 399;
 
 // Per frame, the seam between the two bodies. wedding-1 leans across the midline;
 // both frames share wedding-0's seam so the fold does not cut a face.
 const COUPLE_SPLIT = { 'wedding-0': 317, 'wedding-1': 317 };
 
-const MEDAL_SLOTS = [-0.8, -0.44, 0.16, 0.48, 0.8];
+// Local x on the ribbon card (left page x < 0). Drawings ≈ 0.75 across; husband & wife ≈ 1.0.
+const MEDAL_X = [-2.52, -1.3, 0.5, 1.56, 2.72];
 
 export default {
   id: 'wedding',
@@ -110,7 +117,7 @@ export default {
     let lanternH = 0;
     if (has('lantern-string')) {
       const meta = art.info('lantern-string');
-      const lanternW = Math.min(archFit.w * 0.7, 2.35);
+      const lanternW = Math.min(archFit.w * 0.9, 3.35);
       lanternH = lanternW * meta.h / meta.w;
       const swagPx = archSrc ? opaqueRun(archSrc, 0.5).bot : 165;
       const swagY = archFit.h * (1 - swagPx / archPxH);
@@ -169,13 +176,18 @@ export default {
     showPair(0);
     const coupleTop = couplePair.height * coupleScale;
 
-    const bubbleL = bubbleMesh(THREE, paper, FONT, L('I do!', '¡Sí, acepto!'), false);
+    const bubbleW = 1.1;
+    const bubbleH = 0.42;
+    // Stay under the closed near-edge of the couple's mountain (top y ≈ 2.05).
+    const bubbleTop = Math.min(coupleTop + 0.2, 2);
+    const bubbleY = bubbleTop - bubbleH * 0.5;
+    const bubbleL = bubbleMesh(THREE, paper, FONT, L('I do!', '¡Sí, acepto!'), false, bubbleW, bubbleH);
     bubbleL.name = 'i-do-her';
-    bubbleL.position.set(-0.22, coupleTop + 0.05, 0.012);
+    bubbleL.position.set(-0.46, bubbleY, 0.016);
     leftRig.add(bubbleL);
-    const bubbleR = bubbleMesh(THREE, paper, FONT, L('I do!', '¡Sí, acepto!'), true);
+    const bubbleR = bubbleMesh(THREE, paper, FONT, L('I do!', '¡Sí, acepto!'), true, bubbleW, bubbleH);
     bubbleR.name = 'i-do-him';
-    bubbleR.position.set(0.24, coupleTop + 0.05, 0.012);
+    bubbleR.position.set(0.5, bubbleY, 0.016);
     rightRig.add(bubbleR);
 
     // ---------------------------------------------------------------- 3 YEARS garland + numbered hearts
@@ -195,7 +207,7 @@ export default {
     ropeR.name = 'garland-right';
     ropeR.position.set(ropeW * 0.5, ropeY, 0.008);
     garland.right.add(ropeR);
-    const years = decal(THREE, paper, yearsCanvas(paper, FONT, C), Math.min(1.05, halfG * 0.42), 0.32);
+    const years = decal(THREE, paper, yearsCanvas(paper, FONT, C), Math.min(1.32, halfG * 0.52), 0.42);
     years.name = 'three-years';
     years.position.set(-halfG * 0.76, ropeY + 0.02, 0.012);
     years.scale.setScalar(HIDDEN);
@@ -222,40 +234,51 @@ export default {
     }
 
     // ---------------------------------------------------------------- easel sign (the date is lettered on the beat)
-    const easelH = 1.22;
-    const easelX = 1.62;
-    const easelZ = 0.48;
-    const easel = stand(THREE, track, popup, 'right', easelX, easelZ, 0.7, easelH, 'easel');
-    if (has('easel')) addProp(characterArt, paper, art, easel.rig, 'easel', easel.height, 0, 0);
-    const signW = 1.12;
-    const signH = 0.58;
+    // A page flap cannot be both twice as tall and nearer the gutter. The easel
+    // rides the right half of a mountain V (same gamma as the arch): height is
+    // the card plane, so it can stand beside the couple. Width/height are omitted
+    // on the V — the A-frame does not fill that rectangle; the fold check samples
+    // the mesh. Feet sit on the right leg of the drawing, so EASEL_FEET_LX keeps
+    // the left leg and the sign clear of the groom.
+    const easel = track(popup.vFold({ z0: EASEL_Z, gamma: GAMMA }));
+    const easelRig = new THREE.Group();
+    easelRig.name = 'easel';
+    easelRig.position.set(EASEL_FEET_LX, 0, 0.004);
+    easel.right.add(easelRig);
+    if (has('easel')) addProp(characterArt, paper, art, easelRig, 'easel', EASEL_H, 0, 0);
+    const easelS = EASEL_H / EASEL_ART_H;
+    const signX = (225.5 - EASEL_FEET_PX) * easelS;
+    const signY = EASEL_H * 0.56;
+    const signW = 1.32;
+    const signH = 0.96;
     const signBoard = decal(THREE, paper, boardCanvas(paper), signW, signH);
     signBoard.name = 'date-board';
-    signBoard.position.set(0, easel.height * 0.5, 0.01);
-    easel.rig.add(signBoard);
-    const signText = decal(THREE, paper, dateCanvas(paper, FONT, C), signW * 0.94, signH * 0.78);
+    signBoard.position.set(signX, signY, 0.006);
+    easelRig.add(signBoard);
+    const signText = decal(THREE, paper, dateCanvas(paper, FONT, C), signW * 0.9, signH * 0.82);
     signText.name = 'date-letters';
-    signText.position.set(0, easel.height * 0.5, 0.02);
+    signText.position.set(signX, signY, 0.011);
     signText.scale.setScalar(HIDDEN);
-    easel.rig.add(signText);
+    easelRig.add(signText);
+    const easelAim = openPoint(EASEL_FEET_LX + signX, signY, EASEL_Z);
 
     // ---------------------------------------------------------------- garden props
+    // Two chair rows on each side of the aisle, pots and the cake table at the
+    // edges. Back rows fold forward (they stand near the far edge). Nothing
+    // sits on the ribbon or the calendar.
     const flowerRigs = [];
-    flowerRigs.push(propStand(THREE, track, popup, characterArt, paper, art, {
-      id: 'chairs-left', side: 'left', x: 2.35, z: -0.85, height: 0.46, name: 'chairs-left',
-    }));
-    flowerRigs.push(propStand(THREE, track, popup, characterArt, paper, art, {
-      id: 'chairs-right', side: 'right', x: 2.7, z: -0.95, height: 0.42, name: 'chairs-right',
-    }));
-    flowerRigs.push(propStand(THREE, track, popup, characterArt, paper, art, {
-      id: 'flower-pots', side: 'left', x: 3.05, z: -0.55, height: 0.95, name: 'flowers-left',
-    }));
-    flowerRigs.push(propStand(THREE, track, popup, characterArt, paper, art, {
-      id: 'flower-pots', side: 'right', x: 3.05, z: -0.62, height: 0.82, flip: true, name: 'flowers-right',
-    }));
-    propStand(THREE, track, popup, characterArt, paper, art, {
-      id: 'cake', side: 'right', x: 2.95, z: 0.15, height: 0.62, name: 'cake',
-    });
+    const gardenProp = (opts) => {
+      const rig = propStand(THREE, track, popup, characterArt, paper, art, opts);
+      if (rig && opts.sway !== false) flowerRigs.push(rig);
+      return rig;
+    };
+    gardenProp({ id: 'chairs-left', side: 'left', x: 2.42, z: -1.14, height: 0.7, fold: 'front', name: 'chairs-left-back' });
+    gardenProp({ id: 'chairs-left', side: 'left', x: 2.28, z: -0.68, height: 0.56, fold: 'front', name: 'chairs-left-front' });
+    gardenProp({ id: 'chairs-right', side: 'right', x: 2.46, z: -1.12, height: 0.66, fold: 'front', name: 'chairs-right-back' });
+    gardenProp({ id: 'chairs-right', side: 'right', x: 2.3, z: -0.66, height: 0.54, fold: 'front', name: 'chairs-right-front' });
+    gardenProp({ id: 'flower-pots', side: 'left', x: 3.14, z: 0.82, height: 1.02, fold: 'back', name: 'flowers-left' });
+    gardenProp({ id: 'flower-pots', side: 'right', x: 3.12, z: -0.95, height: 0.96, fold: 'front', flip: true, name: 'flowers-right' });
+    gardenProp({ id: 'cake', side: 'right', x: 3.2, z: 1.1, height: 0.86, fold: 'back', name: 'cake', sway: false });
 
     // ---------------------------------------------------------------- February 2027 desk calendar
     const calX = 2.28;
@@ -346,17 +369,19 @@ export default {
     const halfW = ribFit.w / 2;
     for (let i = 0; i < medalMeta.length; i++) {
       const spec = medalMeta[i];
-      const h = (spec.big ? 0.92 : 0.74) * (ribFit.h / RIB_H);
       const canvas = medalCanvas(paper, characters, FONT, C, spec.id, spec.label, i, spec.big);
-      const w = h * (canvas.width / canvas.height);
+      const circleWorld = spec.big ? 1 : 0.75;
+      const h = circleWorld * (canvas.height / canvas.medalCircle);
+      const w = circleWorld * (canvas.width / canvas.medalCircle);
       const mesh = decal(THREE, paper, canvas, w, h);
       mesh.name = `medal-${spec.id}`;
-      const x = MEDAL_SLOTS[spec.slot] * halfW;
-      const y = ribFit.h * 0.5;
-      mesh.position.set(x, y, 0.01);
+      const x = MEDAL_X[spec.slot];
+      // popAt overshoots to 1.05. Keep the scaled bottom on the page.
+      const y = Math.max(ribFit.h * 0.5, 0.045 + h * 0.525);
+      mesh.position.set(x, y, 0.012);
       mesh.scale.setScalar(HIDDEN);
       (x < 0 ? ribL : ribR).add(mesh);
-      medals.push({ mesh, at: spec.beat, baseY: y, baseX: x });
+      medals.push({ mesh, at: spec.beat, baseY: y, baseX: x, aim: openPoint(x, y, RIB_Z) });
     }
 
     const sparkGeo = new THREE.PlaneGeometry(0.16, 0.16);
@@ -389,16 +414,18 @@ export default {
     banner.left.add(banHalves.left);
     banner.right.add(banHalves.right);
 
-    // ---------------------------------------------------------------- Cherry, flower girl, in front of the aisle
-    const cherryH = 0.6;
-    const cherryX = 1.95;
-    const cherryZ = 1.12;
-    const cherryW = 1.2;
-    const cherryLim = popup.standUpLimits({ x: cherryX, z: cherryZ, width: cherryW, fold: 'back' });
+    // ---------------------------------------------------------------- Cherry, flower girl, in front near the gutter
+    const cherryH = 0.8;
+    const cherryX = 1.32;
+    const cherryZ = 1.14;
+    const cherryTagW = 1.16;
+    const cherryTagH = 0.4;
+    const cherryTop = cherryH * (957 / 982) + 0.06 + cherryTagH;
+    const cherryLim = popup.standUpLimits({ x: cherryX, z: cherryZ, width: cherryTagW, fold: 'back' });
     const cherry = track(popup.standUp({
       side: 'left', x: cherryX, z: cherryZ, fold: 'back',
-      width: Math.min(cherryW, cherryLim.maxWidth * 0.96),
-      height: Math.min(0.72, cherryLim.maxHeight * 0.96),
+      width: Math.min(cherryTagW, cherryLim.maxWidth * 0.96),
+      height: Math.min(cherryTop, cherryLim.maxHeightLoose * 0.96),
     }));
     const cherryRig = new THREE.Group();
     cherryRig.name = 'cherry';
@@ -412,9 +439,13 @@ export default {
       cherryCard.name = 'cherry-flower';
       cherryRig.add(cherryCard);
     }
-    const cherryTag = decal(THREE, paper, tagCanvas(paper, FONT, L('flower girl: Cherry', 'niña de las flores: Cherry'), C), 1.16, 0.26);
+    const cherryTag = decal(
+      THREE, paper,
+      tagCanvas(paper, FONT, L('flower girl\nCherry', 'niña de las flores\nCherry'), C),
+      cherryTagW, cherryTagH,
+    );
     cherryTag.name = 'cherry-tag';
-    cherryTag.position.set(0.02, 0.16, 0.016);
+    cherryTag.position.set(0, cherryH * (957 / 982) + 0.04 + cherryTagH * 0.5, 0.016);
     cherryTag.scale.setScalar(HIDDEN);
     cherryRig.add(cherryTag);
 
@@ -470,15 +501,33 @@ export default {
       leftArt,
       rightArt,
       cues: [
-        { t: spread.open + 0.22, hold: 1.5, at: [0, 1.15, -0.1], size: 7.5, from: 'front' },
-        { t: BEATS.threeYears + 1.5, hold: 8.2, at: [0.4, 1.2, -0.2], size: 4.4, from: 'front' },
+        { t: spread.open + 0.22, hold: 1.15, at: [0, 1.15, -0.1], size: 7.5, from: 'front' },
+        {
+          t: BEATS.threeYears + 0.55, hold: 6.4, size: 3.6, from: 'front',
+          at: [
+            openPoint(-halfG * 0.76, ropeY, GARLAND_Z)[0] * 0.38,
+            (ropeY + coupleTop * 0.5) * 0.5,
+            (GARLAND_Z + COUPLE_Z) * 0.5,
+          ],
+        },
+        {
+          t: BEATS.weddingDate + 0.4, hold: 1.85, size: 2.85, from: 'front',
+          at: [
+            (0.15 + easelAim[0]) * 0.5,
+            (coupleTop * 0.58 + easelAim[1]) * 0.5,
+            (COUPLE_Z + easelAim[2]) * 0.5,
+          ],
+        },
+        { t: BEATS.iDo + 0.4, hold: 1.9, at: [0.04, coupleTop * 0.82, COUPLE_Z], size: 2.4, from: 'front' },
         { t: BEATS.anniversaryWish + 0.45, hold: 7.2, at: [calX, calH * 0.52, calZ], size: 1.85, from: 'front' },
-        { t: BEATS.coworkersMilestone + 0.25, hold: 1.5, at: [-2.05, 0.62, RIB_Z], size: 2.7, from: 'front' },
-        { t: BEATS.dogParentsMilestone + 0.1, hold: 1.35, at: [0.85, 0.62, RIB_Z], size: 2.9, from: 'front' },
-        { t: BEATS.husbandAndWife + 0.15, hold: 1.7, at: [halfW * 0.8, 0.64, RIB_Z], size: 1.75, from: 'front' },
-        { t: BEATS.fullOfFate + 0.6, hold: 4.4, at: [0.15, 0.7, RIB_Z], size: 5.6, from: 'low' },
-        { t: BEATS.celebrate + 0.45, hold: 5.4, at: [-0.15, 1.2, 0.05], size: 4.8, from: 'front' },
-        { t: BEATS.endCard, hold: END_CARD.end - END_CARD.start, at: [0, 1.35, -0.15], size: 7.5, from: 'high' },
+        { t: BEATS.coworkersMilestone + 0.25, hold: 1.2, at: medals[0].aim, size: 3, from: 'front' },
+        { t: BEATS.classmatesMilestone + 0.15, hold: 1.15, at: medals[1].aim, size: 3, from: 'front' },
+        { t: BEATS.dogParentsMilestone + 0.2, hold: 1.1, at: medals[2].aim, size: 3, from: 'front' },
+        { t: BEATS.homeownersMilestone + 0.25, hold: 1.05, at: medals[3].aim, size: 3, from: 'front' },
+        { t: BEATS.husbandAndWife + 0.2, hold: 1.6, at: medals[4].aim, size: 2.85, from: 'front' },
+        { t: BEATS.fullOfFate + 0.6, hold: 4.4, at: [0.1, ribFit.h * 0.55, RIB_Z], size: 5.6, from: 'low' },
+        { t: BEATS.celebrate + 1.15, hold: 2.2, at: [-0.45, 1.28, 0.2], size: 4.5, from: 'front' },
+        { t: BEATS.celebrate + 4.3, hold: 2.5, at: [0.05, 1.15, -0.05], size: 7.5, from: 'front' },
       ],
       update(alpha, t) {
         const n = mechanisms.length;
@@ -501,8 +550,8 @@ export default {
         const bubbleS = showBetween(ease, smoothstep, t, BEATS.iDo, BEATS.anniversaryWish);
         bubbleL.scale.setScalar(bubbleS);
         bubbleR.scale.setScalar(bubbleS);
-        bubbleL.position.y = coupleTop + 0.05 + Math.sin(t * 1.8) * 0.012 * bubbleS;
-        bubbleR.position.y = coupleTop + 0.05 + Math.sin(t * 1.8 + 0.6) * 0.012 * bubbleS;
+        bubbleL.position.y = bubbleY + Math.sin(t * 1.8) * 0.012 * bubbleS;
+        bubbleR.position.y = bubbleY + Math.sin(t * 1.8 + 0.6) * 0.012 * bubbleS;
 
         const gardenS = showBetween(ease, smoothstep, t, BEATS.threeYears, actHeartsEnd);
         garland.left.scale.set(gardenS, gardenS, 1);
@@ -518,8 +567,8 @@ export default {
           h.mesh.rotation.z = Math.sin(t * 1.25 + i) * 0.04 * calm * (s > 0.2 ? 1 : 0);
         }
 
-        const easelS = showBetween(ease, smoothstep, t, spread.open, BEATS.anniversaryWish);
-        easel.rig.scale.setScalar(easelS);
+        const easelShow = showBetween(ease, smoothstep, t, spread.open, BEATS.anniversaryWish);
+        easelRig.scale.setScalar(easelShow);
         const letterS = showBetween(ease, smoothstep, t, BEATS.weddingDate, BEATS.anniversaryWish);
         signText.scale.setScalar(Math.max(HIDDEN, letterS));
 
@@ -544,9 +593,8 @@ export default {
         for (let i = 0; i < medals.length; i++) {
           const m = medals[i];
           const s = popAt(ease, t, m.at, 0.38);
-          const hop = 1 + 0.08 * partyHop;
-          m.mesh.scale.set(s * hop, s * hop, 1);
-          m.mesh.position.y = m.baseY + Math.sin(t * 1.5 + i) * 0.01 * calm * s;
+          m.mesh.scale.set(s, s, 1);
+          m.mesh.position.y = m.baseY + Math.sin(t * 1.5 + i) * 0.012 * calm * s + partyHop * 0.03;
         }
 
         const head = smoothstep(BEATS.fullOfFate, BEATS.fullOfFate + 4.6, t);
@@ -559,15 +607,23 @@ export default {
           s.mesh.scale.setScalar(Math.max(HIDDEN, on * tw * (t >= BEATS.endCard ? 0.7 : 1)));
         }
 
-        const ban = popAt(ease, t, BEATS.celebrate, 0.5);
-        banner.left.scale.x = ban;
-        banner.right.scale.x = ban;
+        const banIn = popAt(ease, t, BEATS.celebrate, 0.5);
+        const banAway = 1 - smoothstep(BEATS.endCard - 0.95, BEATS.endCard - 0.06, t);
+        const banX = Math.max(HIDDEN, banIn * banAway);
+        const banY = Math.max(HIDDEN, banAway);
+        banner.left.scale.set(banX, banY, 1);
+        banner.right.scale.set(banX, banY, 1);
+        banner.left.position.y = 0;
+        banner.right.position.y = 0;
 
-        const dogS = popAt(ease, t, BEATS.celebrate + 0.35, 0.4);
+        const dogS = popAt(ease, t, BEATS.celebrate + 0.2, 0.45);
         cherryRig.scale.setScalar(dogS);
-        cherryRig.position.y = Math.sin(t * 2.1) * 0.01 * calm * dogS;
-        cherryRig.rotation.z = Math.sin(t * 1.6) * 0.03 * calm * dogS;
-        cherryTag.scale.setScalar(popAt(ease, t, BEATS.celebrate + 0.85, 0.35));
+        const hopU = (t - (BEATS.celebrate + 0.15)) / 0.7;
+        const hopArc = hopU > 0 && hopU < 1 ? Math.sin(hopU * PI) * 0.22 : 0;
+        const hopIdle = hopU >= 1 ? Math.abs(Math.sin(t * 2.4)) * 0.045 : 0;
+        cherryRig.position.y = (hopArc + hopIdle) * dogS;
+        cherryRig.rotation.z = Math.sin(t * 1.6) * 0.04 * calm * dogS;
+        cherryTag.scale.setScalar(popAt(ease, t, BEATS.celebrate + 0.55, 0.35));
 
         for (let i = 0; i < flowerRigs.length; i++) {
           const rig = flowerRigs[i];
@@ -677,17 +733,17 @@ function spriteMat(THREE, paper, canvas, additive) {
   });
 }
 
-function stand(THREE, track, popup, side, x, z, width, height, name) {
-  const lim = popup.standUpLimits({ x, z, width, fold: 'back' });
+function stand(THREE, track, popup, side, x, z, width, height, name, fold = 'back') {
+  const lim = popup.standUpLimits({ x, z, width, fold });
   let w = width;
   let h = height;
   if (w > lim.maxWidth * 0.96 && w > 0) {
     h *= (lim.maxWidth * 0.96) / w;
     w = lim.maxWidth * 0.96;
   }
-  const lim2 = popup.standUpLimits({ x, z, width: w, fold: 'back' });
+  const lim2 = popup.standUpLimits({ x, z, width: w, fold });
   if (h > lim2.maxHeightLoose * 0.96) h = lim2.maxHeightLoose * 0.96;
-  const mech = track(popup.standUp({ side, x, z, fold: 'back', width: w, height: h }));
+  const mech = track(popup.standUp({ side, x, z, fold, width: w, height: h }));
   const rig = new THREE.Group();
   rig.name = name;
   mech.mount.add(rig);
@@ -698,9 +754,16 @@ function propStand(THREE, track, popup, characterArt, paper, art, opts) {
   const meta = art && art.has && art.has(opts.id) ? art.info(opts.id) : null;
   let height = opts.height;
   let width = meta ? height * (meta.w / meta.h) : height * 0.7;
-  const placed = stand(THREE, track, popup, opts.side, opts.x, opts.z, width, height, opts.name);
+  const placed = stand(THREE, track, popup, opts.side, opts.x, opts.z, width, height, opts.name, opts.fold || 'back');
   if (meta) addProp(characterArt, paper, art, placed.rig, opts.id, placed.height, 0, 0, opts.flip);
   return placed.rig;
+}
+
+/** Open spread-frame point of a mountain V-fold child (gamma shared with the arch). */
+function openPoint(lx, ly, z0) {
+  const sg = Math.sin(GAMMA);
+  const cg = Math.cos(GAMMA);
+  return [lx * sg, ly, z0 - Math.abs(lx) * Math.abs(cg)];
 }
 
 function addProp(characterArt, paper, art, mount, id, height, x, z, flip) {
@@ -933,57 +996,46 @@ function boardCanvas(paper) {
 }
 
 function dateCanvas(paper, FONT, C) {
-  const text = L('February 6, 2027', '6 de febrero de 2027');
-  return paper.paint(640, 300, (ctx, w, h) => {
+  const lines = L('February\n6\n2027', '6 de\nfebrero\nde 2027').split('\n');
+  return paper.paint(660, 480, (ctx, w, h) => {
     const font = (size) => `${size}px ${FONT.display}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#9a3d48';
-    const one = fitSize(ctx, text, font, Math.round(h * 0.28), w * 0.9);
-    if (one >= h * 0.16) {
-      ctx.font = font(one);
-      ctx.fillText(text, w * 0.5, h * 0.52);
-      return;
-    }
-    const parts = text.split(' ');
-    const mid = Math.ceil(parts.length / 2);
-    const a = parts.slice(0, mid).join(' ');
-    const b = parts.slice(mid).join(' ');
-    const size = Math.min(
-      fitSize(ctx, a, font, Math.round(h * 0.28), w * 0.9),
-      fitSize(ctx, b, font, Math.round(h * 0.28), w * 0.9),
-    );
+    let size = Math.round(h * 0.28);
+    for (let i = 0; i < lines.length; i++) size = Math.min(size, fitSize(ctx, lines[i], font, size, w * 0.92));
     ctx.font = font(size);
-    ctx.fillText(a, w * 0.5, h * 0.38);
-    ctx.fillText(b, w * 0.5, h * 0.68);
+    const step = h * 0.3;
+    const y0 = h * 0.5 - step;
+    for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], w * 0.5, y0 + step * i);
   }, { dieCut: 0, grain: 0, seed: 18 });
 }
 
-function bubbleMesh(THREE, paper, FONT, text, tailLeft) {
-  const canvas = paper.paint(520, 260, (ctx, w, h) => {
+function bubbleMesh(THREE, paper, FONT, text, tailLeft, worldW, worldH) {
+  const canvas = paper.paint(640, 280, (ctx, w, h) => {
     ctx.fillStyle = '#fffdf8';
     ctx.strokeStyle = '#3a2f2a';
     ctx.lineWidth = 8;
-    roundRect(ctx, w * 0.06, h * 0.06, w * 0.88, h * 0.62, 36);
+    roundRect(ctx, w * 0.05, h * 0.05, w * 0.9, h * 0.6, 40);
     ctx.fill();
     ctx.stroke();
     ctx.beginPath();
-    const tip = tailLeft ? w * 0.32 : w * 0.68;
-    ctx.moveTo(tip - w * 0.08, h * 0.66);
+    const tip = tailLeft ? w * 0.3 : w * 0.7;
+    ctx.moveTo(tip - w * 0.07, h * 0.63);
     ctx.lineTo(tip, h * 0.94);
-    ctx.lineTo(tip + w * 0.1, h * 0.66);
+    ctx.lineTo(tip + w * 0.09, h * 0.63);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
     const font = (size) => `700 ${size}px ${FONT.hand}`;
-    const size = fitSize(ctx, text, font, Math.round(h * 0.3), w * 0.78);
+    const size = fitSize(ctx, text, font, Math.round(h * 0.32), w * 0.82);
     ctx.font = font(size);
     ctx.fillStyle = '#9a3d48';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, w * 0.5, h * 0.38);
+    ctx.fillText(text, w * 0.5, h * 0.36);
   }, { dieCut: 6, seed: tailLeft ? 19 : 20 });
-  return decal(THREE, paper, canvas, 0.64, 0.34);
+  return decal(THREE, paper, canvas, worldW, worldH);
 }
 
 function paintMonth(ctx, w, h, FONT, C) {
@@ -1125,13 +1177,41 @@ function drawRibbonBand(ctx, w, h, C) {
   ctx.setLineDash([]);
 }
 
+function medalLayout(big) {
+  const circle = big ? 560 : 500;
+  const W = big ? 640 : 620;
+  const tagH = 200;
+  const top = 18;
+  const gap = 12;
+  const bot = 16;
+  return { W, H: top + circle + gap + tagH + bot, circle, top, tagH, gap };
+}
+
+function labelLines(label) {
+  const words = String(label).split(' ');
+  if (words.length < 2) return [label];
+  let best = 1;
+  let score = Infinity;
+  for (let i = 1; i < words.length; i++) {
+    const a = words.slice(0, i).join(' ').length;
+    const b = words.slice(i).join(' ').length;
+    const d = Math.abs(a - b);
+    if (d < score) {
+      score = d;
+      best = i;
+    }
+  }
+  return [words.slice(0, best).join(' '), words.slice(best).join(' ')];
+}
+
 function medalCanvas(paper, characters, FONT, C, id, label, index, big) {
   const colors = [C.sky, C.mustard, C.leaf, C.teal, C.tomato];
   const ink = colors[index % colors.length];
-  return paper.paint(640, 500, (ctx, w, h) => {
+  const box = medalLayout(big);
+  const canvas = paper.paint(box.W, box.H, (ctx, w, h) => {
     const cx = w * 0.5;
-    const cy = h * 0.34;
-    const r = Math.min(w, h) * 0.3;
+    const r = box.circle / 2;
+    const cy = box.top + r;
     ctx.fillStyle = '#fffaf4';
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -1140,37 +1220,46 @@ function medalCanvas(paper, characters, FONT, C, id, label, index, big) {
     if (src) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(cx, cy, r * 0.86, 0, Math.PI * 2);
+      ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
       ctx.clip();
-      const scale = (r * 1.85) / src.width;
-      const dw = src.width * scale;
-      const dh = src.height * scale;
-      ctx.drawImage(src, cx - dw / 2, cy - r * 0.9, dw, dh);
+      const cover = Math.max((r * 1.86) / src.width, (r * 1.7) / src.height);
+      const dw = src.width * cover;
+      const dh = src.height * cover;
+      ctx.drawImage(src, cx - dw / 2, cy - r * 0.86, dw, dh);
       ctx.restore();
     } else {
       ctx.fillStyle = ink;
-      heartPath(ctx, cx, cy + r * 0.15, r * 0.35);
+      heartPath(ctx, cx, cy + r * 0.12, r * 0.35);
       ctx.fill();
     }
     ctx.strokeStyle = ink;
-    ctx.lineWidth = big ? 14 : 11;
+    ctx.lineWidth = big ? 16 : 12;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
     ctx.stroke();
+    const tagY = box.top + box.circle + box.gap;
     ctx.fillStyle = '#fffaf4';
-    roundRect(ctx, w * 0.03, h * 0.7, w * 0.94, h * 0.24, 16);
+    roundRect(ctx, 14, tagY, w - 28, box.tagH, 22);
     ctx.fill();
     ctx.strokeStyle = ink;
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 6;
     ctx.stroke();
+    const lines = labelLines(label);
     const font = (size) => `700 ${size}px ${FONT.hand}`;
-    const size = fitSize(ctx, label, font, Math.round(h * 0.12), w * 0.88);
+    let size = Math.round(box.tagH * (lines.length > 1 ? 0.36 : 0.46));
+    for (let i = 0; i < lines.length; i++) size = Math.min(size, fitSize(ctx, lines[i], font, size, w * 0.86));
     ctx.font = font(size);
     ctx.fillStyle = C.ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, w * 0.5, h * 0.82);
-  }, { dieCut: 8, seed: 30 + index });
+    if (lines.length === 1) ctx.fillText(lines[0], cx, tagY + box.tagH * 0.52);
+    else {
+      ctx.fillText(lines[0], cx, tagY + box.tagH * 0.34);
+      ctx.fillText(lines[1], cx, tagY + box.tagH * 0.7);
+    }
+  }, { dieCut: 0, grain: 0.04, seed: 30 + index });
+  canvas.medalCircle = box.circle;
+  return canvas;
 }
 
 function bannerCanvas(paper, FONT, C, worldH) {
@@ -1198,20 +1287,27 @@ function bannerCanvas(paper, FONT, C, worldH) {
 }
 
 function tagCanvas(paper, FONT, text, C) {
-  return paper.paint(760, 180, (ctx, w, h) => {
+  const lines = String(text).split('\n');
+  const tall = lines.length > 1;
+  return paper.paint(tall ? 720 : 760, tall ? 280 : 180, (ctx, w, h) => {
     ctx.fillStyle = '#fffaf4';
     ctx.strokeStyle = '#e7b4c0';
     ctx.lineWidth = 6;
-    roundRect(ctx, 12, 16, w - 24, h - 32, 20);
+    roundRect(ctx, 12, 14, w - 24, h - 28, 22);
     ctx.fill();
     ctx.stroke();
     const font = (size) => `700 ${size}px ${FONT.hand}`;
-    const size = fitSize(ctx, text, font, Math.round(h * 0.42), w * 0.88);
+    let size = Math.round(h * (tall ? 0.32 : 0.42));
+    for (let i = 0; i < lines.length; i++) size = Math.min(size, fitSize(ctx, lines[i], font, size, w * 0.88));
     ctx.font = font(size);
     ctx.fillStyle = C.ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, w * 0.5, h * 0.52);
+    if (!tall) ctx.fillText(lines[0], w * 0.5, h * 0.52);
+    else {
+      ctx.fillText(lines[0], w * 0.5, h * 0.36);
+      ctx.fillText(lines[1], w * 0.5, h * 0.68);
+    }
   }, { dieCut: 5, seed: 41 });
 }
 

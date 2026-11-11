@@ -210,20 +210,21 @@ function addPrologue(shots, arrive) {
 }
 
 function addEnd(shots) {
-  const y = openPageY(SPREADS.length) + 0.02;
+  // Look above the page so the open pop-up sits in the lower ~55% and the
+  // names have dark room overhead. A small size keeps the end shot steady.
+  const y = openPageY(SPREADS.length) + 0.85;
   const e0 = END_CARD.start;
   const e2 = DURATION;
   const e1 = e0 + (e2 - e0) * 0.42;
-  // Pull back and up. Negative ndc sinks the book so the names (screen centre) sit above it.
   const keys = [
-    { t: e0, dist: 11.4, el: 42, ndc: -0.48, fov: 36 },
-    { t: e1, dist: 12.6, el: 46, ndc: -0.56, fov: 36.5 },
-    { t: e2, dist: 13.8, el: 49, ndc: -0.62, fov: 37 },
+    { t: e0, dist: 12.6, el: 33.5, ndc: -0.4, fov: 32 },
+    { t: e1, dist: 12.95, el: 34.5, ndc: -0.43, fov: 32.3 },
+    { t: e2, dist: 13.25, el: 35.2, ndc: -0.45, fov: 32.6 },
   ];
   for (const k of keys) {
     shots.push({
       t: k.t, hold: 0, rest: false, protect: true, tag: 'end',
-      ...place(0, y, 0, k.dist, 0, k.el, k.fov, k.ndc, 9),
+      ...place(0, y, 0.05, k.dist, 0, k.el, k.fov, k.ndc, 1.6),
     });
   }
 }
