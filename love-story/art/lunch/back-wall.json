@@ -1,0 +1,15 @@
+{
+  "id": "back-wall",
+  "file": "back-wall.webp",
+  "w": 1024,
+  "h": 489,
+  "feet": [
+    512,
+    471
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 2.12
+}

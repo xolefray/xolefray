@@ -1,0 +1,10 @@
+{
+  "id": "street-lamp",
+  "file": "street-lamp.webp",
+  "w": 212,
+  "h": 1024,
+  "feet": [108.5, 1000],
+  "who": ["prop"],
+  "scene": "dates",
+  "units": 1.4
+}

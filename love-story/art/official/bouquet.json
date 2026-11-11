@@ -1,0 +1,15 @@
+{
+  "id": "bouquet",
+  "file": "bouquet.webp",
+  "w": 687,
+  "h": 933,
+  "feet": [
+    341.0,
+    908
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 1.05
+}

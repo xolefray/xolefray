@@ -1,0 +1,112 @@
+<!doctype html>
+<!--
+  dev/camera.html (T-camera) — harness for src/camera.js: the film's scene (environment, book,
+  spreads, titles) posed at film time t and shot through the camera rig, plus review aids:
+  a magenta marker on the boat/crane position the follow shots frame (subjectPosition), and
+  guide lines for the caption band (bottom 17 %) and the chapter-label band (top 16 %).
+  Params: t=<sec> (default 20) · marker=0 hide the marker · guides=0 hide the guides ·
+  titles=0 hide the caption/title overlay. snap.mjs: --page dev/camera.html --times …
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Camera rig</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0c0a09; }
+    canvas { display: block; }
+    #overlay { position: fixed; inset: 0; pointer-events: none; }
+    .guide { position: fixed; left: 0; right: 0; height: 0; border-top: 1px dashed rgba(255, 64, 200, .7); pointer-events: none; }
+    #info { position: fixed; right: 8px; top: 6px; color: #ff6ad5; font: 12px/1.3 monospace; text-align: right; pointer-events: none; }
+  </style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <div id="overlay"></div>
+  <div id="info"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { SPREADS, leafAngles, spreadAlpha } from '../src/timeline.js';
+    import { makeRng } from '../src/util/rng.js';
+    import * as paper from '../src/paper.js';
+    import * as popup from '../src/popup.js';
+    import { BOOK, createBook } from '../src/book.js';
+    import { createEnvironment } from '../src/environment.js';
+    import { createTitles } from '../src/titles.js';
+    import { createCameraRig, subjectPosition } from '../src/camera.js';
+    import { SPREAD_MODULES } from '../src/spreads/index.js';
+
+    const params = new URLSearchParams(location.search);
+    const t = Number.parseFloat(params.get('t') ?? '20');
+    const flag = (name) => params.get(name) !== '0';
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.prepend(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 200);
+    const env = createEnvironment({ scene, renderer });
+    const book = createBook();
+    scene.add(book.group);
+
+    const spreads = SPREAD_MODULES.map((mod, i) => {
+      const api = mod.build({ THREE, paper, popup, rng: makeRng(1000 + SPREADS[i].k), BOOK });
+      book.getSpreadAnchor(SPREADS[i].k).add(api.group);
+      book.setPageArt(SPREADS[i].k, { left: api.leftArt, right: api.rightArt });
+      return { ...SPREADS[i], api };
+    });
+
+    const phis = leafAngles(t);
+    book.setLeafAngles(phis);
+    for (const s of spreads) {
+      const alpha = spreadAlpha(s.k, phis);
+      s.api.group.visible = alpha > 0.002;
+      if (s.api.group.visible) s.api.update(alpha, t, t - s.start);
+    }
+    env.update(t);
+    book.update?.(t);
+    createCameraRig(camera).update(t);
+
+    camera.updateMatrixWorld();
+    const subject = subjectPosition(t, new THREE.Vector3());
+    const tracked = (t >= 15.5 && t <= 28) || (t >= 31 && t <= 49) || (t >= 52 && t <= 70) || t >= 73;
+    if (flag('marker') && tracked) {
+      const mat = new THREE.MeshBasicMaterial({ color: '#ff2fd0', depthTest: false, transparent: true, opacity: 0.85 });
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 8), mat);
+      dot.position.copy(subject);
+      dot.renderOrder = 10;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, subject.y, 6), mat);
+      stem.position.set(subject.x, subject.y / 2, subject.z);
+      stem.renderOrder = 10;
+      scene.add(dot, stem);
+    }
+    if (flag('titles')) createTitles(document.getElementById('overlay')).update(t);
+    if (flag('guides')) {
+      for (const frac of [0.16, 0.83]) {
+        const line = document.createElement('div');
+        line.className = 'guide';
+        line.style.top = `${frac * 100}%`;
+        document.body.append(line);
+      }
+      const p = subject.clone().project(camera);
+      const c = camera.position;
+      document.getElementById('info').textContent =
+        `t=${t}  fov ${camera.fov.toFixed(1)}  cam ${c.x.toFixed(2)} ${c.y.toFixed(2)} ${c.z.toFixed(2)}\n` +
+        `subject ${((p.x + 1) * 50).toFixed(0)}%, ${((1 - p.y) * 50).toFixed(0)}%`;
+    }
+
+    let frames = 0;
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+      if (++frames >= 2) window.__ready = true;
+    });
+  </script>
+</body>
+</html>

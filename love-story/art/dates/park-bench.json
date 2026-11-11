@@ -1,0 +1,15 @@
+{
+  "id": "park-bench",
+  "file": "park-bench.webp",
+  "w": 605,
+  "h": 994,
+  "feet": [
+    301.5,
+    969
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "dates",
+  "units": 1.3
+}

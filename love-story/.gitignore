@@ -1,0 +1,15 @@
+# PRIVATE: the couple's photographs are never committed (this repository is public).
+# Only the folder's README and its own .gitignore are tracked; see photos/README.md.
+photos/*
+!photos/README.md
+!photos/.gitignore
+
+# Local tooling leftovers
+node_modules/
+.DS_Store
+
+# Cartoon character art of the couple (made from their photos) is private too.
+characters/
+
+# Recorded voice-overs are private too (a README in audio/ stays tracked).
+audio/narration*

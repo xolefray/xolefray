@@ -1,0 +1,15 @@
+{
+  "id": "arch",
+  "file": "arch.webp",
+  "w": 1024,
+  "h": 512,
+  "feet": [
+    510.2,
+    494
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "wedding",
+  "units": 2.15
+}

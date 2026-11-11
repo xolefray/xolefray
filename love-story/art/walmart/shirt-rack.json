@@ -1,0 +1,15 @@
+{
+  "id": "shirt-rack",
+  "file": "shirt-rack.webp",
+  "w": 859,
+  "h": 477,
+  "feet": [
+    429.0,
+    452
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 1.05
+}

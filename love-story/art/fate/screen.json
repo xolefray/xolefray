@@ -1,0 +1,15 @@
+{
+  "id": "screen",
+  "file": "screen.webp",
+  "w": 1024,
+  "h": 578,
+  "feet": [
+    511.0,
+    553.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 2.15
+}

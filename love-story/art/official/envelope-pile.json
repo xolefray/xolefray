@@ -1,0 +1,15 @@
+{
+  "id": "envelope-pile",
+  "file": "envelope-pile.webp",
+  "w": 835,
+  "h": 597,
+  "feet": [
+    441.5,
+    568
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 0.72
+}

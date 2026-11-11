@@ -1,0 +1,15 @@
+{
+  "id": "flower-pots",
+  "file": "flower-pots.webp",
+  "w": 774,
+  "h": 899,
+  "feet": [
+    409.0,
+    874
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "wedding",
+  "units": 1.15
+}

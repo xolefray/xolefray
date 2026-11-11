@@ -1,0 +1,15 @@
+{
+  "id": "balloons-left",
+  "file": "balloons-left.webp",
+  "w": 313,
+  "h": 977,
+  "feet": [
+    133.7,
+    952
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "proposal",
+  "units": 1.72
+}

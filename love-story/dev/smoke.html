@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- dev/smoke.html (T0) — minimal harness proving snap.mjs --page works: one lit, spinning cube. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smoke test</title>
+  <link rel="icon" href="data:,">
+  <style>html, body { margin: 0; height: 100%; overflow: hidden; background: #111; }</style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <script type="module">
+    import * as THREE from 'three';
+    import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+    import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js';
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 100);
+    camera.position.set(3, 2, 4);
+    new OrbitControls(camera, renderer.domElement);
+    camera.lookAt(0, 0, 0);
+    const geo = mergeGeometries([new RoundedBoxGeometry(1, 1, 1, 4, 0.12)]);
+    const hue = (new ImprovedNoise().noise(0.3, 0.7, 0.1) + 1) / 2;
+    const cube = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(hue, 0.6, 0.55) }));
+    scene.add(cube, new THREE.HemisphereLight('#ffffff', '#333344', 2));
+    let frames = 0;
+    renderer.setAnimationLoop(() => {
+      cube.rotation.y += 0.01;
+      renderer.render(scene, camera);
+      if (++frames >= 2) window.__ready = true;
+    });
+  </script>
+</body>
+</html>

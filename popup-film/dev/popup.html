@@ -1,0 +1,314 @@
+<!doctype html>
+<!--
+  dev/popup.html (T-popup) — harness for src/popup.js. The scene root IS the spread frame: the
+  right page (blue) is fixed, the left page (orange) is posed by ?alpha=<α/π> (default 1).
+  Every mechanism carries bright test cards (front = colour + label + up arrow, back = grey
+  stripes) and an AxesHelper at its mount (X red, Y green, Z blue). Insets: orthographic views
+  along −Z (the fold cross-section, with the bisector dashed) and along −X.
+  Query: alpha=<0..1> (×π), u=<0..1> slider position, anim=1 (sweep α for humans).
+  On load it runs a numeric self-test over 200 α samples (crease ⟂ glue lines, orthonormal mounts,
+  no NaN, every card corner inside its own half of the book and inside the page rectangle, flat
+  when closed, erect + facing the reader when open); failures go to console.error.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>popup.js harness</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root { --bg: #1b1e24; --fg: #e8e4da; --ok: #6fdc8c; --bad: #ff6b6b; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+      font: 13px/1.45 system-ui, sans-serif; }
+    #hud { position: fixed; left: 12px; top: 10px; max-width: 60ch; pointer-events: none; }
+    #hud b { font-size: 15px; }
+    .ok { color: var(--ok); } .bad { color: var(--bad); }
+    .inset { position: fixed; right: 8px; width: 384px; font-size: 12px; opacity: 0.8; pointer-events: none; }
+  </style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <div id="hud"></div>
+  <div class="inset" id="lblFront"></div>
+  <div class="inset" id="lblSide"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import * as popup from '../src/popup.js';
+
+    const PI = Math.PI;
+    const params = new URLSearchParams(location.search);
+    const clamp01 = (v) => Math.min(1, Math.max(0, Number.isFinite(v) ? v : 1));
+    const ALPHA = PI * clamp01(Number(params.get('alpha') ?? 1));
+    const U = clamp01(Number(params.get('u') ?? 0.4));
+    const ANIM = params.get('anim') === '1';
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.autoClear = false;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene(); // scene root = spread frame
+    const mainBg = new THREE.Color('#1b1e24');
+    const insetBg = new THREE.Color('#262b34');
+    scene.background = mainBg;
+    scene.add(new THREE.HemisphereLight('#ffffff', '#4a4e5a', 2.2));
+    const sun = new THREE.DirectionalLight('#ffffff', 1.8);
+    sun.position.set(3, 6, 5);
+    scene.add(sun);
+
+    // ── pages ──
+    function page(color, sign) {
+      const g = new THREE.Group();
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(3, 4).rotateX(-PI / 2).translate(sign * 1.5, 0, 0),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }),
+      );
+      const rim = [[0, -2], [sign * 3, -2], [sign * 3, 2], [0, 2]].map(([x, z]) => new THREE.Vector3(x, 0, z));
+      const outline = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(rim), new THREE.LineBasicMaterial({ color }));
+      const grid = [];
+      for (let x = 0.5; x < 3; x += 0.5) grid.push(new THREE.Vector3(sign * x, 0, -2), new THREE.Vector3(sign * x, 0, 2));
+      for (let z = -1.5; z < 2; z += 0.5) grid.push(new THREE.Vector3(0, 0, z), new THREE.Vector3(sign * 3, 0, z));
+      const lines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(grid),
+        new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.25 }));
+      g.add(plane, outline, lines);
+      return g;
+    }
+    const rightPage = page('#7fb0ff', 1);
+    const leftPage = page('#ffad7f', -1);
+    scene.add(rightPage, leftPage);
+    const bisector = new THREE.LineSegments(new THREE.BufferGeometry(),
+      new THREE.LineDashedMaterial({ color: '#ffffff', dashSize: 0.08, gapSize: 0.06, transparent: true, opacity: 0.6 }));
+    scene.add(bisector);
+
+    // ── test cards ──
+    function texCanvas(w, h, draw) {
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      draw(c.getContext('2d'), w, h);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+    const backTex = texCanvas(64, 64, (g, w, h) => {
+      g.fillStyle = '#4b4f5a';
+      g.fillRect(0, 0, w, h);
+      g.strokeStyle = '#6c7180';
+      g.lineWidth = 6;
+      for (let i = -h; i < w; i += 16) { g.beginPath(); g.moveTo(i, h); g.lineTo(i + h, 0); g.stroke(); }
+    });
+    backTex.wrapS = backTex.wrapT = THREE.RepeatWrapping;
+
+    /** Card in the mount's XY plane (flat: in its XZ plane, face +Y, top toward −Z). anchor: content x side. */
+    function card(w, h, color, label, { anchor = 'center', flat = false } = {}) {
+      const x0 = anchor === 'left' ? 0 : anchor === 'right' ? -w : -w / 2;
+      const y0 = flat ? -h / 2 : 0;
+      const aspect = w / h;
+      const map = texCanvas(aspect >= 1 ? 256 : Math.max(32, Math.round(256 * aspect)), aspect >= 1 ? Math.max(32, Math.round(256 / aspect)) : 256, (g, cw, ch) => {
+        g.fillStyle = color;
+        g.fillRect(0, 0, cw, ch);
+        g.strokeStyle = '#111';
+        g.lineWidth = 6;
+        g.strokeRect(3, 3, cw - 6, ch - 6);
+        g.fillStyle = '#111';
+        const s = Math.min(cw, ch);
+        g.font = `bold ${Math.round(s * 0.28)}px sans-serif`;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(label, cw / 2, ch * 0.62);
+        g.beginPath(); // up arrow
+        g.moveTo(cw / 2, ch * 0.08);
+        g.lineTo(cw / 2 - s * 0.14, ch * 0.08 + s * 0.2);
+        g.lineTo(cw / 2 + s * 0.14, ch * 0.08 + s * 0.2);
+        g.fill();
+      });
+      const geo = new THREE.PlaneGeometry(w, h).translate(x0 + w / 2, y0 + h / 2, 0);
+      const front = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map, side: THREE.FrontSide }));
+      const back = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: backTex, side: THREE.BackSide }));
+      const group = new THREE.Group();
+      group.add(front, back);
+      if (flat) {
+        group.rotation.x = -PI / 2;
+        group.position.y = 0.002;
+      }
+      const corners = [[x0, y0], [x0 + w, y0], [x0, y0 + h], [x0 + w, y0 + h]].map(([x, y]) =>
+        flat ? new THREE.Vector3(x, 0.002, -y) : new THREE.Vector3(x, y, 0));
+      return { group, corners };
+    }
+
+    const pieces = []; // { mount, corners, half, upright, tag }
+    function attach(mount, c, half, upright, tag) {
+      mount.add(c.group, new THREE.AxesHelper(0.3));
+      pieces.push({ mount, corners: c.corners, half, upright, tag });
+    }
+
+    // ── mechanisms (closed footprints laid out so none overlap on either page: rule R3) ──
+    const M = popup.vFold({ z0: -1.55, gamma: 2.0, width: 1.8, height: 1.4 }); // mountain, far edge
+    attach(M.right, card(0.9, 1.4, '#ff7a1a', 'M·R', { anchor: 'left' }), 'right', true, 'mountain vFold R');
+    attach(M.left, card(0.9, 1.4, '#ffc21a', 'M·L', { anchor: 'right' }), 'left', true, 'mountain vFold L');
+
+    const V = popup.vFold({ z0: 1.25, gamma: 1.15, width: 1.3, height: 0.5 }); // valley, near edge
+    attach(V.right, card(0.65, 0.5, '#19c3ff', 'V·R', { anchor: 'left' }), 'right', true, 'valley vFold R');
+    attach(V.left, card(0.65, 0.5, '#4f86ff', 'V·L', { anchor: 'right' }), 'left', true, 'valley vFold L');
+
+    const FL = popup.floatingLayer({ z: 0.3, width: 1.4, height: 0.55, depth: 0.9 });
+    attach(FL.right, card(0.7, 0.9, '#f4f4f4', 'FL·R', { anchor: 'left', flat: true }), 'right', false, 'layer R');
+    attach(FL.left, card(0.7, 0.9, '#d6d6d6', 'FL·L', { anchor: 'right', flat: true }), 'left', false, 'layer L');
+    attach(FL.supports.right, card(0.9, 0.55, '#c08cff', 'wall R'), 'right', false, 'wall R');
+    attach(FL.supports.left, card(0.9, 0.55, '#8c6bff', 'wall L'), 'left', false, 'wall L');
+    const NV = popup.vFold({ z0: 0.6, gamma: 1.2, width: 0.7, height: 0.4, page: FL.page }); // facade on the layer
+    const nvLim = popup.vFoldLimits({ z0: 0.6, gamma: 1.2, width: 0.7, height: 0.4, page: FL.page });
+    if (!nvLim.fits) console.error('nested vFold does not fit the floating layer', nvLim);
+    FL.add(NV);
+    attach(NV.right, card(0.35, 0.4, '#ff4fd8', 'N·R', { anchor: 'left' }), 'right', true, 'nested vFold R');
+    attach(NV.left, card(0.35, 0.4, '#b04bff', 'N·L', { anchor: 'right' }), 'left', true, 'nested vFold L');
+
+    const SB = popup.standUp({ side: 'right', x: 2.2, z: 1.0, width: 1.0, height: 1.1 });
+    attach(SB.mount, card(1.0, 1.1, '#3ddc5a', 'S·back'), 'right', true, 'standUp right back');
+    const SF = popup.standUp({ side: 'right', x: 2.2, z: -1.75, fold: 'front', width: 0.9, height: 1.45 });
+    attach(SF.mount, card(0.9, 1.45, '#b5ef3a', 'S·front'), 'right', true, 'standUp right front');
+    const SL = popup.standUp({ side: 'left', x: 2.0, z: 0.8, width: 1.2, height: 1.2 });
+    attach(SL.mount, card(1.2, 1.2, '#00d6a8', 'S·left'), 'left', true, 'standUp left');
+
+    const OR = popup.onPage({ side: 'right', x: 2.85, z: -0.45 });
+    attach(OR.mount, card(0.2, 2.7, '#ffe14d', 'O', { flat: true }), 'right', false, 'onPage right');
+    const OL = popup.onPage({ side: 'left', x: 2.1, z: -1.3 });
+    attach(OL.mount, card(1.2, 0.9, '#ff5252', 'O·L', { flat: true }), 'left', false, 'onPage left');
+
+    const path = [[-2.6, 1.3], [-1.6, 1.75], [-0.5, 1.82], [0.6, 1.8], [1.6, 1.7], [2.6, 1.25]];
+    const SLD = popup.slider({ side: 'spread', path, u: U });
+    const sliderCard = card(0.4, 0.2, '#ff2d2d', '→', { flat: true });
+    sliderCard.group.rotation.z = PI / 2; // arrow (card top) points along +X = direction of travel
+    SLD.mount.add(sliderCard.group, new THREE.AxesHelper(0.3));
+    const pathLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#ff2d2d' }));
+    scene.add(pathLine);
+
+    const all = popup.collection([M, V, FL, NV, SB, SF, SL, OR, OL, SLD]);
+    scene.add(all.object);
+
+    // ── numeric self-test (200 α samples) ──
+    function selfTest() {
+      const fails = [];
+      let checks = 0;
+      const ok = (c, msg) => { checks++; if (!c && fails.length < 20) fails.push(msg); };
+      const X = new THREE.Vector3(), Y = new THREE.Vector3(), Z = new THREE.Vector3(), p = new THREE.Vector3();
+      const NL = new THREE.Vector3(), NB = new THREE.Vector3(), L = new THREE.Vector3();
+      const dR = new THREE.Vector3(), dL = new THREE.Vector3();
+      const fin = (v) => Number.isFinite(v.x + v.y + v.z);
+      for (let i = 0; i < 200; i++) {
+        const a = (PI * i) / 199;
+        const tagA = `α=${(a / PI).toFixed(3)}π`;
+        all.update(a);
+        scene.updateMatrixWorld(true);
+        L.set(Math.cos(a), Math.sin(a), 0);
+        NL.set(Math.sin(a), -Math.cos(a), 0);
+        NB.set(Math.sin(a / 2), -Math.cos(a / 2), 0);
+        for (const [m, g] of [[M, 2.0], [V, 1.15], [NV, 1.2]]) {
+          const c = m.crease;
+          dR.set(Math.sin(g), 0, Math.cos(g));
+          dL.copy(L).multiplyScalar(Math.sin(g)).setZ(Math.cos(g));
+          ok(fin(c) && Math.abs(c.length() - 1) < 1e-9, `crease NaN/not unit γ=${g} ${tagA}`);
+          ok(Math.abs(c.dot(dR)) < 1e-9 && Math.abs(c.dot(dL)) < 1e-9, `crease not ⟂ glue lines γ=${g} ${tagA}`);
+          ok(c.y >= -1e-9 && c.dot(NL) >= -1e-9, `crease not between pages γ=${g} ${tagA}`);
+        }
+        for (const pc of pieces) {
+          const e = pc.mount.matrixWorld;
+          e.extractBasis(X, Y, Z);
+          ok(fin(pc.mount.position) && Number.isFinite(pc.mount.quaternion.w), `${pc.tag}: NaN ${tagA}`);
+          ok(Math.abs(X.length() - 1) < 1e-6 && Math.abs(Y.length() - 1) < 1e-6 && Math.abs(Z.length() - 1) < 1e-6 &&
+            Math.abs(X.dot(Y)) < 1e-6 && Math.abs(Y.dot(Z)) < 1e-6 && Math.abs(X.dot(Z)) < 1e-6 &&
+            Math.abs(e.determinant() - 1) < 1e-6, `${pc.tag}: mount not orthonormal ${tagA}`);
+          for (const c of pc.corners) {
+            p.copy(c).applyMatrix4(e);
+            const own = pc.half === 'right'
+              ? p.y >= -5e-3 && p.dot(NB) >= -5e-3 && p.x <= 3 + 1e-6
+              : p.dot(NL) >= -5e-3 && p.dot(NB) <= 5e-3 && p.dot(L) <= 3 + 1e-6;
+            ok(own && Math.abs(p.z) <= 2 + 1e-6, `${pc.tag}: corner (${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}) leaves its half/page ${tagA}`);
+            if (i === 0) ok(Math.abs(p.y) < 0.01, `${pc.tag}: not flat when closed`);
+          }
+          if (i === 199 && pc.upright) ok(Z.z > 0.05 && Y.y > 0.999, `${pc.tag}: not erect/facing the reader at π`);
+        }
+      }
+      return { checks, fails };
+    }
+    const test = selfTest();
+    for (const f of test.fails) console.error('popup self-test:', f);
+
+    // ── pose at α ──
+    function pose(alpha) {
+      all.update(alpha);
+      leftPage.rotation.z = alpha - PI;
+      const u = new THREE.Vector3(Math.cos(alpha / 2), Math.sin(alpha / 2), 0).multiplyScalar(3.2);
+      bisector.geometry.setFromPoints([new THREE.Vector3(0, 0, 2.02), u.clone().setZ(2.02), new THREE.Vector3(0, 0, -2.02), u.setZ(-2.02)]);
+      bisector.computeLineDistances();
+      const pts = [];
+      for (let i = 0; i <= 120; i++) { SLD.update(alpha, i / 120); pts.push(SLD.mount.position.clone().setY(SLD.mount.position.y + 0.004)); }
+      pathLine.geometry.setFromPoints(pts);
+      SLD.update(alpha, U);
+      document.getElementById('hud').innerHTML =
+        `<b>popup.js harness — α = ${(alpha / PI).toFixed(2)}π</b><br>` +
+        (test.fails.length
+          ? `<span class="bad">self-test FAILED: ${test.fails.length} of ${test.checks} checks</span>`
+          : `<span class="ok">self-test: ${test.checks} checks OK</span>`) +
+        `<br>M mountain vFold γ=2.0 · V valley vFold γ=1.15 · FL floating layer + N nested vFold<br>` +
+        `S standUps (back/front/left) · O onPage · red arrow = slider u=${U.toFixed(2)}`;
+    }
+    pose(ALPHA);
+
+    // ── cameras ──
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+    camera.position.set(5.6, 6.2, 9.4);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(-0.1, 0.5, 0);
+    controls.update();
+    const front = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+    front.position.set(0, 1.4, 30);
+    front.lookAt(0, 1.4, 0);
+    const side = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+    side.position.set(30, 1.1, 0);
+    side.lookAt(0, 1.1, 0);
+
+    function fitOrtho(cam, halfW, aspect) {
+      cam.left = -halfW;
+      cam.right = halfW;
+      cam.top = halfW / aspect;
+      cam.bottom = -halfW / aspect;
+      cam.updateProjectionMatrix();
+    }
+
+    let frames = 0;
+    const clock = new THREE.Clock();
+    renderer.setAnimationLoop(() => {
+      if (ANIM) pose(PI * (0.5 - 0.5 * Math.cos(clock.getElapsedTime() * 0.6)));
+      const W = innerWidth, H = innerHeight;
+      const iw = Math.min(400, Math.round(W * 0.34)), ih = Math.round(H / 2);
+      renderer.setScissorTest(true);
+      renderer.setViewport(0, 0, W - iw, H);
+      renderer.setScissor(0, 0, W - iw, H);
+      camera.aspect = (W - iw) / H;
+      camera.updateProjectionMatrix();
+      renderer.clear();
+      renderer.render(scene, camera);
+      for (const [cam, y, halfW, lbl, text] of [[front, ih, 3.4, 'lblFront', 'front (looking −Z): fold cross-section, bisector dashed'],
+        [side, 0, 2.4, 'lblSide', 'side (looking −X): reader at left']]) {
+        fitOrtho(cam, halfW, iw / ih);
+        renderer.setViewport(W - iw, y, iw, ih);
+        renderer.setScissor(W - iw, y, iw, ih);
+        scene.background = insetBg;
+        renderer.clear();
+        renderer.render(scene, cam);
+        scene.background = mainBg;
+        const el = document.getElementById(lbl);
+        el.style.width = `${iw - 12}px`;
+        el.style.bottom = `${y + ih - 20}px`;
+        el.textContent = text;
+      }
+      renderer.setScissorTest(false);
+      if (++frames >= 2) window.__ready = true;
+    });
+    addEventListener('resize', () => renderer.setSize(innerWidth, innerHeight));
+  </script>
+</body>
+</html>

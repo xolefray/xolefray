@@ -1,0 +1,15 @@
+{
+  "id": "trees-b",
+  "file": "trees-b.webp",
+  "w": 794,
+  "h": 894,
+  "feet": [
+    396.5,
+    869
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "dates",
+  "units": 1.65
+}

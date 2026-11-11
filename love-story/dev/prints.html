@@ -1,0 +1,161 @@
+<!doctype html>
+<!--
+  dev/prints.html — harness for src/fonts.js and src/photos.js (2D only, no WebGL).
+  Shows, drawn in CANVAS (the way the film letters everything):
+    • specimens of FONT.display and FONT.hand, and a glyph-coverage self-test of the characters the
+      film needs (letters, digits, . , ! ? ' " “ ” ‘ ’ & é – — …): a character that falls back to
+      another face is listed and reported with console.error (so tools/snap.mjs fails);
+    • photoPrint() in its three styles with a caption, tilt and tape, for each of the eight photos
+      (cover, proposal, dog, oliver, walmart, lunch, deed, tokyo) AND for a missing photo (the
+      illustrated fallback), plus washiTape() strips;
+    • the scrapbook palette.
+  Query: photos=0 — never load the couple's photos (every print shows the fallback).
+  PRIVACY: with the photos present, screenshots of this page show them: keep them out of the repo.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>fonts + photo prints harness</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    html, body { overflow: auto; position: static; height: auto; background: #b99466; color: #2b2622; font: 14px/1.4 system-ui, sans-serif; }
+    main { padding: 16px; display: grid; gap: 14px; }
+    h2 { margin: 0; font: 600 14px/1.2 system-ui, sans-serif; }
+    .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+    .row canvas { max-width: 100%; height: auto; }
+    .swatch { width: 74px; height: 44px; border-radius: 6px; display: grid; place-items: end start; padding: 3px 5px; font-size: 10px; color: #fff; text-shadow: 0 0 3px #000; }
+    #report { white-space: pre-wrap; font: 12px/1.4 ui-monospace, monospace; background: rgba(255,255,255,.55); padding: 8px 10px; border-radius: 8px; }
+    .ok { color: #1c6b2a; } .bad { color: #a01818; font-weight: 700; }
+  </style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <main>
+    <div id="report">loading…</div>
+    <h2>FONT.display / FONT.hand / FONT.serif (canvas text)</h2>
+    <div class="row" id="specimens"></div>
+    <h2>photoPrint(photo, …) — polaroid · print · oval, then the same with photo = null</h2>
+    <div class="row" id="prints"></div>
+    <h2>washiTape() · PALETTES.scrapbook</h2>
+    <div class="row" id="extras"></div>
+  </main>
+  <script type="module">
+    import { FONT, loadFonts } from '../src/fonts.js';
+    import { PHOTO_ASPECT, loadPhotos, photoPrint, photosDisabled, washiTape } from '../src/photos.js';
+    import * as paper from '../src/paper.js';
+
+    const report = document.getElementById('report');
+    const lines = [];
+    const say = (text, bad = false) => {
+      lines.push(`<span class="${bad ? 'bad' : 'ok'}">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>`);
+      if (bad) console.error(`prints harness: ${text}`);
+    };
+
+    const fontState = await loadFonts();
+    say(fontState.ok ? 'fonts: all faces loaded' : `fonts: FAILED to load ${fontState.failed.join(', ')}`, !fontState.ok);
+    const photos = await loadPhotos();
+    say(`photos${photosDisabled() ? ' (photos=0)' : ''}: ` + Object.entries(photos).map(([k, v]) => `${k} ${v ? `${v.width}×${v.height}` : 'missing → fallback'}`).join(' · '));
+
+    // ── glyph coverage: a glyph the face has renders the same whatever the fallback family is ──
+    const NEEDED = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?\'"“”‘’&éÉñ–—…:;()-/#+';
+    function raster(font, ch) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 48;
+      const g = c.getContext('2d', { willReadFrequently: true });
+      g.font = font;
+      g.textBaseline = 'middle';
+      g.textAlign = 'center';
+      g.fillText(ch, 24, 24);
+      return g.getImageData(0, 0, 48, 48).data;
+    }
+    const same = (a, b) => a.every((v, i) => v === b[i]);
+    function coverage(family, weight) {
+      const missing = [];
+      for (const ch of NEEDED) {
+        const viaSerif = raster(`${weight} 30px "${family}", serif`, ch);
+        const viaMono = raster(`${weight} 30px "${family}", monospace`, ch);
+        const fallbacksDiffer = !same(raster('30px serif', ch), raster('30px monospace', ch));
+        if (fallbacksDiffer && !same(viaSerif, viaMono)) missing.push(ch);
+      }
+      return missing;
+    }
+    for (const [family, weight] of [['Luckiest Guy', 400], ['Caveat', 400], ['Caveat', 700]]) {
+      const missing = coverage(family, weight);
+      say(`${family} ${weight}: ${missing.length ? `MISSING glyphs ${missing.join(' ')}` : `all ${[...NEEDED].length} needed glyphs present`}`, missing.length > 0);
+    }
+
+    // ── specimens ──
+    const C = paper.PALETTES.scrapbook;
+    const specimens = document.getElementById('specimens');
+    const spec = paper.page((g, w, h) => {
+      const colors = [C.tomato, C.mustard, C.teal, C.sky, C.leaf];
+      g.textBaseline = 'alphabetic';
+      g.font = `118px ${FONT.display}`;
+      let x = 50;
+      let i = 0;
+      for (const ch of 'Our Love Story') {
+        g.fillStyle = colors[i % colors.length];
+        g.lineJoin = 'round';
+        g.strokeStyle = paper.PAPER.white;
+        g.lineWidth = 22;
+        if (ch !== ' ') {
+          g.strokeText(ch, x, 150);
+          g.fillText(ch, x, 150);
+          i++;
+        }
+        x += g.measureText(ch).width + 4;
+      }
+      g.fillStyle = C.ink;
+      g.font = `64px ${FONT.display}`;
+      g.fillText('Brian & Marlin · 02.06.2027', 50, 250);
+      g.font = `40px ${FONT.display}`;
+      g.fillText('ABCDEFGHIJKLM NOPQRSTUVWXYZ 0123456789 “”’&é!?', 50, 310);
+      g.font = `700 62px ${FONT.hand}`;
+      g.fillText('He always won. “Yes, really.” — a café in Paris', 50, 410);
+      g.font = `400 62px ${FONT.hand}`;
+      g.fillText('February 7th, 2024 & February 6th, 2027…', 50, 480);
+      g.font = `700 40px ${FONT.hand}`;
+      g.fillText('ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789', 50, 550);
+      g.font = `italic 44px ${FONT.serif}`;
+      g.fillText('FONT.serif — We can’t wait to celebrate with you.', 50, 640);
+      g.font = `400 26px ${FONT.hand}`;
+      g.fillText(`paper.page() is ${w} × ${h} px (album page 3.6 : 3)`, 50, h - 50);
+    }, { seed: 7, tint: C.cream });
+    specimens.appendChild(spec);
+
+    // ── prints ──
+    const prints = document.getElementById('prints');
+    const variants = [
+      ['cover', { style: 'polaroid', caption: 'the two of us', tilt: -0.05, seed: 1 }],
+      ['proposal', { style: 'print', caption: 'she said yes!', tilt: 0.06, seed: 2 }],
+      ['dog', { style: 'polaroid', caption: 'our girl', tilt: 0.04, seed: 3 }],
+      ['oliver', { style: 'print', caption: 'Oliver', tilt: -0.04, seed: 4 }],
+      ['walmart', { style: 'polaroid', caption: 'where we met', tilt: 0.05, seed: 5 }],
+      ['lunch', { style: 'print', caption: 'first lunch', tilt: -0.03, seed: 6 }],
+      ['deed', { style: 'polaroid', caption: 'signing the deed', tilt: 0.04, seed: 7 }],
+      ['tokyo', { style: 'oval', caption: 'Tokyo', seed: 8 }],
+    ];
+    for (const real of [true, false]) {
+      for (const [name, opts] of variants) {
+        prints.appendChild(photoPrint(real ? photos[name] : null, { width: 280, aspect: PHOTO_ASPECT[name], ...opts }));
+      }
+    }
+
+    // ── tape + palette ──
+    const extras = document.getElementById('extras');
+    for (let s = 1; s <= 6; s++) extras.appendChild(washiTape(200, { seed: s }));
+    for (const [name, color] of Object.entries(C)) {
+      const d = document.createElement('div');
+      d.className = 'swatch';
+      d.style.background = color;
+      d.textContent = name;
+      extras.appendChild(d);
+    }
+
+    report.innerHTML = lines.join('\n');
+    requestAnimationFrame(() => requestAnimationFrame(() => { window.__ready = true; }));
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "id": "trees-backdrop",
+  "file": "trees-backdrop.webp",
+  "w": 1024,
+  "h": 528,
+  "feet": [
+    533.8,
+    508
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "wedding",
+  "units": 2.1
+}

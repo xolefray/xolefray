@@ -1,0 +1,15 @@
+{
+  "id": "balloon-bunch",
+  "file": "balloon-bunch.webp",
+  "w": 246,
+  "h": 548,
+  "feet": [
+    116.8,
+    523
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "proposal",
+  "units": 0.55
+}

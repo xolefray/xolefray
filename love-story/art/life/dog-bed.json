@@ -1,0 +1,15 @@
+{
+  "id": "dog-bed",
+  "file": "dog-bed.webp",
+  "w": 660,
+  "h": 403,
+  "feet": [
+    359.0,
+    378
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "life",
+  "units": 0.42
+}

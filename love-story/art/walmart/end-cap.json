@@ -1,0 +1,15 @@
+{
+  "id": "end-cap",
+  "file": "end-cap.webp",
+  "w": 688,
+  "h": 910,
+  "feet": [
+    343.0,
+    885
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 1.28
+}

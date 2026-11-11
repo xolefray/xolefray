@@ -1,0 +1,15 @@
+{
+  "id": "shelves-left",
+  "file": "shelves-left.webp",
+  "w": 1024,
+  "h": 507,
+  "feet": [
+    511.7,
+    486.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 1.18
+}
