@@ -1,0 +1,15 @@
+{
+  "id": "bike-rack",
+  "file": "bike-rack.webp",
+  "w": 697,
+  "h": 428,
+  "feet": [
+    346.5,
+    403.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 0.82
+}

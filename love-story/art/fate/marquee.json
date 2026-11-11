@@ -1,0 +1,15 @@
+{
+  "id": "marquee",
+  "file": "marquee.webp",
+  "w": 1024,
+  "h": 268,
+  "feet": [
+    511.5,
+    243.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 0.72
+}

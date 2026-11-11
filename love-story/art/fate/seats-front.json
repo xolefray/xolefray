@@ -1,0 +1,15 @@
+{
+  "id": "seats-front",
+  "file": "seats-front.webp",
+  "w": 1024,
+  "h": 410,
+  "feet": [
+    511.5,
+    385.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 0.78
+}

@@ -1,0 +1,15 @@
+{
+  "id": "projector",
+  "file": "projector.webp",
+  "w": 501,
+  "h": 780,
+  "feet": [
+    208.0,
+    755.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 0.9
+}

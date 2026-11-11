@@ -1,0 +1,15 @@
+{
+  "id": "concession",
+  "file": "concession.webp",
+  "w": 657,
+  "h": 763,
+  "feet": [
+    326.5,
+    738.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 1.2
+}
