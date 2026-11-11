@@ -16,7 +16,7 @@ const COLLEGE_H = 2.04;
 const MOVIES_H = 1.5;
 const HER_H = 1.55;
 const HIM_H = 1.56;
-const COUPLE_H = 1.56;
+const COUPLE_H = 1.58;
 
 function bump(t, at, dur) {
   const u = (t - at) / dur;
@@ -145,6 +145,7 @@ export default {
     back.object.name = 'facade';
 
     // Screen on the left half of the mountain. The marquee is a child so it clears the seat rows.
+    const reels = [];
     const screenPivot = holdOf(back.left, 'screen');
     screenPivot.position.set(-1.82, 0, 0);
     const screenInfo = info('screen');
@@ -155,6 +156,30 @@ export default {
         seat(screen, screenInfo, SCREEN_H, CLEAR);
         screenPivot.add(screen);
       }
+      const sw = screenInfo.w * (SCREEN_H / screenInfo.h);
+      // Beige screen opening, inset so the curtains and the stage stay visible.
+      const picW = sw * 0.60;
+      const picH = SCREEN_H * 0.58;
+      const picY = CLEAR + SCREEN_H * 0.52;
+      const reelGeo = new THREE.PlaneGeometry(picW, picH);
+      const reelKinds = ['3', '2', '1', 'title'];
+      for (let i = 0; i < reelKinds.length; i++) {
+        const mat = new THREE.MeshBasicMaterial({
+          map: paper.texture(paintReel(paper, FONT, reelKinds[i])),
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          toneMapped: false,
+        });
+        const mesh = new THREE.Mesh(reelGeo, mat);
+        mesh.name = reelKinds[i] === 'title' ? 'reel-title' : `reel-${reelKinds[i]}`;
+        mesh.position.set(0, picY, 0.012 + i * 0.001);
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        mesh.visible = false;
+        screenPivot.add(mesh);
+        reels.push(mesh);
+      }
       const flickerMat = new THREE.MeshBasicMaterial({
         color: '#fff6d8',
         transparent: true,
@@ -162,10 +187,9 @@ export default {
         depthWrite: false,
         toneMapped: false,
       });
-      const sw = screenInfo.w * (SCREEN_H / screenInfo.h);
-      const flicker = new THREE.Mesh(new THREE.PlaneGeometry(sw * 0.60, SCREEN_H * 0.44), flickerMat);
+      const flicker = new THREE.Mesh(new THREE.PlaneGeometry(picW, picH), flickerMat);
       flicker.name = 'flicker';
-      flicker.position.set(0, CLEAR + SCREEN_H * 0.56, 0.016);
+      flicker.position.set(0, picY, 0.018);
       flicker.castShadow = false;
       flicker.receiveShadow = false;
       screenPivot.add(flicker);
@@ -253,12 +277,12 @@ export default {
 
     const trees = holdOf(stand('right', 2.88, -0.78, 'front', treesW, 1.28, 'trees'), 'trees');
     addProp(trees, 'trees', 1.28);
-    const bannerMount = stand('right', 2.48, -0.02, 'back', bannerW, 0.98, 'banner');
+    const bannerMount = stand('right', 2.64, -0.06, 'back', bannerW, 0.98, 'banner');
     const bannerHold = holdOf(bannerMount, 'banner');
     addProp(bannerHold, 'banner', 0.98);
     const bannerText = doodle(paper, THREE, bannerWords(FONT, C, L('WELCOME, STUDENTS', 'BIENVENIDOS, ESTUDIANTES')));
     bannerText.name = 'banner-words';
-    bannerText.position.set(0, 0.50, 0.02);
+    bannerText.position.set(0.34, 0.52, 0.03);
     bannerHold.add(bannerText);
 
     const bike = holdOf(stand('right', 2.92, 0.88, 'back', bikeW, 0.58, 'bike-rack'), 'bike-rack');
@@ -308,15 +332,17 @@ export default {
     }
     const himLine = doodle(paper, THREE, surpriseBubble(FONT, C, L('You go here too?!', '¿Tú también estudias aquí?!')));
     himLine.name = 'you-go-here';
-    himLine.position.set(0.02, 1.58, 0.02);
+    // Above his head, a little toward the outer edge so it clears the gutter angle.
+    himLine.position.set(0.10, 1.66, 0.03);
     himHold.add(himLine);
 
     // Couple and ribbon share a valley angle. Text stays off the centre seam.
-    const coupleFold = track(popup.vFold({ z0: 0.10, gamma: RIBBON_G, width: 1.12, height: COUPLE_H }));
+    const coupleInfo = charInfo('school-couple');
+    const coupleW = coupleInfo ? coupleInfo.w * (COUPLE_H / coupleInfo.h) : 1.1;
+    const coupleFold = track(popup.vFold({ z0: 0.46, gamma: RIBBON_G, width: coupleW, height: COUPLE_H }));
     coupleFold.object.name = 'school-couple';
     const coupleL = holdOf(coupleFold.left, 'school-couple-l');
     const coupleR = holdOf(coupleFold.right, 'school-couple-r');
-    const coupleInfo = charInfo('school-couple');
     if (coupleInfo && characters && characters.canvas && characters.canvas('school-couple')) {
       const cut = paper.dieCut(characters.canvas('school-couple'), { margin: 8 });
       const cW = coupleInfo.w * (COUPLE_H / coupleInfo.h);
@@ -423,8 +449,12 @@ export default {
       { t: apart + 0.25, hold: 5.4, at: [-2.0, 0.95, 0.72], size: 2.3, from: 'front' },
       { t: cross + 0.5, hold: 5.6, at: [1.7, 1.25, -0.3], size: 4.2, from: 'right' },
       { t: collegeAt + 0.45, hold: 5.2, at: [1.4, 1.05, 0.15], size: 2.2, from: 'right' },
-      { t: schoolAt + 0.4, hold: 3.8, at: [1.75, 1.05, 0.28], size: 2.6, from: 'front' },
-      { t: fateAt + 0.5, hold: 5.2, at: [0.1, 0.95, 0.48], size: 3.4, from: 'front' },
+      // size 2.6 from the front still frames most of the book (the rig's front pad).
+      // A right-side close is the tightest shot that keeps both of them and his bubble.
+      { t: schoolAt + 0.35, hold: 3.6, at: [1.66, 1.22, 0.34], size: 1.9, from: 'right' },
+      // size 4 from the front reads as the whole spread. 2.15 is a two-shot the ribbon still fits.
+      { t: fateAt + 0.45, hold: 3.7, at: [0.02, 0.98, 0.48], size: 2.15, from: 'front' },
+      { t: fateAt + 4.6, hold: 1.35, at: [0, 1.15, 0], size: 7.5, from: 'front' },
     ];
 
     return {
@@ -483,13 +513,26 @@ export default {
         kernelA.position.y = 0.78 + Math.abs(Math.sin(t * 13)) * 0.18 * hop;
         kernelB.position.y = 0.74 + Math.abs(Math.sin(t * 13 + 1.1)) * 0.14 * hop;
 
-        if (flicker) flicker.material.opacity = cin * (0.05 + 0.16 * Math.abs(Math.sin(t * 8.5)));
+        const age = t - movies;
+        const reelAt = [0, 0.85, 1.6, 2.3];
+        const reelEnd = [0.85, 1.6, 2.3, 80];
+        const flick = 0.88 + 0.08 * Math.abs(Math.sin(t * 6.4)) + 0.04 * Math.abs(Math.sin(t * 15.7));
+        for (let i = 0; i < reels.length; i++) {
+          const fade = 0.16;
+          let w = smoothstep(reelAt[i], reelAt[i] + fade, age) * (1 - smoothstep(reelEnd[i] - fade, reelEnd[i], age));
+          if (w < 0) w = 0;
+          else if (w > 1) w = 1;
+          w *= flick;
+          reels[i].visible = w > 0.03;
+          reels[i].material.opacity = w;
+        }
+        if (flicker) flicker.material.opacity = cin * (0.03 + 0.06 * Math.abs(Math.sin(t * 8.5)));
 
         show(collegePivot, hall);
         const flutter = bump(t, cross + 4.3, 0.8);
         bannerHold.rotation.z = Math.sin(t * 1.35) * 0.012 * hall + flutter * 0.05;
         bannerHold.scale.set(hall * (1 + 0.035 * flutter), hall * (1 - 0.02 * flutter), hall > 0 ? 1 : 0);
-        setScale(bannerText, words, 1.42);
+        setScale(bannerText, words, 1.08);
         trees.rotation.z = Math.sin(t * 1.15) * 0.015 * yard;
         show(trees, yard);
         show(bike, yard);
@@ -606,6 +649,71 @@ function stamp(g, FONT, text, x, y, maxW, rot) {
   g.fillStyle = '#8d3a32';
   g.fillText(text, 0, 2);
   g.restore();
+}
+
+function paintReel(paper, FONT, kind) {
+  const W = 640;
+  const H = 400;
+  const { canvas, ctx } = paper.makeCanvas(W, H);
+  ctx.fillStyle = '#161311';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#f3ead7';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(28, 22, W - 56, H - 44);
+  ctx.lineWidth = 3;
+  ctx.strokeRect(42, 36, W - 84, H - 72);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const font = (n) => `${n}px ${FONT.display}`;
+  if (kind === 'title') {
+    reelHeart(ctx, W * 0.38, H * 0.30, 26, '#e2574c');
+    reelHeart(ctx, W * 0.62, H * 0.30, 26, '#e2574c');
+    const line = L('THE BEGINNING', 'EL COMIENZO');
+    const px = fitSize(ctx, line, font, 72, W * 0.78);
+    ctx.fillStyle = '#f6efe2';
+    ctx.font = font(px);
+    ctx.fillText(line, W / 2, H * 0.64);
+    ctx.strokeStyle = '#e7c56a';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(W * 0.30, H * 0.80);
+    ctx.lineTo(W * 0.70, H * 0.80);
+    ctx.stroke();
+  } else {
+    const cx = W / 2;
+    const cy = H / 2;
+    ctx.strokeStyle = '#f3ead7';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(cx, cy, H * 0.30, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - H * 0.38);
+    ctx.lineTo(cx, cy + H * 0.38);
+    ctx.moveTo(cx - W * 0.20, cy);
+    ctx.lineTo(cx + W * 0.20, cy);
+    ctx.stroke();
+    ctx.fillStyle = '#f6efe2';
+    ctx.font = font(148);
+    ctx.fillText(kind, cx, cy + 6);
+    ctx.font = font(26);
+    ctx.fillStyle = '#c8c0b4';
+    ctx.fillText(kind, W * 0.12, H * 0.16);
+  }
+  return canvas;
+}
+
+function reelHeart(ctx, x, y, r, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.beginPath();
+  ctx.moveTo(0, r * 0.85);
+  ctx.bezierCurveTo(-r * 1.35, -r * 0.1, -r * 0.5, -r * 1.15, 0, -r * 0.32);
+  ctx.bezierCurveTo(r * 0.5, -r * 1.15, r * 1.35, -r * 0.1, 0, r * 0.85);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
 }
 
 function letterMarquee(ctx, canvas, FONT, C) {

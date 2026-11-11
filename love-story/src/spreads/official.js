@@ -12,9 +12,9 @@ const CAL_WIDE = 1.12;
 const CAL_GAMMA = 1.66;
 const CAL_Z0 = -0.86;
 const COUPLE_H = 1.64;
-const KISS_H = 1.6;
+const KISS_H = 1.66;
 const ARCH_H = 1.74;
-const VIGNETTE_H = 1.2;
+const VIGNETTE_H = 1.22;
 const OPEN = 0.985;
 const SEAT = 0.012;
 const POSES = ['official-hands', 'official-banter'];
@@ -266,7 +266,7 @@ export default {
       THREE, FONT, C,
     });
     const work = stageActor(track, popup, characterArt, paper, characters, figures, {
-      id: 'vest-chat', height: 1.16, side: 'right', x: 2.48, z: 0.7,
+      id: 'vest-chat', height: VIGNETTE_H, side: 'right', x: 2.48, z: 0.7,
       tag: L('work together', 'al trabajo juntos'),
       fallback: { who: 'him', outfit: 'vest', pose: 'stand', facing: 'left' },
       THREE, FONT, C,
@@ -317,12 +317,21 @@ export default {
     // closed-book angle test). The drawing itself is shifted back toward centre.
     const kissWrap = new THREE.Group();
     kissWrap.name = 'first-kiss';
-    kissWrap.position.set(0.55, 0.02, 0.98);
+    // Collapsed origin stays on the right page. The drawing is shifted so its
+    // centre sits under the heart arch, in front of it.
+    kissWrap.position.set(0.55, 0.02, 0.96);
     group.add(kissWrap);
     const kissCard = mountFree(kissWrap, characterArt, paper, characters, figures, 'first-kiss', KISS_H, {
       who: 'her', outfit: 'casual', pose: 'stand', facing: 'right',
     });
-    if (kissCard) kissCard.position.x = 0.18 - 0.55;
+    const kissMeta = hasPose('first-kiss') ? characters.info('first-kiss') : null;
+    const archCenterX = 0.04;
+    let kissFeetX = archCenterX;
+    if (kissMeta) {
+      const s = KISS_H / kissMeta.h;
+      kissFeetX = archCenterX - ((kissMeta.w / 2) - kissMeta.feet[0]) * s;
+    }
+    if (kissCard) kissCard.position.x = kissFeetX - 0.55;
 
     const archWrap = new THREE.Group();
     archWrap.name = 'heart-arch';
@@ -357,10 +366,12 @@ export default {
       }
     }
 
-    const glow = new THREE.PointLight('#ffd0c4', 0, 7.2, 2);
+    // Far and weak, so the kiss drawing keeps its own colours. A light parked
+    // on the card washed the upper bodies out to white.
+    const glow = new THREE.PointLight('#ffd0c4', 0, 14, 2);
     glow.name = 'official-glow';
     glow.castShadow = false;
-    glow.position.set(0.1, 1.15, 1.15);
+    glow.position.set(0.15, 3.7, -1.85);
     group.add(glow);
 
     const bits = new THREE.Group();
@@ -373,10 +384,8 @@ export default {
     const pose = { hands: frameCards[0] || null, banter: frameCards[1] || null };
     const visual = refMeta ? ((refMeta.w / 2) - refMeta.feet[0]) * (COUPLE_H / refMeta.h) : -0.2;
     const coupleAimX = -coupleX + visual;
-    const kissMeta = hasPose('first-kiss') ? characters.info('first-kiss') : null;
-    const kissAimX = kissMeta
-      ? 0.18 + ((kissMeta.w / 2) - kissMeta.feet[0]) * (KISS_H / kissMeta.h)
-      : 0.06;
+    const kissAimX = archCenterX;
+    const kissArrive = kissAt + 0.38;
 
     return {
       group,
@@ -388,17 +397,24 @@ export default {
         { t: officialAt + 0.28, hold: 2.45, at: [coupleAimX, 1.12, coupleZ], size: 2.35, from: 'front' },
         { t: alreadyAt + 0.3, hold: 3.7, at: [coupleAimX, 1.42, coupleZ], size: 2.55, from: 'front' },
         {
-          t: schoolAt + 0.35,
-          hold: 3.15,
-          at: [0.05, 0.95, 0.2],
-          size: 5.3,
+          t: schoolAt + 0.28,
+          hold: 1.55,
+          at: [-school.x + 0.42, 1.02, school.z],
+          size: 1.9,
           from: 'front',
         },
         {
-          t: kissAt + 0.45,
-          hold: Math.max(0.8, kissHoldEnd - (kissAt + 0.45)),
-          at: [kissAimX, 1.18, 0.72],
-          size: 2.55,
+          t: workAt + 0.28,
+          hold: 2.05,
+          at: [work.x - 0.28, 1.02, work.z],
+          size: 1.9,
+          from: 'front',
+        },
+        {
+          t: kissArrive,
+          hold: Math.max(1.2, kissHoldEnd - kissArrive),
+          at: [kissAimX, 1.02, 0.84],
+          size: 2.2,
           from: 'front',
         },
       ],
@@ -419,6 +435,11 @@ export default {
         if (pose.hands) pose.hands.scale.set(sx, sy, 1);
         if (pose.banter) pose.banter.scale.set(sx, sy, 1);
         coupleWrap.position.y = gate * hop * 0.06;
+        // One hero at a time: the earlier couple folds away just before the kiss.
+        let away = smoothstep(kissAt - 0.58, kissAt + 0.02, t);
+        away = away * away;
+        const live = gate * (1 - away);
+        coupleWrap.scale.set(live, live, live > 0 ? 1 : 0);
 
         const sway = gate * Math.sin(t * 1.25) * 0.012;
         posePop(garWrap, t, kissAt + 0.05, 0.55, gate, ease);
@@ -447,8 +468,8 @@ export default {
         if (school.wrap) school.wrap.position.y = gate * Math.sin(t * 1.7 + 0.4) * 0.01;
         if (work.wrap) work.wrap.position.y = gate * Math.sin(t * 1.55 + 1.2) * 0.01;
 
-        posePop(archWrap, t, kissAt + 0.12, 0.42, gate, ease);
-        posePop(kissWrap, t, kissAt + 0.22, 0.4, gate, ease);
+        posePop(archWrap, t, kissAt - 0.08, 0.42, gate, ease);
+        posePop(kissWrap, t, kissAt - 0.02, 0.46, gate, ease);
         const kissBreathe = 1 + gate * Math.sin(t * 1.3) * 0.012;
         if (kissWrap.scale.x > 0.2) kissWrap.scale.multiplyScalar(kissBreathe);
 
@@ -458,9 +479,9 @@ export default {
         const rose = smoothstep(kissAt, kissAt + 0.7, t);
         const warm = smoothstep(officialAt, officialAt + 0.45, t);
         glow.color.r = 1;
-        glow.color.g = 0.82 - 0.22 * rose;
-        glow.color.b = 0.77 - 0.22 * rose;
-        glow.intensity = risen * (0.35 + 0.4 * warm + 1.05 * rose);
+        glow.color.g = 0.84 - 0.06 * rose;
+        glow.color.b = 0.78 - 0.06 * rose;
+        glow.intensity = risen * (1.6 + 1.1 * warm + 1.4 * rose);
       },
     };
   },
@@ -580,63 +601,59 @@ function pill(ctx, x, y, w, h, fill) {
 }
 
 function letterLeft(ctx, w, h, FONT, C) {
-  ctx.save();
+  // Far edge, left of the couple and clear of the school card's shadow.
   const text = L('finally official!', '¡por fin oficial!');
+  paintFloorLine(ctx, w, h, FONT, C, text, w * 0.40, h * 0.085, w * 0.46);
+}
+
+function letterRight(ctx, w, h, FONT, C) {
+  // Far edge of the right page, beside the bouquet rather than under it.
+  const text = L('relationship status: ✓ taken', 'estado: ✓ en una relación');
+  paintFloorLine(ctx, w, h, FONT, C, text, w * 0.58, h * 0.085, w * 0.62);
+}
+
+function paintFloorLine(ctx, w, h, FONT, C, text, x, y, maxW) {
+  ctx.save();
   const hand = (size) => `700 ${size}px ${FONT.hand}`;
-  const px = fitSize(ctx, text, hand, Math.round(h * 0.07), w * 0.42);
+  const words = text.split(' ');
+  let lines = [text];
+  let px = fitSize(ctx, text, hand, Math.round(h * 0.052), maxW);
   ctx.font = hand(px);
-  const tw = ctx.measureText(text).width;
-  const x = w * 0.22;
-  const y = h * 0.40;
-  pill(ctx, x, y, tw + px * 1.5, px * 1.7, 'rgba(246, 237, 217, 0.94)');
+  if (ctx.measureText(text).width > maxW && words.length > 2) {
+    let best = 1;
+    let bestD = 1e9;
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(' ');
+      const b = words.slice(i).join(' ');
+      const d = Math.abs(a.length - b.length);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    lines = [words.slice(0, best).join(' '), words.slice(best).join(' ')];
+    px = Math.min(
+      fitSize(ctx, lines[0], hand, Math.round(h * 0.048), maxW),
+      fitSize(ctx, lines[1], hand, Math.round(h * 0.048), maxW),
+    );
+  }
+  ctx.font = hand(px);
+  let widest = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const tw = ctx.measureText(lines[i]).width;
+    if (tw > widest) widest = tw;
+  }
+  const lineH = px * 1.15;
+  const blockH = lineH * lines.length;
+  pill(ctx, x, y, widest + px * 1.35, blockH + px * 0.55, 'rgba(246, 237, 217, 0.94)');
   ctx.fillStyle = C.ink;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = hand(px);
-  ctx.fillText(text, x, y + px * 0.06);
-  ctx.strokeStyle = C.tomato;
-  ctx.lineWidth = Math.max(3, px * 0.12);
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(x + tw * 0.55, y);
-  ctx.quadraticCurveTo(x + tw * 0.85, y - px * 0.9, x + tw * 0.95, y - px * 0.15);
-  ctx.stroke();
+  const y0 = y - blockH / 2 + lineH / 2;
+  for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], x, y0 + i * lineH + px * 0.04);
   ctx.restore();
-}
-
-function letterRight(ctx, w, h, FONT, C) {
-  ctx.save();
-  const text = L('relationship status', 'estado de la relación');
-  const x = w * 0.50;
-  const y = h * 0.68;
-  const font = (size) => `700 ${size}px ${FONT.hand}`;
-  const px = fitSize(ctx, text, font, Math.round(h * 0.062), w * 0.46);
-  ctx.font = font(px);
-  const tw = ctx.measureText(text).width;
-  const box = px * 1.15;
-  const total = tw + box * 1.55;
-  pill(ctx, x, y, total + px, px * 2.05, 'rgba(246, 237, 217, 0.94)');
-  ctx.fillStyle = C.ink;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.font = font(px);
-  const textX = x - total / 2;
-  ctx.fillText(text, textX, y + px * 0.06);
-  const bx = textX + tw + box * 0.85;
-  const by = y;
-  ctx.strokeStyle = C.ink;
-  ctx.lineWidth = Math.max(2.5, px * 0.08);
-  ctx.strokeRect(bx - box / 2, by - box / 2, box, box);
-  ctx.strokeStyle = C.tomato;
-  ctx.lineWidth = Math.max(3, px * 0.12);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(bx - box * 0.28, by + box * 0.02);
-  ctx.lineTo(bx - box * 0.05, by + box * 0.28);
-  ctx.lineTo(bx + box * 0.32, by - box * 0.26);
-  ctx.stroke();
-  ctx.restore();
+  void w;
 }
 
 function doodleFloor(ctx, w, h, rng, C, gutterRight) {
