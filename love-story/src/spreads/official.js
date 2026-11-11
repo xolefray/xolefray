@@ -1,19 +1,22 @@
-// Spread 3 — "February 7, 2024". The day they made it official; he swears they already were.
-// Pop-up picture book. Times come from timeline.BEATS / SPREADS (never written as literals).
-// Drawings: characters official-hands / official-banter and love-story/art/official/.
-// update() allocates nothing. Free pieces (bubbles, confetti, dust, garland sway) stay
-// collapsed unless the book is fully open, so a half-turned page never carries them out.
+// Spread 5 — "February 7, 2024". Official, the banter, school and work, the first kiss.
+// Times come from timeline.BEATS / SPREADS / NARRATION. Every on-screen word goes through L().
+// Drawings: official-hands, official-banter, school-couple, vest-chat, first-kiss,
+// and love-story/art/official/ (calendar, heart-arch, valentine-cards, garland, props).
+// update() allocates nothing. Anything that is not a folding stand-up or the calendar
+// stays collapsed unless the spread is fully open, so a turning page never carries it out.
+import { L } from '../i18n.js';
 import { PAGE_W } from '../dims.js';
 
-const CAL_H = 2.3;
-const CAL_WIDE = 1.16; // wider than the drawing, so the date reads across the spread
-const CAL_GAMMA = 1.66; // mountain, close to flat so the page faces the reader
-const CAL_Z0 = -0.84;
-const COUPLE_H = 1.7;
-const GAR_H = 0.86;
-const OPEN = 0.985; // α/π above which free pieces may leave their card plane
-const SEAT = 0.012; // plane bottoms sit this far above the hinge so y stays ≥ −0.03
-
+const CAL_H = 2.26;
+const CAL_WIDE = 1.12;
+const CAL_GAMMA = 1.66;
+const CAL_Z0 = -0.86;
+const COUPLE_H = 1.64;
+const KISS_H = 1.6;
+const ARCH_H = 1.74;
+const VIGNETTE_H = 1.2;
+const OPEN = 0.985;
+const SEAT = 0.012;
 const POSES = ['official-hands', 'official-banter'];
 
 function bump(t, at) {
@@ -36,11 +39,10 @@ function fitSize(ctx, text, font, px, maxW) {
   let size = px;
   ctx.font = font(size);
   const w = ctx.measureText(text).width;
-  if (w > maxW) size *= maxW / w;
+  if (w > maxW && w > 0) size *= maxW / w;
   return size;
 }
 
-/** Feet-origin extents of a character card (the plane, not the opaque silhouette). */
 function extents(meta, height) {
   const s = height / meta.h;
   return {
@@ -49,45 +51,53 @@ function extents(meta, height) {
     maxX: (meta.w - meta.feet[0]) * s,
     dip: (meta.h - meta.feet[1]) * s,
     width: meta.w * s,
-    top: height - SEAT,
   };
 }
 
-function seat(card, ext) {
-  card.position.y = ext.dip - SEAT;
+/** Plane bottom near the hinge. Feet sit up by the transparent padding under them. */
+function seatStand(card, meta, height) {
+  card.position.y = (meta.h - meta.feet[1]) * (height / meta.h) - SEAT;
 }
 
 export default {
   id: 'official',
-  title: 'February 7, 2024',
+  title: L('February 7, 2024', '7 de febrero de 2024'),
   build(ctx) {
     const { THREE, paper, popup, rng, figures, FONT, timeline, characters, characterArt, art } = ctx;
-    const { BEATS, SPREADS, smoothstep, ease } = timeline;
+    const { BEATS, SPREADS, NARRATION, smoothstep, ease } = timeline;
     const spread = SPREADS.find((s) => s.id === 'official');
+    const kissLine = NARRATION.find((n) => n.id === 'o4');
     const C = paper.PALETTES.scrapbook;
     const group = new THREE.Group();
     group.name = 'official';
 
     const has = (id) => !!(art && art.has && art.has(id));
     const info = (id) => (has(id) ? art.info(id) : null);
+    const hasPose = (id) => !!(characters && characters.has && characters.has(id));
 
     const calendarAt = BEATS.calendar;
     const officialAt = BEATS.official;
     const alreadyAt = BEATS.alreadyDating;
-    const herAt = alreadyAt + 1.2;
+    const schoolAt = BEATS.schoolTogether;
+    const workAt = BEATS.workTogether;
+    const kissAt = BEATS.firstKiss;
+    const herAt = alreadyAt + 1.15;
+    const kissHoldEnd = Math.min(kissLine ? kissLine.end : spread.close - 1.2, spread.close - 0.55);
 
     // ---------------------------------------------------------------- pages
     let leftArt;
     let rightArt;
     if (has('page-left') && has('page-right')) {
-      const L = cloneCanvas(paper, art.canvas('page-left'));
-      leftArt = L.canvas;
-      const R = cloneCanvas(paper, art.canvas('page-right'));
-      letterRight(R.ctx, R.canvas.width, R.canvas.height, FONT, C);
-      rightArt = R.canvas;
+      const left = cloneCanvas(paper, art.canvas('page-left'));
+      letterLeft(left.ctx, left.canvas.width, left.canvas.height, FONT, C);
+      leftArt = left.canvas;
+      const right = cloneCanvas(paper, art.canvas('page-right'));
+      letterRight(right.ctx, right.canvas.width, right.canvas.height, FONT, C);
+      rightArt = right.canvas;
     } else {
       leftArt = paper.page((c, w, h) => {
         doodleFloor(c, w, h, rng, C, false);
+        letterLeft(c, w, h, FONT, C);
       }, { seed: 3, tint: '#f7dcd6' });
       rightArt = paper.page((c, w, h) => {
         doodleFloor(c, w, h, rng, C, true);
@@ -95,7 +105,6 @@ export default {
       }, { seed: 4, tint: C.cream });
     }
 
-    // ---------------------------------------------------------------- mechanisms
     const mechanisms = [];
     const track = (m) => {
       mechanisms.push(m);
@@ -103,133 +112,96 @@ export default {
       return m;
     };
 
-    // Giant tear-off calendar. Mountain V so it faces the reader. Month word lives on the
-    // left half of the header, the 7 and the year on the right, so the crease never cuts a glyph.
+    // ---------------------------------------------------------------- calendar (mountain V, faces the reader)
     const calInfo = info('calendar');
     const calW = CAL_H * ((calInfo ? calInfo.w : 789) / (calInfo ? calInfo.h : 817)) * CAL_WIDE;
     const calendar = track(popup.vFold({ z0: CAL_Z0, gamma: CAL_GAMMA, width: calW, height: CAL_H }));
 
-    let calCanvas;
-    if (calInfo) {
-      const painted = cloneCanvas(paper, art.canvas('calendar'));
-      letterCalendar(painted.ctx, painted.canvas.width, painted.canvas.height, FONT, C);
-      calCanvas = paper.dieCut(painted.canvas, { margin: 6 });
-    } else {
-      calCanvas = paper.paint(789, 817, (c, w, h) => {
-        c.fillStyle = C.cream;
-        c.fillRect(8, 8, w - 16, h - 16);
-        c.fillStyle = C.tomato;
-        c.fillRect(8, 8, w - 16, h * 0.16);
-        letterCalendar(c, w, h, FONT, C);
-      }, { dieCut: 6, seed: 3, grain: 0.04 });
-    }
-    const halves = paper.splitCard({ canvas: calCanvas, width: calW, height: CAL_H });
-    halves.left.name = 'calendar-left';
-    halves.right.name = 'calendar-right';
-    calendar.left.add(halves.left);
-    calendar.right.add(halves.right);
+    const paintSheet = (mode) => {
+      let canvas;
+      if (calInfo) {
+        const painted = cloneCanvas(paper, art.canvas('calendar'));
+        letterCalendar(painted.ctx, painted.canvas.width, painted.canvas.height, FONT, C, mode);
+        canvas = paper.dieCut(painted.canvas, { margin: 6 });
+      } else {
+        canvas = paper.paint(789, 817, (c, w, h) => {
+          c.fillStyle = C.cream;
+          c.fillRect(8, 8, w - 16, h - 16);
+          c.fillStyle = C.tomato;
+          c.fillRect(8, 8, w - 16, h * 0.15);
+          letterCalendar(c, w, h, FONT, C, mode);
+        }, { dieCut: 6, seed: mode === 'seven' ? 3 : 4, grain: 0.04 });
+      }
+      return paper.splitCard({ canvas, width: calW, height: CAL_H });
+    };
 
-    // Hand-drawn heart that draws itself around the 7 (right half). Every vertex stays
-    // inside that half — setDrawRange hides the stroke, it does not delete it.
+    const under = paintSheet('fourteen');
+    under.left.name = 'sheet14-left';
+    under.right.name = 'sheet14-right';
+    calendar.left.add(under.left);
+    calendar.right.add(under.right);
+
+    const top = paintSheet('seven');
+    const sheetL = new THREE.Group();
+    const sheetR = new THREE.Group();
+    sheetL.name = 'sheet7-left';
+    sheetR.name = 'sheet7-right';
+    sheetL.position.z = 0.012;
+    sheetR.position.z = 0.012;
+    sheetL.add(top.left);
+    sheetR.add(top.right);
+    calendar.left.add(sheetL);
+    calendar.right.add(sheetR);
+
     const dayX = (0.74 - 0.5) * calW;
-    const dayY = (1 - 0.43) * CAL_H;
-    const heart = heartRibbon(THREE, dayX, dayY, 0.38, 0.50, 0.028, '#b4232c');
-    heart.mesh.position.z = 0.012;
+    const dayY = (1 - 0.46) * CAL_H;
+    const heart = heartRibbon(THREE, dayX, dayY, 0.36, 0.48, 0.026, '#b4232c');
+    heart.mesh.position.z = 0.008;
     heart.mesh.name = 'heart-circle';
-    calendar.right.add(heart.mesh);
+    sheetR.add(heart.mesh);
 
-    // Wax "OFFICIAL" stamp on the left half, clear of the crease. Thumps on the beat.
-    const stampX = (0.28 - 0.5) * calW;
-    const stampY = (1 - 0.56) * CAL_H;
-    const STAMP = 0.52;
+    const stampX = (0.30 - 0.5) * calW;
+    const stampY = (1 - 0.58) * CAL_H;
+    const STAMP = 0.5;
     const stamp = stampMesh(THREE, paper, FONT, STAMP);
-    stamp.position.set(stampX, stampY, 0.01);
+    stamp.position.set(stampX, stampY, 0.008);
     stamp.name = 'stamp';
-    calendar.left.add(stamp);
+    sheetL.add(stamp);
+    // Dust is parented to the stamp so a closed page collapses it to the stamp centre.
+    const dust = dustPuffs(THREE, paper);
+    for (let i = 0; i < dust.length; i++) stamp.add(dust[i].mesh);
 
-    const dust = dustPuffs(THREE, paper, stampX, stampY);
-    for (let i = 0; i < dust.length; i++) calendar.left.add(dust[i].mesh);
+    // Garland hangs above the calendar. It is a free card: scale 0 keeps it on the
+    // right page until the book is open, then it swings up over the kiss.
 
-    // ---------------------------------------------------------------- garland (one strict standUp per page, far back, z-clear of the calendar)
-    const garMeta = info('garland');
-    const garSrcW = garMeta ? garMeta.w : 1024;
-    const garSrcH = garMeta ? garMeta.h : 195;
-    const garW = GAR_H * ((garSrcW / 2) / garSrcH);
-    // Loose stand-up: a short banner may sit nearer the gutter than the strict rule.
-    const garX = garW / 2 + GAR_H * 0.5 + 0.12;
-    const garZ = -0.42;
-    const garlandL = track(popup.standUp({
-      side: 'left', x: garX, z: garZ, fold: 'back', width: garW, height: GAR_H,
-    }));
-    const garlandR = track(popup.standUp({
-      side: 'right', x: garX, z: garZ, fold: 'back', width: garW, height: GAR_H,
-    }));
-    const garRigL = new THREE.Group();
-    garRigL.name = 'garland-left';
-    const garRigR = new THREE.Group();
-    garRigR.name = 'garland-right';
-    garlandL.mount.add(garRigL);
-    garlandR.mount.add(garRigR);
-
-    if (garMeta) {
-      const src = art.canvas('garland');
-      const leftHalf = cropHalf(paper, src, -1);
-      const rightHalf = cropHalf(paper, src, 1);
-      const cardL = paper.card({
-        canvas: paper.dieCut(leftHalf, { margin: 4 }),
-        width: garW, height: GAR_H, anchor: 'bottom-center',
-      });
-      const cardR = paper.card({
-        canvas: paper.dieCut(rightHalf, { margin: 4 }),
-        width: garW, height: GAR_H, anchor: 'bottom-center',
-      });
-      cardL.name = 'garland-card-left';
-      cardR.name = 'garland-card-right';
-      garRigL.add(cardL);
-      garRigR.add(cardR);
-    } else {
-      garRigL.add(fallbackGarland(paper, THREE, garW, GAR_H, C, -1));
-      garRigR.add(fallbackGarland(paper, THREE, garW, GAR_H, C, 1));
-    }
-    const postH = GAR_H - 0.07;
-    mountPost(characterArt, paper, art, figures, garRigL, postH, garW, -1);
-    mountPost(characterArt, paper, art, figures, garRigR, postH, garW, 1);
-
-    // ---------------------------------------------------------------- couple, left page, as close to the calendar as a strict standUp allows
-    const refMeta = characters && characters.has && characters.has(POSES[0]) ? characters.info(POSES[0]) : null;
-    const banterMeta = characters && characters.has && characters.has(POSES[1]) ? characters.info(POSES[1]) : null;
-    let gutterReach = 0.23;
-    let outerReach = 0.76;
+    // ---------------------------------------------------------------- the couple, left page, in front of the calendar
+    const refMeta = hasPose(POSES[0]) ? characters.info(POSES[0]) : null;
+    const banterMeta = hasPose(POSES[1]) ? characters.info(POSES[1]) : null;
+    let gutterReach = 0.24;
     if (refMeta) {
       const a = extents(refMeta, COUPLE_H);
       const b = banterMeta ? extents(banterMeta, COUPLE_H) : a;
       gutterReach = Math.max(a.maxX, b.maxX);
-      outerReach = Math.max(-a.minX, -b.minX);
     }
-    // Loose stand-up (height ≤ 2·edge). The pop can stretch them ~10%, so the hinge
-    // sits just far enough out that the gutter-side corner still clears the facing page.
-    const popScale = 1.1;
-    const coupleX = gutterReach * popScale + (COUPLE_H * popScale) * 0.5 + 0.08;
-    const coupleZ = 0.72;
-    // Check width is the gutter-side reach. The drawing sits outward of the hinge.
-    const coupleW = gutterReach * 2;
+    const popScale = 1.08;
+    const coupleX = gutterReach * popScale + COUPLE_H * popScale * 0.5 + 0.1;
+    const coupleZ = 0.76;
     const couple = track(popup.standUp({
-      side: 'left', x: coupleX, z: coupleZ, fold: 'back', width: coupleW, height: COUPLE_H,
+      side: 'left', x: coupleX, z: coupleZ, fold: 'back',
+      width: gutterReach * 2, height: COUPLE_H,
     }));
-    const coupleMount = couple.mount;
-    coupleMount.name = 'couple';
+    const coupleWrap = new THREE.Group();
+    coupleWrap.name = 'couple';
+    couple.mount.add(coupleWrap);
 
-    const flip = refMeta
-      ? characterArt.characterFlip(paper, characters, POSES, { height: COUPLE_H })
-      : null;
     const frameCards = [];
-    if (flip) {
-      coupleMount.add(flip.group);
+    if (refMeta) {
+      const flip = characterArt.characterFlip(paper, characters, POSES, { height: COUPLE_H });
+      coupleWrap.add(flip.group);
       const ref = characters.info(POSES[0]);
       for (let i = 0; i < flip.group.children.length && i < POSES.length; i++) {
         const card = flip.group.children[i];
         const meta = characters.info(POSES[i]);
-        // Shared pixel scale (frame 0). Re-seat on this frame's own feet.
         const s = COUPLE_H / ref.h;
         card.position.y = (meta.h - meta.feet[1]) * s - SEAT;
         card.name = POSES[i];
@@ -238,83 +210,159 @@ export default {
     } else {
       const rig = new THREE.Group();
       rig.name = 'couple-fallback';
-      coupleMount.add(rig);
+      coupleWrap.add(rig);
       const add = (who, pose, x, facing) => {
         let card = null;
         try {
-          card = figures.figureCard(paper, who, { outfit: 'casual', pose, facing, scale: 1.15 });
+          card = figures.figureCard(paper, who, { outfit: 'casual', pose, facing, scale: 1.1 });
         } catch {
           card = null;
         }
         if (!card) return null;
         card.position.x = x;
-        if (card.userData && card.userData.baseline) card.position.y = -card.userData.baseline;
         card.name = `${who}-${pose}`;
         rig.add(card);
         return card;
       };
-      frameCards.push(add('her', 'holdHandsL', -0.34, 'right'), add('him', 'holdHandsR', 0.16, 'left'));
+      frameCards.push(add('her', 'holdHandsL', -0.32, 'right'), add('him', 'holdHandsR', 0.18, 'left'));
     }
 
+    const himText = L('I thought we were\nalready dating!', '¡Yo creía que\nya éramos novios!').split('\n');
+    const herText = L('…sure.', '…ajá.');
     const himBubble = speechBubble(THREE, paper, FONT, C, {
-      w: 520, h: 250,
+      w: 760, h: 340,
       lines: [
-        { text: 'we were', font: 'hand', px: 0.22, color: C.ink, dy: -0.16 },
-        { text: 'ALREADY dating.', font: 'display', px: 0.20, color: C.tomato, dy: 0.16 },
-      ],
-      tail: 'left',
-    });
-    himBubble.name = 'bubble-him';
-    // Centre of the plane. Above his head and his raised finger, clear of her bubble.
-    himBubble.position.set(0.16, 2.02, 0.02);
-    coupleMount.add(himBubble);
-    const HIM_W = 0.92;
-    const HIM_H = 0.44;
-
-    const herBubble = speechBubble(THREE, paper, FONT, C, {
-      w: 300, h: 180,
-      lines: [
-        { text: '...sure.', font: 'hand', px: 0.34, color: C.ink, dy: 0.02 },
+        { text: himText[0] || '', font: 'hand', px: 0.20, color: C.ink, dy: -0.2 },
+        { text: himText[1] || '', font: 'display', px: 0.18, color: C.tomato, dy: 0.2 },
       ],
       tail: 'right',
     });
+    // Bubbles live in a rig at the feet. Scaling the rig (not the bubble) collapses
+    // them onto the hinge, which stays inside the page while it turns.
+    // His bubble sits left of the calendar so FEBRUARY stays readable.
+    const bubbleRig = new THREE.Group();
+    bubbleRig.name = 'bubbles';
+    coupleWrap.add(bubbleRig);
+    himBubble.name = 'bubble-him';
+    himBubble.position.set(-0.52, 2.14, 0.03);
+    himBubble.scale.set(1.08, 0.50, 1);
+    bubbleRig.add(himBubble);
+
+    const herBubble = speechBubble(THREE, paper, FONT, C, {
+      w: 380, h: 200,
+      lines: [{ text: herText, font: 'hand', px: 0.42, color: C.ink, dy: 0.02 }],
+      tail: 'right',
+    });
     herBubble.name = 'bubble-her';
-    herBubble.position.set(-0.70, 1.86, 0.02);
-    coupleMount.add(herBubble);
-    const HER_W = 0.52;
-    const HER_H = 0.32;
+    herBubble.position.set(-1.18, 1.92, 0.03);
+    herBubble.scale.set(0.58, 0.30, 1);
+    bubbleRig.add(herBubble);
 
-    const glow = new THREE.PointLight('#ffd0c0', 0, 6.5, 2);
-    glow.name = 'official-glow';
-    glow.castShadow = false;
-    glow.position.set(-0.05, 1.15, 0.2);
-    coupleMount.add(glow);
+    // ---------------------------------------------------------------- vignettes (scale 0 until their beat; the stand-up still folds flat)
+    const school = stageActor(track, popup, characterArt, paper, characters, figures, {
+      id: 'school-couple', height: VIGNETTE_H, side: 'left', x: 2.82, z: 0.18,
+      tag: L('school together', 'a la escuela juntos'),
+      fallback: { who: 'her', outfit: 'school', pose: 'stand', facing: 'right' },
+      THREE, FONT, C,
+    });
+    const work = stageActor(track, popup, characterArt, paper, characters, figures, {
+      id: 'vest-chat', height: 1.16, side: 'right', x: 2.48, z: 0.7,
+      tag: L('work together', 'al trabajo juntos'),
+      fallback: { who: 'him', outfit: 'vest', pose: 'stand', facing: 'left' },
+      THREE, FONT, C,
+    });
 
-    // Mid-ground and foreground on both pages. x is clamped to the loose stand-up
-    // rule using the drawing's real gutter reach, not a centred width.
+    // ---------------------------------------------------------------- props, both pages
     const stageProp = (id, side, height, z, xWant, fallback) => {
-      const ext = propExtents(info(id), fallback[0], fallback[1], fallback[2], height);
-      const minX = ext.gutter + height * 0.5 + 0.07;
-      const maxX = PAGE_W - ext.outer - 0.05;
+      const meta = info(id);
+      const e = meta ? extents(meta, height) : null;
+      const toward = e ? (side === 'left' ? e.maxX : -e.minX) : height * 0.45;
+      const away = e ? (side === 'left' ? -e.minX : e.maxX) : height * 0.45;
+      const minX = toward + height * 0.5 + 0.08;
+      const maxX = PAGE_W - away - 0.05;
       let x = xWant < minX ? minX : xWant;
       if (x > maxX) x = maxX;
-      const zMin = height - 1.45;
+      const zMin = height - 1.46;
       let zz = z < zMin ? zMin : z;
-      if (zz > 1.42) zz = 1.42;
+      if (zz > 1.4) zz = 1.4;
       const stand = track(popup.standUp({
-        side, x, z: zz, fold: 'back', width: ext.width, height,
+        side, x, z: zz, fold: 'back', width: (e ? e.width : height), height,
       }));
-      addProp(characterArt, paper, art, figures, stand.mount, id, height, ext);
+      const wrap = new THREE.Group();
+      wrap.name = id;
+      stand.mount.add(wrap);
+      if (meta) {
+        const card = characterArt.characterCard(paper, art, id, { height });
+        if (card) {
+          seatStand(card, meta, height);
+          card.name = id;
+          wrap.add(card);
+        }
+      } else {
+        wrap.add(fallbackProp(paper, id, e ? e.width : height * 0.8, height));
+      }
+      return wrap;
     };
-    stageProp('heart-stick', 'left', 1.5, 0.2, 2.48, [561, 959, 284]);
-    stageProp('candle-table', 'left', 1.12, 0.98, 2.88, [765, 586, 388.5]);
-    stageProp('envelope-pile', 'right', 1.15, 0.4, 1.88, [835, 597, 441.5]);
-    stageProp('heart-balloons', 'right', 1.65, 0.22, 2.52, [672, 1024, 337.5]);
-    stageProp('photo-booth-strip', 'right', 1.58, 0.52, 3.22, [367, 1024, 183.5]);
-    stageProp('bouquet', 'right', 1.02, 1.05, 1.72, [687, 933, 341]);
-    stageProp('confetti-cluster', 'right', 0.9, 1.12, 2.58, [769, 678, 399.5]);
+    stageProp('heart-stick', 'left', 1.38, 0.02, 3.12, null);
+    stageProp('candle-table', 'left', 0.98, 1.18, 3.05, null);
+    const valentine = stageProp('valentine-cards', 'left', 0.56, 1.32, 1.9, null);
+    stageProp('envelope-pile', 'right', 1.02, 0.28, 1.72, null);
+    stageProp('heart-balloons', 'right', 1.48, 0.04, 3.12, null);
+    stageProp('photo-booth-strip', 'right', 1.32, 0.48, 3.38, null);
+    stageProp('bouquet', 'right', 0.9, 1.22, 1.42, null);
+    stageProp('confetti-cluster', 'right', 0.72, 1.28, 2.35, null);
 
-    // ---------------------------------------------------------------- drifting hearts + the official-beat tumble (scaled away unless fully open)
+    // ---------------------------------------------------------------- kiss hero + heart arch (spread-space; collapsed unless fully open)
+    // Collapsed origin stays on the right page (a point near the gutter fails the
+    // closed-book angle test). The drawing itself is shifted back toward centre.
+    const kissWrap = new THREE.Group();
+    kissWrap.name = 'first-kiss';
+    kissWrap.position.set(0.55, 0.02, 0.98);
+    group.add(kissWrap);
+    const kissCard = mountFree(kissWrap, characterArt, paper, characters, figures, 'first-kiss', KISS_H, {
+      who: 'her', outfit: 'casual', pose: 'stand', facing: 'right',
+    });
+    if (kissCard) kissCard.position.x = 0.18 - 0.55;
+
+    const archWrap = new THREE.Group();
+    archWrap.name = 'heart-arch';
+    archWrap.position.set(0.55, 0.02, 0.26);
+    group.add(archWrap);
+    if (has('heart-arch')) {
+      const card = characterArt.characterCard(paper, art, 'heart-arch', { height: ARCH_H });
+      if (card) {
+        const meta = art.info('heart-arch');
+        const pad = (meta.h - meta.feet[1]) * (ARCH_H / meta.h);
+        card.position.set(0.04 - 0.55, Math.max(0, pad - 0.03), 0);
+        card.name = 'heart-arch';
+        archWrap.add(card);
+      }
+    }
+
+    const GAR_SHOW = 0.52;
+    const garWrap = new THREE.Group();
+    garWrap.name = 'garland';
+    garWrap.position.set(0.55, 0.02, 0.42);
+    group.add(garWrap);
+    if (has('garland')) {
+      const card = characterArt.characterCard(paper, art, 'garland', { height: GAR_SHOW });
+      if (card) {
+        const meta = art.info('garland');
+        const s = GAR_SHOW / meta.h;
+        const pad = (meta.h - meta.feet[1]) * s;
+        const centre = ((meta.w / 2) - meta.feet[0]) * s;
+        card.position.set(-centre - 0.55, 2.82 + pad, 0);
+        card.name = 'garland';
+        garWrap.add(card);
+      }
+    }
+
+    const glow = new THREE.PointLight('#ffd0c4', 0, 7.2, 2);
+    glow.name = 'official-glow';
+    glow.castShadow = false;
+    glow.position.set(0.1, 1.15, 1.15);
+    group.add(glow);
+
     const bits = new THREE.Group();
     bits.name = 'bits';
     group.add(bits);
@@ -322,108 +370,203 @@ export default {
     const confetti = [];
     buildBits(THREE, paper, rng, bits, hearts, confetti, C, officialAt);
 
-    const pose = {
-      hands: frameCards[0] || null,
-      banter: frameCards[1] || null,
-    };
-
-    // Spread-frame aim for the couple cue: image centre of the hands drawing, not the feet pixel.
-    const visualX = refMeta ? ((refMeta.w / 2) - refMeta.feet[0]) * (COUPLE_H / refMeta.h) : -0.2;
-    const coupleAimX = -coupleX + visualX;
+    const pose = { hands: frameCards[0] || null, banter: frameCards[1] || null };
+    const visual = refMeta ? ((refMeta.w / 2) - refMeta.feet[0]) * (COUPLE_H / refMeta.h) : -0.2;
+    const coupleAimX = -coupleX + visual;
+    const kissMeta = hasPose('first-kiss') ? characters.info('first-kiss') : null;
+    const kissAimX = kissMeta
+      ? 0.18 + ((kissMeta.w / 2) - kissMeta.feet[0]) * (KISS_H / kissMeta.h)
+      : 0.06;
 
     return {
       group,
       leftArt,
       rightArt,
       cues: [
-        { t: spread.open, hold: 1.4, at: [0, 0.8, 0], size: 7.5, from: 'front' },
-        { t: calendarAt + 0.5, hold: 5, at: [0.08, 1.25, CAL_Z0], size: 4.4, from: 'front' },
+        { t: spread.open, hold: 1.0, at: [0, 0.85, 0], size: 7.5, from: 'front' },
+        { t: calendarAt + 0.35, hold: 2.15, at: [0.4, 1.22, -0.45], size: 3.7, from: 'front' },
+        { t: officialAt + 0.28, hold: 2.45, at: [coupleAimX, 1.12, coupleZ], size: 2.35, from: 'front' },
+        { t: alreadyAt + 0.3, hold: 3.7, at: [coupleAimX, 1.42, coupleZ], size: 2.55, from: 'front' },
         {
-          t: alreadyAt + 0.2,
-          hold: (spread.close - 1) - (alreadyAt + 0.2),
-          at: [coupleAimX, 1.4, coupleZ],
-          size: 3.1,
+          t: schoolAt + 0.35,
+          hold: 3.15,
+          at: [0.05, 0.95, 0.2],
+          size: 5.3,
+          from: 'front',
+        },
+        {
+          t: kissAt + 0.45,
+          hold: Math.max(0.8, kissHoldEnd - (kissAt + 0.45)),
+          at: [kissAimX, 1.18, 0.72],
+          size: 2.55,
           from: 'front',
         },
       ],
       update(alpha, t) {
         const n = mechanisms.length;
         for (let i = 0; i < n; i++) mechanisms[i].update(alpha);
-        const open = alpha > OPEN * Math.PI ? 1 : 0;
+        const gate = alpha > OPEN * Math.PI ? 1 : 0;
         const risen = popup.rise(alpha);
 
         const banter = t >= alreadyAt;
         if (pose.hands) pose.hands.visible = !banter;
         if (pose.banter) pose.banter.visible = banter;
         const pop = bump(t, alreadyAt);
-        const breathe = 1 + Math.sin(t * 1.45) * 0.01;
-        const sx = breathe * (1 - 0.06 * pop);
-        const sy = breathe * (1 + 0.09 * pop);
+        const breathe = 1 + Math.sin(t * 1.45) * 0.012;
+        const hop = gate * bump(t, calendarAt);
+        const sx = breathe * (1 - 0.05 * pop);
+        const sy = breathe * (1 + 0.08 * pop + 0.05 * hop);
         if (pose.hands) pose.hands.scale.set(sx, sy, 1);
         if (pose.banter) pose.banter.scale.set(sx, sy, 1);
+        coupleWrap.position.y = gate * hop * 0.06;
 
-        const sway = open ? Math.sin(t * 1.25) * 0.01 : 0;
-        garRigL.rotation.z = sway;
-        garRigR.rotation.z = -sway;
+        const sway = gate * Math.sin(t * 1.25) * 0.012;
+        posePop(garWrap, t, kissAt + 0.05, 0.55, gate, ease);
+        garWrap.rotation.z = sway;
+        if (valentine) {
+          valentine.position.y = 0.045;
+          valentine.rotation.z = gate * Math.sin(t * 1.15) * 0.018;
+        }
 
-        const draw = smoothstep(officialAt, officialAt + 0.7, t);
+        const draw = smoothstep(officialAt, officialAt + 0.75, t);
         heart.mesh.geometry.setDrawRange(0, Math.floor(draw * heart.tris) * 3);
-
         let su = smoothstep(officialAt, officialAt + 0.32, t);
         let ss = ease.outBack(su);
         if (ss < 0) ss = 0;
         else if (ss > 1.06) ss = 1.06;
-        stamp.scale.set(ss, ss, 1);
+        stamp.scale.set(ss * gate, ss * gate, 1);
+        poseDust(dust, t, officialAt, gate);
+        poseSheet(sheetL, t, kissAt, gate, -1);
+        poseSheet(sheetR, t, kissAt, gate, 1);
 
-        poseDust(dust, t, officialAt, open);
+        const talkFade = 1 - smoothstep(schoolAt - 0.85, schoolAt - 0.15, t);
+        bubbleRig.scale.setScalar(gate * talkFade * bubblePop(t, alreadyAt, herAt, ease));
 
-        let hu = smoothstep(alreadyAt, alreadyAt + 0.3, t);
-        let hs = ease.outBack(hu);
-        if (hs < 0) hs = 0;
-        else if (hs > 1.05) hs = 1.05;
-        himBubble.scale.set(HIM_W * hs * open, HIM_H * hs * open, 1);
+        posePop(school.wrap, t, schoolAt, 0.36, gate, ease);
+        posePop(work.wrap, t, workAt, 0.36, gate, ease);
+        if (school.wrap) school.wrap.position.y = gate * Math.sin(t * 1.7 + 0.4) * 0.01;
+        if (work.wrap) work.wrap.position.y = gate * Math.sin(t * 1.55 + 1.2) * 0.01;
 
-        let eu = smoothstep(herAt, herAt + 0.28, t);
-        let es = ease.outBack(eu);
-        if (es < 0) es = 0;
-        else if (es > 1.05) es = 1.05;
-        herBubble.scale.set(HER_W * es * open, HER_H * es * open, 1);
+        posePop(archWrap, t, kissAt + 0.12, 0.42, gate, ease);
+        posePop(kissWrap, t, kissAt + 0.22, 0.4, gate, ease);
+        const kissBreathe = 1 + gate * Math.sin(t * 1.3) * 0.012;
+        if (kissWrap.scale.x > 0.2) kissWrap.scale.multiplyScalar(kissBreathe);
 
-        bits.scale.setScalar(open);
-        poseBits(hearts, confetti, t);
+        bits.scale.setScalar(gate);
+        poseBits(hearts, confetti, t, officialAt, kissAt, alreadyAt, schoolAt);
 
-        glow.intensity = risen * (0.55 + 0.35 * smoothstep(officialAt, officialAt + 0.4, t));
+        const rose = smoothstep(kissAt, kissAt + 0.7, t);
+        const warm = smoothstep(officialAt, officialAt + 0.45, t);
+        glow.color.r = 1;
+        glow.color.g = 0.82 - 0.22 * rose;
+        glow.color.b = 0.77 - 0.22 * rose;
+        glow.intensity = risen * (0.35 + 0.4 * warm + 1.05 * rose);
       },
     };
   },
 };
 
-function letterCalendar(ctx, w, h, FONT, C) {
+/** One rig scale for both bubbles: his pops first, hers a beat later, neither past 1.06. */
+function bubblePop(t, himAt, herAt, ease) {
+  const pop = (at, dur) => {
+    let u = (t - at) / dur;
+    if (u < 0) u = 0;
+    else if (u > 1) u = 1;
+    u = u * u * (3 - 2 * u);
+    let s = ease.outBack(u);
+    if (s < 0) s = 0;
+    else if (s > 1.06) s = 1.06;
+    return s;
+  };
+  const him = pop(himAt, 0.32);
+  const her = pop(herAt, 0.3);
+  return him > her ? him : her;
+}
+
+function posePop(wrap, t, at, dur, gate, ease) {
+  if (!wrap) return;
+  let u = (t - at) / dur;
+  if (u < 0) u = 0;
+  else if (u > 1) u = 1;
+  u = u * u * (3 - 2 * u);
+  let s = ease.outBack(u);
+  if (s < 0) s = 0;
+  else if (s > 1.07) s = 1.07;
+  wrap.scale.set(s * gate, s * gate, 1);
+}
+
+function poseSheet(group, t, at, gate, side) {
+  if (!gate || t < at) {
+    group.position.set(0, 0, 0.012);
+    group.rotation.set(0, 0, 0);
+    group.scale.set(1, 1, 1);
+    return;
+  }
+  let u = (t - at) / 0.7;
+  if (u < 0) u = 0;
+  else if (u > 1) u = 1;
+  const lift = u * u * (3 - 2 * u);
+  const flutter = Math.sin(u * Math.PI) * (1 - u);
+  group.position.set(side * 0.42 * lift, 1.05 * lift + flutter * 0.05, 0.012 + 0.28 * lift);
+  group.rotation.set(0.4 * lift, 0, side * -0.22 * lift);
+  let shrink = 1 - lift;
+  if (shrink < 0.02) shrink = 0.02;
+  group.scale.set(shrink, shrink, 1);
+}
+
+function letterCalendar(ctx, w, h, FONT, C, mode) {
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const headerY = 83.5 / 817 * h;
+  const month = L('FEBRUARY', 'FEBRERO');
+  const headerY = 0.102 * h;
   const monthFont = (size) => `${size}px ${FONT.display}`;
-  const monthPx = fitSize(ctx, 'FEBRUARY', monthFont, Math.round(h * 0.09), w * 0.34);
+  const monthPx = fitSize(ctx, month, monthFont, Math.round(h * 0.085), w * 0.36);
   ctx.font = monthFont(monthPx);
   ctx.fillStyle = '#fff8ee';
-  ctx.fillText('FEBRUARY', w * 0.27, headerY);
+  ctx.fillText(month, w * 0.27, headerY);
 
+  const day = mode === 'seven' ? '7' : '14';
+  const dayY = mode === 'seven' ? 0.46 : 0.27;
+  const dayX = mode === 'seven' ? 0.74 : 0.86;
+  if (mode === 'fourteen') paintHeart(ctx, w * dayX, h * dayY, h * 0.16, h * 0.15);
   const dayFont = (size) => `${size}px ${FONT.display}`;
-  const dayPx = fitSize(ctx, '7', dayFont, Math.round(h * 0.42), w * 0.20);
+  const dayPx = fitSize(ctx, day, dayFont, Math.round(h * (mode === 'seven' ? 0.40 : 0.26)), w * 0.28);
   ctx.lineJoin = 'round';
   ctx.lineWidth = dayPx * 0.07;
   ctx.strokeStyle = C.cream;
   ctx.font = dayFont(dayPx);
-  ctx.strokeText('7', w * 0.74, h * 0.43);
+  ctx.strokeText(day, w * dayX, h * dayY);
   ctx.fillStyle = '#c4373a';
-  ctx.fillText('7', w * 0.74, h * 0.43);
+  ctx.fillText(day, w * dayX, h * dayY);
 
-  const yearFont = (size) => `700 ${size}px ${FONT.hand}`;
-  const yearPx = fitSize(ctx, '2024', yearFont, Math.round(h * 0.09), w * 0.22);
-  ctx.font = yearFont(yearPx);
-  ctx.fillStyle = C.ink;
-  ctx.fillText('2024', w * 0.74, h * 0.60);
+  if (mode === 'seven') {
+    const yearFont = (size) => `700 ${size}px ${FONT.hand}`;
+    const yearPx = fitSize(ctx, '2024', yearFont, Math.round(h * 0.085), w * 0.22);
+    ctx.font = yearFont(yearPx);
+    ctx.fillStyle = C.ink;
+    ctx.fillText('2024', w * 0.74, h * 0.62);
+  } else {
+    // In the red header, right half, so the arch does not cover the phrase.
+    const phrase = L("Valentine's Day", 'Día de San Valentín');
+    const font = (size) => `700 ${size}px ${FONT.hand}`;
+    const px = fitSize(ctx, phrase, font, Math.round(h * 0.055), w * 0.40);
+    ctx.font = font(px);
+    ctx.fillStyle = '#fff8ee';
+    ctx.fillText(phrase, w * 0.76, headerY);
+  }
+  ctx.restore();
+}
+
+function paintHeart(ctx, x, y, rx, ry) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = '#e2574c';
+  ctx.beginPath();
+  ctx.moveTo(0, ry);
+  ctx.bezierCurveTo(-rx, ry * 0.35, -rx, -ry * 0.35, 0, -ry * 0.15);
+  ctx.bezierCurveTo(rx, -ry * 0.35, rx, ry * 0.35, 0, ry);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -436,38 +579,49 @@ function pill(ctx, x, y, w, h, fill) {
   ctx.restore();
 }
 
-function letterRight(ctx, w, h, FONT, C) {
+function letterLeft(ctx, w, h, FONT, C) {
   ctx.save();
-  // Above the caption band and clear of the stand-ups on the left page.
-  const fx = w * 0.22;
-  const fy = h * 0.64;
+  const text = L('finally official!', '¡por fin oficial!');
   const hand = (size) => `700 ${size}px ${FONT.hand}`;
-  const fpx = fitSize(ctx, 'finally official!', hand, Math.round(h * 0.05), w * 0.42);
-  ctx.font = hand(fpx);
-  const fw = ctx.measureText('finally official!').width;
-  pill(ctx, fx, fy, fw + fpx * 1.3, fpx * 1.65, 'rgba(246, 237, 217, 0.94)');
+  const px = fitSize(ctx, text, hand, Math.round(h * 0.07), w * 0.42);
+  ctx.font = hand(px);
+  const tw = ctx.measureText(text).width;
+  const x = w * 0.22;
+  const y = h * 0.40;
+  pill(ctx, x, y, tw + px * 1.5, px * 1.7, 'rgba(246, 237, 217, 0.94)');
   ctx.fillStyle = C.ink;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = hand(fpx);
-  ctx.fillText('finally official!', fx, fy + fpx * 0.06);
+  ctx.font = hand(px);
+  ctx.fillText(text, x, y + px * 0.06);
+  ctx.strokeStyle = C.tomato;
+  ctx.lineWidth = Math.max(3, px * 0.12);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x + tw * 0.55, y);
+  ctx.quadraticCurveTo(x + tw * 0.85, y - px * 0.9, x + tw * 0.95, y - px * 0.15);
+  ctx.stroke();
+  ctx.restore();
+}
 
-  // Lower, gutter side of the confetti cluster so the line stays in the open cream.
-  const x = w * 0.34;
-  const y = h * 0.90;
+function letterRight(ctx, w, h, FONT, C) {
+  ctx.save();
+  const text = L('relationship status', 'estado de la relación');
+  const x = w * 0.50;
+  const y = h * 0.68;
   const font = (size) => `700 ${size}px ${FONT.hand}`;
-  const px = fitSize(ctx, 'relationship status', font, Math.round(h * 0.048), w * 0.30);
+  const px = fitSize(ctx, text, font, Math.round(h * 0.062), w * 0.46);
   ctx.font = font(px);
-  const tw = ctx.measureText('relationship status').width;
+  const tw = ctx.measureText(text).width;
   const box = px * 1.15;
-  const total = tw + box * 1.5;
-  pill(ctx, x, y, total + px, px * 2.1, 'rgba(246, 237, 217, 0.94)');
+  const total = tw + box * 1.55;
+  pill(ctx, x, y, total + px, px * 2.05, 'rgba(246, 237, 217, 0.94)');
   ctx.fillStyle = C.ink;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.font = font(px);
   const textX = x - total / 2;
-  ctx.fillText('relationship status', textX, y + px * 0.06);
+  ctx.fillText(text, textX, y + px * 0.06);
   const bx = textX + tw + box * 0.85;
   const by = y;
   ctx.strokeStyle = C.ink;
@@ -506,9 +660,8 @@ function doodleFloor(ctx, w, h, rng, C, gutterRight) {
   ctx.restore();
 }
 
-/** Classic heart, t from the bottom point, a hand-drawn ribbon of triangles. Non-indexed. */
 function heartRibbon(THREE, cx, cy, rx, ry, halfW, color) {
-  const N = 52;
+  const N = 48;
   const raw = [];
   let minX = 1e9;
   let maxX = -1e9;
@@ -531,9 +684,7 @@ function heartRibbon(THREE, cx, cy, rx, ry, halfW, color) {
   const mx = (minX + maxX) / 2;
   const my = (minY + maxY) / 2;
   const pts = [];
-  for (let i = 0; i <= N; i++) {
-    pts.push(cx + (raw[i * 2] - mx) * sx, cy + (raw[i * 2 + 1] - my) * sy);
-  }
+  for (let i = 0; i <= N; i++) pts.push(cx + (raw[i * 2] - mx) * sx, cy + (raw[i * 2 + 1] - my) * sy);
   const pos = new Float32Array(N * 6 * 3);
   let p = 0;
   for (let i = 0; i < N; i++) {
@@ -549,12 +700,8 @@ function heartRibbon(THREE, cx, cy, rx, ry, halfW, color) {
     const nx = -ty * halfW;
     const ny = tx * halfW;
     const quad = [
-      x0 + nx, y0 + ny, 0,
-      x0 - nx, y0 - ny, 0,
-      x1 + nx, y1 + ny, 0,
-      x0 - nx, y0 - ny, 0,
-      x1 - nx, y1 - ny, 0,
-      x1 + nx, y1 + ny, 0,
+      x0 + nx, y0 + ny, 0, x0 - nx, y0 - ny, 0, x1 + nx, y1 + ny, 0,
+      x0 - nx, y0 - ny, 0, x1 - nx, y1 - ny, 0, x1 + nx, y1 + ny, 0,
     ];
     for (let k = 0; k < quad.length; k++) pos[p++] = quad[k];
   }
@@ -562,16 +709,16 @@ function heartRibbon(THREE, cx, cy, rx, ry, halfW, color) {
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setDrawRange(0, 0);
   geo.computeBoundingSphere();
-  const mat = new THREE.MeshBasicMaterial({
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
     color, side: THREE.DoubleSide, toneMapped: false,
-  });
-  const mesh = new THREE.Mesh(geo, mat);
+  }));
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   return { mesh, tris: N * 2 };
 }
 
 function stampMesh(THREE, paper, FONT, size) {
+  const word = L('OFFICIAL', 'OFICIAL');
   const { canvas, ctx } = paper.makeCanvas(256, 256);
   ctx.clearRect(0, 0, 256, 256);
   ctx.fillStyle = '#b4332c';
@@ -587,24 +734,20 @@ function stampMesh(THREE, paper, FONT, size) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const font = (px) => `${px}px ${FONT.display}`;
-  const px = fitSize(ctx, 'OFFICIAL', font, 52, 150);
+  const px = fitSize(ctx, word, font, 48, 158);
   ctx.font = font(px);
-  ctx.fillText('OFFICIAL', 128, 134);
-  const mat = new THREE.MeshBasicMaterial({
-    map: paper.texture(canvas),
-    transparent: true,
-    alphaTest: 0.45,
-    side: THREE.DoubleSide,
-    toneMapped: false,
-  });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
+  ctx.fillText(word, 128, 134);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({
+    map: paper.texture(canvas), transparent: true, alphaTest: 0.45,
+    side: THREE.DoubleSide, toneMapped: false,
+  }));
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   mesh.scale.setScalar(0);
   return mesh;
 }
 
-function dustPuffs(THREE, paper, cx, cy) {
+function dustPuffs(THREE, paper) {
   const { canvas, ctx } = paper.makeCanvas(64, 64);
   const g = ctx.createRadialGradient(32, 32, 4, 32, 32, 30);
   g.addColorStop(0, 'rgba(246, 237, 217, 0.9)');
@@ -614,33 +757,29 @@ function dustPuffs(THREE, paper, cx, cy) {
   ctx.arc(32, 32, 30, 0, Math.PI * 2);
   ctx.fill();
   const mat = new THREE.MeshBasicMaterial({
-    map: paper.texture(canvas),
-    transparent: true,
-    depthWrite: false,
-    toneMapped: false,
+    map: paper.texture(canvas), transparent: true, depthWrite: false, toneMapped: false,
   });
-  const geo = new THREE.PlaneGeometry(0.16, 0.16);
+  const geo = new THREE.PlaneGeometry(0.14, 0.14);
   const specs = [
-    { ox: 0.16, oy: 0.08, dx: 0.22, dy: 0.1 },
-    { ox: -0.14, oy: 0.1, dx: -0.2, dy: 0.12 },
-    { ox: 0.05, oy: 0.16, dx: 0.06, dy: 0.22 },
-    { ox: -0.02, oy: -0.12, dx: -0.04, dy: -0.16 },
+    { ox: 0.15, oy: 0.07, dx: 0.2, dy: 0.1 },
+    { ox: -0.13, oy: 0.09, dx: -0.18, dy: 0.11 },
+    { ox: 0.04, oy: 0.15, dx: 0.05, dy: 0.18 },
   ];
   const out = [];
   for (let i = 0; i < specs.length; i++) {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = 'dust';
     mesh.castShadow = false;
-    mesh.position.set(cx + specs[i].ox, cy + specs[i].oy, 0.008);
+    mesh.position.set(specs[i].ox, specs[i].oy, 0.002);
     mesh.scale.setScalar(0);
-    out.push({ mesh, cx, cy, ...specs[i] });
+    out.push({ mesh, ...specs[i] });
   }
   return out;
 }
 
-function poseDust(dust, t, at, open) {
+function poseDust(dust, t, at, gate) {
   const age = (t - at) / 0.48;
-  const show = open && age > 0 && age < 1;
+  const show = gate && age > 0 && age < 1;
   for (let i = 0; i < dust.length; i++) {
     const d = dust[i];
     if (!show) {
@@ -648,121 +787,104 @@ function poseDust(dust, t, at, open) {
       continue;
     }
     const k = 1 - age;
-    d.mesh.position.set(d.cx + d.ox + d.dx * age, d.cy + d.oy + d.dy * age, 0.008);
-    d.mesh.scale.setScalar(k * 0.9);
+    d.mesh.position.set(d.ox + d.dx * age, d.oy + d.dy * age, 0.002);
+    d.mesh.scale.setScalar(k * 0.85);
     d.mesh.material.opacity = k;
   }
 }
 
-function cropHalf(paper, src, side) {
-  const hw = Math.floor(src.width / 2);
-  const { canvas, ctx } = paper.makeCanvas(hw, src.height);
-  const sx = side < 0 ? 0 : src.width - hw;
-  ctx.drawImage(src, sx, 0, hw, src.height, 0, 0, hw, src.height);
-  return canvas;
-}
-
-function fallbackGarland(paper, THREE, width, height, C, side) {
-  const canvas = paper.paint(640, 180, (ctx, w, h) => {
-    ctx.strokeStyle = '#c9a273';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(8, h * 0.35);
-    ctx.lineTo(w - 8, h * 0.35);
-    ctx.stroke();
-    const colors = [C.tomato, C.blush, C.mustard, C.sky];
-    const n = 4;
-    for (let i = 0; i < n; i++) {
-      const x = w * ((i + 0.5) / n);
-      ctx.fillStyle = colors[i];
-      ctx.beginPath();
-      ctx.moveTo(x, h * 0.78);
-      ctx.bezierCurveTo(x - 22, h * 0.4, x - 10, h * 0.22, x, h * 0.38);
-      ctx.bezierCurveTo(x + 10, h * 0.22, x + 22, h * 0.4, x, h * 0.78);
-      ctx.fill();
-    }
-  }, { dieCut: 4, seed: side < 0 ? 7 : 8, grain: 0.03 });
-  const card = paper.card({ canvas, width, height, anchor: 'bottom-center' });
-  card.name = side < 0 ? 'garland-fallback-left' : 'garland-fallback-right';
-  return card;
-}
-
-function mountPost(characterArt, paper, art, figures, rig, height, garW, side) {
-  let card = null;
-  let ext = null;
-  if (art && art.has && art.has('posts')) {
-    card = characterArt.characterCard(paper, art, 'posts', { height });
-    ext = extents(art.info('posts'), height);
-    seat(card, ext);
-  } else if (figures && figures.figureCard) {
-    try {
-      card = paper.card({
-        canvas: paper.paint(80, 360, (ctx, w, h) => {
-          ctx.fillStyle = '#c9a273';
-          ctx.fillRect(w * 0.28, 8, w * 0.44, h - 16);
-          ctx.fillStyle = '#a9814f';
-          ctx.beginPath();
-          ctx.arc(w * 0.5, h * 0.16, w * 0.1, 0, Math.PI * 2);
-          ctx.fill();
-        }, { dieCut: 4, seed: 9, grain: 0.04 }),
-        width: height * (80 / 360),
-        height,
-        anchor: 'bottom-center',
-      });
-    } catch {
-      card = null;
-    }
-  }
-  if (!card) return;
-  card.name = side < 0 ? 'post-left' : 'post-right';
-  const reach = ext ? Math.max(-ext.minX, ext.maxX) : height * 0.12;
-  const edge = garW / 2 - reach - 0.03;
-  card.position.x = side < 0 ? -edge : edge;
-  if (!ext) card.position.y = 0.02;
-  card.position.z = 0.01;
-  rig.add(card);
-}
-
-/** Right-page gutter reach is −minX (local −X points at the gutter). Left page is the opposite. */
-function propExtents(meta, w, h, feetX, height) {
-  if (meta) {
-    const e = extents(meta, height);
-    return { gutter: -e.minX, outer: e.maxX, width: e.width, top: e.top, dip: e.dip, known: true };
-  }
-  const width = height * (w / h);
-  const gutter = (feetX / w) * width;
-  return { gutter, outer: width - gutter, width, top: height - SEAT, dip: 0.02, known: false };
-}
-
-function addProp(characterArt, paper, art, figures, mount, id, height, ext) {
-  if (art && art.has && art.has(id)) {
-    const card = characterArt.characterCard(paper, art, id, { height });
-    if (!card) return;
-    const meta = art.info(id);
-    card.position.y = (meta.h - meta.feet[1]) * (height / meta.h) - SEAT;
-    card.name = id;
-    mount.add(card);
-    return;
-  }
-  // Quiet stand-in so a missing drawing still occupies the mechanism.
-  const canvas = paper.paint(Math.round(180 * (ext.width / height)), 180, (ctx, w, h) => {
+function fallbackProp(paper, id, width, height) {
+  const canvas = paper.paint(180, 180, (ctx, w, h) => {
     ctx.fillStyle = '#f6edd9';
     ctx.fillRect(6, 6, w - 12, h - 12);
     ctx.strokeStyle = '#e2574c';
     ctx.lineWidth = 4;
     ctx.strokeRect(14, 14, w - 28, h - 28);
   }, { dieCut: 4, seed: 11, grain: 0.04 });
-  const card = paper.card({ canvas, width: ext.width, height, anchor: 'bottom-center' });
-  card.position.y = 0;
+  const card = paper.card({ canvas, width, height, anchor: 'bottom-center' });
   card.name = id;
-  mount.add(card);
+  return card;
+}
+
+function mountFree(parent, characterArt, paper, characters, figures, id, height, fallback) {
+  const card = characterArt.actor(paper, characters, figures, id, fallback, { height });
+  if (!card) return null;
+  const meta = characters && characters.has && characters.has(id) ? characters.info(id) : null;
+  if (meta) {
+    const pad = (meta.h - meta.feet[1]) * (height / meta.h);
+    card.position.y = Math.max(0, pad - 0.028);
+  }
+  card.name = id;
+  parent.add(card);
+  return card;
+}
+
+function stageActor(track, popup, characterArt, paper, characters, figures, spec) {
+  const { id, height, side, x, z, tag, fallback, THREE, FONT, C } = spec;
+  const meta = characters && characters.has && characters.has(id) ? characters.info(id) : null;
+  const e = meta ? extents(meta, height) : { maxX: height * 0.4, minX: -height * 0.4, width: height * 0.8 };
+  const toward = side === 'left' ? e.maxX : -e.minX;
+  const away = side === 'left' ? -e.minX : e.maxX;
+  let hx = x;
+  const minX = toward + height * 0.5 + 0.08;
+  const maxX = PAGE_W - away - 0.06;
+  if (hx < minX) hx = minX;
+  if (hx > maxX) hx = maxX;
+  let zz = z < height - 1.46 ? height - 1.46 : z;
+  if (zz > 1.38) zz = 1.38;
+  const stand = track(popup.standUp({
+    side, x: hx, z: zz, fold: 'back', width: Math.max(e.width, 1.15), height,
+  }));
+  const wrap = new THREE.Group();
+  wrap.name = id;
+  stand.mount.add(wrap);
+  const card = characterArt.actor(paper, characters, figures, id, fallback, { height });
+  if (card && meta) seatStand(card, meta, height);
+  if (card) {
+    card.name = id;
+    wrap.add(card);
+  }
+  const label = tagMesh(THREE, paper, FONT, C, tag, 1.32, 0.3);
+  label.name = `${id}-tag`;
+  label.position.set(0, height + 0.16, 0.02);
+  wrap.add(label);
+  wrap.scale.setScalar(0);
+  return { wrap, x: hx, z: zz };
+}
+
+function tagMesh(THREE, paper, FONT, C, text, worldW, worldH) {
+  const W = 720;
+  const H = Math.round(W * (worldH / worldW));
+  const { canvas, ctx } = paper.makeCanvas(W, H);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(246, 237, 217, 0.96)';
+  ctx.strokeStyle = C.ink;
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.roundRect(16, 16, W - 32, H - 32, 36);
+  ctx.fill();
+  ctx.stroke();
+  const font = (px) => `700 ${px}px ${FONT.hand}`;
+  const px = fitSize(ctx, text, font, Math.round(H * 0.46), W - 80);
+  ctx.font = font(px);
+  ctx.fillStyle = C.ink;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, W / 2, H / 2 + px * 0.06);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(worldW, worldH), new THREE.MeshBasicMaterial({
+    map: paper.texture(canvas), transparent: true, alphaTest: 0.3,
+    side: THREE.DoubleSide, toneMapped: false,
+  }));
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  return mesh;
 }
 
 function speechBubble(THREE, paper, FONT, C, spec) {
   const { canvas, ctx } = paper.makeCanvas(spec.w, spec.h);
   ctx.clearRect(0, 0, spec.w, spec.h);
   const m = 18;
-  const bodyH = spec.h - 54;
+  const bodyH = spec.h - 58;
   ctx.fillStyle = '#fffaf3';
   ctx.strokeStyle = C.ink;
   ctx.lineWidth = 7;
@@ -772,12 +894,12 @@ function speechBubble(THREE, paper, FONT, C, spec) {
   ctx.stroke();
   ctx.beginPath();
   if (spec.tail === 'left') {
-    ctx.moveTo(spec.w * 0.28, m + bodyH - 2);
-    ctx.lineTo(spec.w * 0.18, spec.h - 10);
-    ctx.lineTo(spec.w * 0.46, m + bodyH - 2);
+    ctx.moveTo(spec.w * 0.30, m + bodyH - 2);
+    ctx.lineTo(spec.w * 0.18, spec.h - 8);
+    ctx.lineTo(spec.w * 0.48, m + bodyH - 2);
   } else {
-    ctx.moveTo(spec.w * 0.54, m + bodyH - 2);
-    ctx.lineTo(spec.w * 0.78, spec.h - 10);
+    ctx.moveTo(spec.w * 0.52, m + bodyH - 2);
+    ctx.lineTo(spec.w * 0.78, spec.h - 8);
     ctx.lineTo(spec.w * 0.70, m + bodyH - 2);
   }
   ctx.closePath();
@@ -792,19 +914,15 @@ function speechBubble(THREE, paper, FONT, C, spec) {
     const family = line.font === 'display' ? FONT.display : FONT.hand;
     const weight = line.font === 'hand' ? '700 ' : '';
     const font = (px) => `${weight}${px}px ${family}`;
-    const px = fitSize(ctx, line.text, font, Math.round(bodyH * line.px * 2.1), spec.w - m * 4);
+    const px = fitSize(ctx, line.text, font, Math.round(bodyH * line.px * 2.2), spec.w - m * 4);
     ctx.font = font(px);
     ctx.fillStyle = line.color;
     ctx.fillText(line.text, cx, cy + line.dy * bodyH);
   }
-  const mat = new THREE.MeshBasicMaterial({
-    map: paper.texture(canvas),
-    transparent: true,
-    alphaTest: 0.35,
-    side: THREE.DoubleSide,
-    toneMapped: false,
-  });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+    map: paper.texture(canvas), transparent: true, alphaTest: 0.35,
+    side: THREE.DoubleSide, toneMapped: false,
+  }));
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   mesh.scale.setScalar(0);
@@ -813,14 +931,13 @@ function speechBubble(THREE, paper, FONT, C, spec) {
 
 function buildBits(THREE, paper, rng, parent, hearts, confetti, C, at) {
   const heart = heartTex(paper);
-  const hGeo = new THREE.PlaneGeometry(0.11, 0.11);
+  const hGeo = new THREE.PlaneGeometry(0.12, 0.12);
   const spots = [
-    { x: -2.55, z: -0.35 },
-    { x: -1.35, z: 0.45 },
-    { x: -0.25, z: -0.55 },
-    { x: 0.85, z: 0.35 },
-    { x: 1.85, z: -0.25 },
-    { x: 2.7, z: 0.5 },
+    { x: -2.7, z: 0.15 },
+    { x: -1.15, z: 1.05 },
+    { x: 0.9, z: -0.35 },
+    { x: 2.15, z: 0.85 },
+    { x: 2.9, z: -0.15 },
   ];
   for (let i = 0; i < spots.length; i++) {
     const mat = new THREE.MeshBasicMaterial({
@@ -832,45 +949,35 @@ function buildBits(THREE, paper, rng, parent, hearts, confetti, C, at) {
     mesh.castShadow = false;
     parent.add(mesh);
     hearts.push({
-      mesh,
-      x: spots[i].x,
-      z: spots[i].z,
-      phase: i * 1.37,
-      y0: 0.55 + (i % 3) * 0.12,
+      mesh, x: spots[i].x, z: spots[i].z, phase: i * 1.37, y0: 0.55 + (i % 3) * 0.15,
     });
   }
-
   const geo = new THREE.PlaneGeometry(0.05, 0.075);
-  const colors = [C.tomato, C.mustard, C.sky, C.blush, C.cream, C.leaf];
-  for (let i = 0; i < 8; i++) {
+  const colors = [C.tomato, C.mustard, C.sky, C.blush, C.leaf];
+  for (let i = 0; i < 5; i++) {
     const mat = new THREE.MeshBasicMaterial({
-      color: colors[i % colors.length], side: THREE.DoubleSide, toneMapped: false,
+      color: colors[i], side: THREE.DoubleSide, toneMapped: false,
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = 'confetti';
     mesh.castShadow = false;
-    const y0 = 0.95 + rng.next() * 0.25;
-    const vy = 1.15 + rng.next() * 0.45;
-    const g = 2.6;
+    const y0 = 1.05 + rng.next() * 0.2;
+    const vy = 1.1 + rng.next() * 0.4;
+    const g = 2.5;
     const T = (vy + Math.sqrt(vy * vy + 2 * g * (y0 - 0.08))) / g;
-    const x0 = -0.5 + rng.next() * 1.6;
-    const z0 = -0.15 + rng.next() * 0.7;
-    let vx = (rng.next() - 0.5) * 0.85;
-    let vz = (rng.next() - 0.5) * 0.4;
-    let x1 = x0 + vx * T;
-    let z1 = z0 + vz * T;
-    if (x1 < -3.15 || x1 > 3.15) vx = (clamp(x1, -3.15, 3.15) - x0) / T;
-    if (z1 < -1.3 || z1 > 1.3) vz = (clamp(z1, -1.3, 1.3) - z0) / T;
-    x1 = x0 + vx * T;
-    z1 = z0 + vz * T;
     parent.add(mesh);
     confetti.push({
-      mesh, x0, z0, y0, vx, vz, vy, g, T,
-      x1, z1,
-      delay: rng.next() * 0.28,
+      mesh, y0, vy, g, T,
+      x0: -0.35 + rng.next() * 1.1,
+      z0: -0.2 + rng.next() * 0.55,
+      vx: (rng.next() - 0.5) * 0.7,
+      vz: (rng.next() - 0.5) * 0.35,
+      delay: rng.next() * 0.25,
       spin: (rng.next() - 0.5) * 5,
       rot: rng.next() * Math.PI,
       at,
+      kx: -0.15 + rng.next() * 0.7,
+      kz: 0.75 + rng.next() * 0.3,
     });
   }
 }
@@ -888,34 +995,68 @@ function heartTex(paper) {
   return paper.texture(canvas);
 }
 
-function poseBits(hearts, confetti, t) {
+function poseBits(hearts, confetti, t, officialAt, kissAt, alreadyAt, schoolAt) {
   for (let i = 0; i < hearts.length; i++) {
     const p = hearts[i];
-    const y = p.y0 + (0.5 + 0.5 * Math.sin(t * 0.32 + p.phase)) * 0.5;
-    p.mesh.position.set(
-      p.x + Math.sin(t * 0.55 + p.phase) * 0.16,
-      y,
-      p.z + Math.cos(t * 0.4 + p.phase) * 0.08,
-    );
+    let x = p.x + Math.sin(t * 0.55 + p.phase) * 0.14;
+    let y = p.y0 + (0.5 + 0.5 * Math.sin(t * 0.32 + p.phase)) * 0.45;
+    let z = p.z + Math.cos(t * 0.4 + p.phase) * 0.08;
+    if (i === 0 && t >= alreadyAt + 2.6 && t < schoolAt) {
+      const u = (t - (alreadyAt + 2.6)) / 0.45;
+      const k = u < 0 ? 0 : u > 1 ? 1 : u;
+      x = p.x + ( -1.45 - p.x) * k;
+      y = p.y0 + (1.45 - p.y0) * k;
+      z = p.z + (0.8 - p.z) * k;
+    }
+    if (t >= kissAt) {
+      const age = t - kissAt;
+      const rad = age < 1.3 ? age * 0.85 : 1.1;
+      x = 0.08 + Math.cos(p.phase) * rad;
+      z = 0.85 + Math.sin(p.phase) * 0.22;
+      y = 0.45 + age * 0.42;
+    }
+    if (x < -3.2) x = -3.2;
+    else if (x > 3.2) x = 3.2;
+    if (z < -1.35) z = -1.35;
+    else if (z > 1.35) z = 1.35;
+    if (y < 0.08) y = 0.08;
+    else if (y > 2.15) y = 2.15;
+    p.mesh.position.set(x, y, z);
     p.mesh.rotation.z = Math.sin(t * 0.7 + p.phase) * 0.35;
   }
   for (let i = 0; i < confetti.length; i++) {
     const p = confetti[i];
-    const age = t - p.at - p.delay;
+    const burst = t >= kissAt ? kissAt : officialAt;
+    const x0 = t >= kissAt ? p.kx : p.x0;
+    const z0 = t >= kissAt ? p.kz : p.z0;
+    const age = t - burst - p.delay;
     const mesh = p.mesh;
     if (age <= 0) {
-      mesh.position.set(p.x0, 0.08, p.z0);
+      mesh.position.set(x0, 0.08, z0);
       mesh.rotation.z = p.rot;
       mesh.scale.setScalar(0);
       continue;
     }
     mesh.scale.setScalar(1);
     if (age < p.T) {
-      const y = p.y0 + p.vy * age - 0.5 * p.g * age * age;
-      mesh.position.set(p.x0 + p.vx * age, y > 0.08 ? y : 0.08, p.z0 + p.vz * age);
+      let y = p.y0 + p.vy * age - 0.5 * p.g * age * age;
+      if (y < 0.08) y = 0.08;
+      let x = x0 + p.vx * age;
+      let z = z0 + p.vz * age;
+      if (x < -3.15) x = -3.15;
+      else if (x > 3.15) x = 3.15;
+      if (z < -1.3) z = -1.3;
+      else if (z > 1.3) z = 1.3;
+      mesh.position.set(x, y, z);
       mesh.rotation.z = p.rot + p.spin * age;
     } else {
-      mesh.position.set(p.x1, 0.08, p.z1);
+      let x = x0 + p.vx * p.T;
+      let z = z0 + p.vz * p.T;
+      if (x < -3.15) x = -3.15;
+      else if (x > 3.15) x = 3.15;
+      if (z < -1.3) z = -1.3;
+      else if (z > 1.3) z = 1.3;
+      mesh.position.set(x, 0.08, z);
       mesh.rotation.z = p.rot + p.spin * p.T;
     }
   }

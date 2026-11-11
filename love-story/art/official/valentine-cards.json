@@ -1,0 +1,15 @@
+{
+  "id": "valentine-cards",
+  "file": "valentine-cards.webp",
+  "w": 1024,
+  "h": 393,
+  "feet": [
+    511.6,
+    373.8
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 0.56
+}

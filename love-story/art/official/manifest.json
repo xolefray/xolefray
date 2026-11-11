@@ -91,6 +91,21 @@
       "scene": "official",
       "units": 0.56
     },
+    "heart-arch": {
+      "id": "heart-arch",
+      "file": "heart-arch.webp",
+      "w": 808,
+      "h": 808,
+      "feet": [
+        403.5,
+        782
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 1.78
+    },
     "heart-balloons": {
       "id": "heart-balloons",
       "file": "heart-balloons.webp",
@@ -180,6 +195,21 @@
       ],
       "scene": "official",
       "units": 0.42
+    },
+    "valentine-cards": {
+      "id": "valentine-cards",
+      "file": "valentine-cards.webp",
+      "w": 1024,
+      "h": 393,
+      "feet": [
+        511.6,
+        373.8
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "official",
+      "units": 0.56
     }
   },
   "cycles": {}
