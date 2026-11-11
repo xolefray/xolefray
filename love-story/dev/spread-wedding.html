@@ -3,7 +3,7 @@
   dev/spread-wedding.html — the wedding spread (looked up by id), alone in its spread frame.
   ?alpha=  units of π, default 1. "film" = the timeline's α at t.
   ?t=      film seconds (default: the spread's open time).
-  ?view=   front | wide | low | top | couple | calendar | ribbon | celebrate | date
+  ?view=   front | wide | low | top | couple | calendar | ribbon | ribbonMid | vows | celebrate | date
   ?play=1  advance t.  ?free=1 orbit.  ?ui=0 hide the HUD.
   ?check=1 fold self-test (α from π to 0, and every 0.1 s of the open window).
            Prints "wedding fold check: PASS" or FAIL. Sets window.__ready.
@@ -100,11 +100,13 @@
       wide: [[0.3, 4.8, 8.6], [0, 0.85, 0]],
       low: [[0.15, 0.9, 5.3], [0, 1.0, 0.1]],
       top: [[0, 8.5, 0.4], [0, 0, 0]],
-      couple: [[0.05, 1.55, 3.1], [0, 1.0, -0.35]],
-      calendar: [[2.88, 1.35, 2.55], [2.88, 0.66, 0.46]],
-      ribbon: [[0.1, 1.2, 4.1], [0, 0.85, 0.05]],
-      celebrate: [[0.05, 1.45, 2.7], [0, 1.05, -0.3]],
-      date: [[0.05, 2.15, 4.2], [0, 1.9, -0.7]],
+      couple: [[0.4, 1.6, 3.4], [0.4, 1.1, -0.3]],
+      calendar: [[2.28, 1.15, 2.35], [2.28, 0.72, 0.55]],
+      ribbon: [[-1.6, 0.85, 2.4], [-1.7, 0.55, 0.34]],
+      ribbonMid: [[0.7, 0.8, 2.5], [0.7, 0.55, 0.34]],
+      vows: [[2.35, 0.78, 2.05], [2.4, 0.55, 0.34]],
+      celebrate: [[0.1, 1.7, 4.6], [0, 1.15, -0.1]],
+      date: [[1.7, 1.15, 2.4], [1.62, 0.65, 0.48]],
     };
     const target = new THREE.Vector3();
     let controls = null;
@@ -154,11 +156,11 @@
       const problems = [];
       const seen = new Set();
       const sample = (al, t) => {
-        if (problems.length >= 8) return;
+        if (problems.length >= 16) return;
         api.update(al, t);
         frame.updateMatrixWorld(true);
         api.group.traverse((obj) => {
-          if (problems.length >= 8 || !obj.isMesh || !obj.geometry?.attributes?.position) return;
+          if (problems.length >= 16 || !obj.isMesh || !obj.geometry?.attributes?.position) return;
           const pos = obj.geometry.attributes.position;
           for (let i = 0; i < pos.count; i++) {
             v.fromBufferAttribute(pos, i).applyMatrix4(obj.matrixWorld);
@@ -173,13 +175,33 @@
         });
       };
       const windowEnd = spread.close == null ? timeline.DURATION : spread.close;
-      const mid = (spread.open + windowEnd) / 2;
-      const late = timeline.BEATS.celebrate + 1.2;
+      const B = timeline.BEATS;
+      // Each set is full size at one of these times. Sampling only mid/late hides
+      // hearts, the easel and the calendar, which have already scaled away.
+      const moments = [
+        B.threeYears + 0.5,
+        B.threeYears + 2.6,
+        B.threeYears + 4.8,
+        B.weddingDate + 0.7,
+        B.iDo + 0.7,
+        B.anniversaryWish + 0.9,
+        B.notSunday + 0.45,
+        B.notSunday + 1.2,
+        B.coworkersMilestone + 0.55,
+        B.classmatesMilestone + 0.45,
+        B.dogParentsMilestone + 0.45,
+        B.homeownersMilestone + 0.45,
+        B.husbandAndWife + 0.55,
+        B.fullOfFate + 2.4,
+        B.fullOfFate + 4.8,
+        B.celebrate + 0.9,
+        B.celebrate + 1.6,
+        B.endCard + 1.5,
+      ];
       const angles = [PI, 0.6 * PI, 0.3 * PI, 0.1 * PI, 0];
       for (let i = 0; i <= 18; i++) angles.push(PI * (1 - i / 18));
       for (const al of angles) {
-        sample(al, mid);
-        sample(al, late);
+        for (let i = 0; i < moments.length; i++) sample(al, moments[i]);
       }
       for (let t = spread.open; t <= windowEnd + 1e-6; t += 0.1) sample(PI, t);
       if (problems.length) {
