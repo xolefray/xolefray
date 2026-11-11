@@ -25,6 +25,7 @@
  */
 import { BEATS, DURATION, END_CARD, LEAF_TURNS, SPREADS, clamp } from './timeline.js';
 import { PAGE_D, PAGE_W } from './dims.js';
+import { BOOK } from './book.js';
 
 const DEG = Math.PI / 180;
 const REF_ASPECT = 1.5; // shots are composed for this; narrower screens keep its horizontal coverage
@@ -54,9 +55,16 @@ const DRIFT_ROLL = 0.0024; // handheld roll, radians × shake
 const BREATH = 0.18; // lens breathing, degrees of fov × shake
 const DOLLY = 0.007; // slow in-out along the view, fraction of distance × shake
 
-/** Printed-surface height of a fully open spread (book.js hinge chain: covers 0.05, boards 0.022). */
-const PAGE_Y = [0, 0.16, 0.138, 0.116, 0.116, 0.138, 0.16];
-const COVER_TOP = 0.21; // closed book, outer face of the front cover
+/**
+ * Printed-surface height of a fully open spread. The cover boards (BOOK.COVER_T) sit outside the
+ * count; the taller pile of inner cards (BOOK.BOARD_T) sets the height. Works for any LEAVES.
+ */
+function openPageY(k) {
+  const innerBefore = Math.max(0, k - 1);
+  const innerAfter = Math.max(0, BOOK.LEAVES - 1 - k);
+  return BOOK.COVER_T + Math.max(innerBefore, innerAfter) * BOOK.BOARD_T;
+}
+const COVER_TOP = 2 * BOOK.COVER_T + (BOOK.LEAVES - 2) * BOOK.BOARD_T; // closed book, outer face of the front cover
 
 const EMPTY = [];
 
@@ -171,7 +179,7 @@ function turnPose() {
 }
 
 function widePose(k) {
-  const y = (PAGE_Y[k] || 0.14) + 0.4;
+  const y = openPageY(k) + 0.4;
   const fov = 35.5;
   const size = OPEN_W + 0.4;
   return place(0, y, 0, distanceFor(size, fov), 0, 37, fov, 0.08, size);
@@ -202,7 +210,7 @@ function addPrologue(shots, arrive) {
 }
 
 function addEnd(shots) {
-  const y = PAGE_Y[6] + 0.02;
+  const y = openPageY(SPREADS.length) + 0.02;
   const e0 = END_CARD.start;
   const e2 = DURATION;
   const e1 = e0 + (e2 - e0) * 0.42;
@@ -226,6 +234,21 @@ function insideTurn(t) {
     if (t > tr.start - TURN_LEAD + 0.02 && t < tr.end + 0.15) return true;
   }
   return false;
+}
+
+/**
+ * A scene cue is only a shot while its spread is open. Beats that version 1 parked inside a spread
+ * and version 2 moved past that spread's close would otherwise yank the camera onto a closed page.
+ * A cue at the spread's open (or up to 0.2 s before it) is kept. The wedding never closes.
+ */
+function cueOnOpenSpread(c) {
+  const k = c.spread;
+  if (!(k >= 1)) return true;
+  const s = SPREADS[k - 1];
+  if (!s) return false;
+  if (c.t < s.open - 0.2) return false;
+  if (s.close != null && c.t > s.close - 0.02) return false;
+  return true;
 }
 
 function validCue(c) {
@@ -263,7 +286,8 @@ function buildKnots(cues) {
   const seenSpread = new Uint8Array(SPREADS.length + 1);
   for (let i = 0; i < list.length; i++) {
     const c = list[i];
-    if (c.spread >= 1 && c.spread < seenSpread.length) seenSpread[c.spread] = 1;
+    if (c.spread >= 1 && c.spread < seenSpread.length && cueOnOpenSpread(c)) seenSpread[c.spread] = 1;
+    if (!cueOnOpenSpread(c)) continue;
     if (insideTurn(c.t)) continue;
     if (c.t >= END_CARD.start - 0.08) continue;
     if (first && c.t < first.start - TURN_LEAD - 0.05) continue;

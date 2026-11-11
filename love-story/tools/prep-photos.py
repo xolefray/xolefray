@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""prep-photos.py — make the three private photo files the film loads from love-story/photos/.
+"""prep-photos.py — make three of the eight private photo files the film loads from love-story/photos/.
 
     python3 tools/prep-photos.py --cover IMG_6193.HEIC --proposal proposal.jpg --dog dog.jpg
+
+  The film loads eight JPEGs (see photos/README.md): cover, proposal, dog, oliver, walmart, lunch,
+  deed, tokyo. This script only builds the first three. The other five are supplied already cropped.
 
   cover.jpg     the print INSIDE the black frame of the original (a photo of a framed print, shot at
                 an angle): cut out, perspective-rectified to an upright 4:5 rectangle, the haze of

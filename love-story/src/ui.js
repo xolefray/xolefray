@@ -19,6 +19,8 @@ const PAGE_SKIP = 15;
 const PROGRESS_STEPS = 2000;
 const CHAPTER_GAP_PX = 3;
 
+import { LANG, tr } from './i18n.js';
+
 /** localStorage key holding the viewer's mute preference ('1' / '0'). */
 export const MUTE_KEY = 'our-love-story:muted';
 
@@ -42,8 +44,8 @@ const ICONS = {
 const iconSet = (names) => names.map((n) => ICONS[n].replace('<svg ', `<svg data-icon="${n}" `)).join('');
 
 const TEMPLATE = `
-  <div class="pb-bar" role="group" aria-label="Film controls">
-    <div class="pb-scrub" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-orientation="horizontal">
+  <div class="pb-bar" role="group" aria-label="${tr('controls')}">
+    <div class="pb-scrub" role="slider" tabindex="0" aria-label="${tr('seek')}" aria-valuemin="0" aria-orientation="horizontal">
       <div class="pb-scrub__track"><div class="pb-scrub__fill"></div></div>
       <div class="pb-scrub__head"><div class="pb-scrub__thumb"></div></div>
       <div class="pb-tip" aria-hidden="true"><span class="pb-tip__time"></span><span class="pb-tip__chapter"></span></div>
@@ -52,11 +54,16 @@ const TEMPLATE = `
       <button class="pb-btn" type="button" data-action="play" aria-keyshortcuts="Space">${iconSet(['play', 'pause', 'replay'])}</button>
       <div class="pb-time"><span class="pb-time__cur">0:00</span> / <span class="pb-time__dur"></span></div>
       <div class="pb-chapter"></div>
+      <div class="pb-lang" role="group" aria-label="${tr('language')}">
+        <button class="pb-lang__btn" type="button" data-lang="en" aria-pressed="${LANG === 'en'}">EN</button>
+        <span class="pb-lang__sep" aria-hidden="true">|</span>
+        <button class="pb-lang__btn" type="button" data-lang="es" aria-pressed="${LANG === 'es'}">ES</button>
+      </div>
       <button class="pb-btn" type="button" data-action="mute" aria-keyshortcuts="M">${iconSet(['sound', 'muted'])}</button>
       <button class="pb-btn" type="button" data-action="fullscreen" aria-keyshortcuts="F">${iconSet(['fsEnter', 'fsExit'])}</button>
     </div>
   </div>
-  <button class="pb-replay" type="button" hidden>${ICONS.replay}Read it again</button>`;
+  <button class="pb-replay" type="button" hidden>${ICONS.replay}<span class="pb-replay__label">${tr('readAgain')}</span></button>`;
 
 const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 
@@ -178,7 +185,7 @@ export function createUI({ root, surface = null, player, audio, chapters, durati
   function syncMute() {
     const muted = !!audio.muted;
     showIcon(muteBtn, muted ? 'muted' : 'sound');
-    setLabel(muteBtn, muted ? 'Unmute' : 'Mute', 'M');
+    setLabel(muteBtn, muted ? tr('unmute') : tr('mute'), 'M');
     muteBtn.setAttribute('aria-pressed', String(muted));
   }
 
@@ -210,7 +217,7 @@ export function createUI({ root, surface = null, player, audio, chapters, durati
   function syncFullscreen() {
     const on = isFullscreen();
     showIcon(fsBtn, on ? 'fsExit' : 'fsEnter');
-    setLabel(fsBtn, on ? 'Exit full screen' : 'Full screen', 'F');
+    setLabel(fsBtn, on ? tr('exitFullscreen') : tr('fullscreen'), 'F');
   }
 
   // ---- visibility (auto-hide while playing)
@@ -305,6 +312,25 @@ export function createUI({ root, surface = null, player, audio, chapters, durati
   // ---- buttons
 
   bar.addEventListener('click', onGesture);
+  function switchLang(next) {
+    if (next !== 'en' && next !== 'es') return;
+    if (next === LANG) return;
+    const url = new URL(location.href);
+    url.searchParams.delete('lang');
+    url.searchParams.delete('t');
+    url.searchParams.delete('play');
+    url.searchParams.set('lang', next);
+    url.searchParams.set('t', player.time.toFixed(3));
+    if (player.playing) url.searchParams.set('play', '1');
+    location.assign(url.toString());
+  }
+  root.querySelectorAll('.pb-lang__btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      onGesture();
+      switchLang(btn.dataset.lang);
+    });
+  });
+
   playBtn.addEventListener('click', togglePlay);
   muteBtn.addEventListener('click', toggleMute);
   fsBtn.addEventListener('click', toggleFullscreen);
@@ -392,7 +418,7 @@ export function createUI({ root, surface = null, player, audio, chapters, durati
     if (state !== shownState) {
       shownState = state;
       showIcon(playBtn, ended ? 'replay' : playing ? 'pause' : 'play');
-      setLabel(playBtn, ended ? 'Replay' : playing ? 'Pause' : 'Play', 'Space');
+      setLabel(playBtn, ended ? tr('replay') : playing ? tr('pause') : tr('play'), 'Space');
       replayBtn.hidden = !ended;
       if (!playing) wake();
     }
@@ -408,7 +434,7 @@ export function createUI({ root, surface = null, player, audio, chapters, durati
       const now = formatTime(t);
       curEl.textContent = now;
       scrub.setAttribute('aria-valuenow', String(sec));
-      scrub.setAttribute('aria-valuetext', `${now} of ${durText}, ${chapters[ci].label}`);
+      scrub.setAttribute('aria-valuetext', `${now} ${tr('of')} ${durText}, ${chapters[ci].label}`);
     }
 
     const q = Math.round((t / duration) * PROGRESS_STEPS);

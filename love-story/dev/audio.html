@@ -72,12 +72,25 @@
 
     const SHORT = {
       Cover: 'Cover',
-      'How we met': 'Walmart',
+      Portada: 'Cover',
+      'Where it all began': 'Walmart',
+      'Donde todo comenzó': 'Walmart',
+      'Lunch breaks': 'Lunch',
+      'La hora del almuerzo': 'Lunch',
+      'Creative dates': 'Dates',
+      'Citas creativas': 'Dates',
+      'A little bit of fate': 'Fate',
+      'Un poquito de destino': 'Fate',
       'February 7, 2024': 'Official',
-      'A life together': 'Life',
-      'The question': 'Proposal',
+      '7 de febrero de 2024': 'Official',
+      'Building our life': 'Life',
+      'Construyendo nuestra vida': 'Life',
+      'On her birthday': 'Proposal',
+      'En su cumpleaños': 'Proposal',
       'February 6, 2027': 'Wedding',
+      '6 de febrero de 2027': 'Wedding',
       'See you there': 'End',
+      'Nos vemos ahí': 'End',
     };
     const short = (label) => SHORT[label] || (label.toLowerCase().includes('date') ? 'Dates' : label.slice(0, 10));
 

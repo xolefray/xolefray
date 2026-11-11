@@ -3,7 +3,7 @@
   dev/book.html (T-book) — standalone harness for src/book.js (the scrapbook).
   The book on a dark desk under a stand-in for the film's lamp (warm spot light from the upper left,
   hemisphere fill, soft front fill), posed from ?t= through timeline.leafAngles, with labelled test
-  page art on all six spreads, AxesHelpers on the spread anchors and small upright red-fronted test
+  page art on every spread, AxesHelpers on the spread anchors and small upright red-fronted test
   cards at (1, 0, 0) on each right page and at L(α)·1 on each left page.
   Params:
     t=<sec>        film time (default 20)
@@ -44,8 +44,8 @@
     const info = document.getElementById('info');
     const SPREADS = BOOK.LEAVES - 1;
 
-    // Schedule: the film's timeline when it is the seven-leaf one, else the contract's table.
-    const LOCAL_TURNS = [[9.5, 12.5], [38, 41], [69.5, 72.5], [84, 87], [104, 107], [120, 123]];
+    // Schedule: the film's timeline when it has one turn per spread, else one turn per spread.
+    const LOCAL_TURNS = Array.from({ length: SPREADS }, (_, i) => [10 + i * 30, 13 + i * 30]);
     const useTimeline = Array.isArray(timeline.LEAF_TURNS) && timeline.LEAF_TURNS.length === SPREADS && typeof timeline.leafAngles === 'function';
     const DURATION = useTimeline && timeline.DURATION ? timeline.DURATION : 153;
     const inOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);

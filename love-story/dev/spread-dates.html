@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  dev/spread-dates.html — spread 2, "The “dates”", alone in its spread frame.
+  dev/spread-dates.html — the dates spread (looked up by id), alone in its spread frame.
   ?alpha=  units of π, default 1. "film" = the timeline's α at t.
   ?t=      film seconds (default: the spread's open time).
   ?view=   front | wide | low | top | parents | walk | chase | rescue | school
@@ -51,7 +51,7 @@
     const play = params.get('play') === '1';
     const filmAlpha = params.get('alpha') === 'film';
     const alphaFixed = PI * Math.min(1, Math.max(0, num('alpha', 1)));
-    const phis = [0, 0, 0, 0, 0, 0, 0];
+    const phis = timeline.leafAngles(0);
     const alphaAt = (t) => (filmAlpha ? timeline.spreadAlpha(spread.k, timeline.leafAngles(t, phis)) : alphaFixed);
 
     await loadFonts();

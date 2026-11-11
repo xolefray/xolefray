@@ -3,134 +3,538 @@
  *
  * THE single source of truth for film timing: duration, leaf turns, spread windows, the narrator's
  * script (shown as captions now, recorded as a voice-over later), named story beats, the end card,
- * chapters, easing helpers, the leaf-angle function (film time -> 7 leaf angles) and a wall-clock
- * Player. Everything here is pure except Player, which reads performance.now().
+ * chapters, easing helpers, the leaf-angle function (film time -> one angle per leaf) and a
+ * wall-clock Player. Everything here is pure except Player, which reads performance.now().
  *
  * Every other module (spreads, camera, titles, environment, audio) imports its times from here:
- * never hard-code a film time anywhere else. To retime the film for a recorded narration, edit
- * NARRATION / BEATS / SPREADS / LEAF_TURNS in this file only.
+ * never hard-code a film time anywhere else. To retime the film, edit the schedule this file
+ * was generated from, then this file.
  *
- * Book: 7 leaves (0 = front cover, 1..5 inner boards, 6 = back cover, which never moves) and six
- * spreads k = 1..6; spread k lies between leaf k-1 and leaf k and opens while leaf k-1 turns.
+ * Version 2. Book: 9 leaves (0 = front cover, 1..7 inner
+ * boards, 8 = back cover, which never moves) and 8 spreads
+ * k = 1..8; spread k lies between leaf k-1 and leaf k and opens while leaf k-1 turns.
+ * The narrator speaks as "we". Each narration line and each spread title exists in English and Spanish;
+ * which one is shown is chosen in i18n.js (LANG), not by retiming anything here.
  */
 import { LEAVES } from './dims.js';
+import { L, tr } from './i18n.js';
 
-export const DURATION = 153;
+export const DURATION = 275;
 
 export const COUPLE = {
-  him: 'Brian',
-  her: 'Marlin',
-  names: 'Brian & Marlin',
-  weddingDate: 'February 6, 2027',
-  officialDate: 'February 7, 2024',
+  "him": "Brian",
+  "her": "Marlin",
+  "names": "Brian & Marlin",
+  "weddingDate": "February 6, 2027",
+  "officialDate": "February 7, 2024",
+  "weddingDateEs": "6 de febrero de 2027",
+  "officialDateEs": "7 de febrero de 2024"
 };
 
 /** Leaf turns: leaf i rotates φ 0 -> π between start and end (film seconds). */
 export const LEAF_TURNS = [
-  { leaf: 0, start: 9.5, end: 12.5 },
-  { leaf: 1, start: 38, end: 41 },
-  { leaf: 2, start: 69.5, end: 72.5 },
-  { leaf: 3, start: 84, end: 87 },
-  { leaf: 4, start: 104, end: 107 },
-  { leaf: 5, start: 120, end: 123 },
+  {
+    "leaf": 0,
+    "start": 9.9,
+    "end": 12.9
+  },
+  {
+    "leaf": 1,
+    "start": 46.1,
+    "end": 49.1
+  },
+  {
+    "leaf": 2,
+    "start": 72.6,
+    "end": 75.6
+  },
+  {
+    "leaf": 3,
+    "start": 110.3,
+    "end": 113.3
+  },
+  {
+    "leaf": 4,
+    "start": 148.8,
+    "end": 151.8
+  },
+  {
+    "leaf": 5,
+    "start": 173.4,
+    "end": 176.4
+  },
+  {
+    "leaf": 6,
+    "start": 201.6,
+    "end": 204.6
+  },
+  {
+    "leaf": 7,
+    "start": 219.9,
+    "end": 222.9
+  }
 ];
 
 /** start = begins opening, open = fully open, close = begins closing, end = closed (null = never). */
 export const SPREADS = [
-  { k: 1, id: 'walmart', title: 'How we met', start: 9.5, open: 12.5, close: 38, end: 41 },
-  { k: 2, id: 'dates', title: 'The “dates”', start: 38, open: 41, close: 69.5, end: 72.5 },
-  { k: 3, id: 'official', title: 'February 7, 2024', start: 69.5, open: 72.5, close: 84, end: 87 },
-  { k: 4, id: 'life', title: 'A life together', start: 84, open: 87, close: 104, end: 107 },
-  { k: 5, id: 'proposal', title: 'The question', start: 104, open: 107, close: 120, end: 123 },
-  { k: 6, id: 'wedding', title: 'February 6, 2027', start: 120, open: 123, close: null, end: null },
+  {
+    "k": 1,
+    "id": "walmart",
+    "title": "Where it all began",
+    "titleEs": "Donde todo comenzó",
+    "start": 9.9,
+    "open": 12.9,
+    "close": 46.1,
+    "end": 49.1
+  },
+  {
+    "k": 2,
+    "id": "lunch",
+    "title": "Lunch breaks",
+    "titleEs": "La hora del almuerzo",
+    "start": 46.1,
+    "open": 49.1,
+    "close": 72.6,
+    "end": 75.6
+  },
+  {
+    "k": 3,
+    "id": "dates",
+    "title": "Creative dates",
+    "titleEs": "Citas creativas",
+    "start": 72.6,
+    "open": 75.6,
+    "close": 110.3,
+    "end": 113.3
+  },
+  {
+    "k": 4,
+    "id": "fate",
+    "title": "A little bit of fate",
+    "titleEs": "Un poquito de destino",
+    "start": 110.3,
+    "open": 113.3,
+    "close": 148.8,
+    "end": 151.8
+  },
+  {
+    "k": 5,
+    "id": "official",
+    "title": "February 7, 2024",
+    "titleEs": "7 de febrero de 2024",
+    "start": 148.8,
+    "open": 151.8,
+    "close": 173.4,
+    "end": 176.4
+  },
+  {
+    "k": 6,
+    "id": "life",
+    "title": "Building our life",
+    "titleEs": "Construyendo nuestra vida",
+    "start": 173.4,
+    "open": 176.4,
+    "close": 201.6,
+    "end": 204.6
+  },
+  {
+    "k": 7,
+    "id": "proposal",
+    "title": "On her birthday",
+    "titleEs": "En su cumpleaños",
+    "start": 201.6,
+    "open": 204.6,
+    "close": 219.9,
+    "end": 222.9
+  },
+  {
+    "k": 8,
+    "id": "wedding",
+    "title": "February 6, 2027",
+    "titleEs": "6 de febrero de 2027",
+    "start": 219.9,
+    "open": 222.9,
+    "close": null,
+    "end": null
+  }
 ];
 
 /**
- * The narrator's script. start/end = when the line is spoken (and its caption shown), in film
- * seconds; spread = the spread it belongs to (0 = the closed book / cover). He / she, never names.
+ * The narrator's script, in both languages. start/end = when the line is spoken (and its caption
+ * shown), in film seconds; spread = the spread it belongs to (0 = the closed book / cover).
+ * `text` is English, `es` is Spanish. Copy both exactly — typographic quotes, ellipses, ¡ ¿, accents.
  */
 export const NARRATION = [
-  { id: 'n01', start: 2.5, end: 4.9, spread: 0, text: 'Every love story starts somewhere.' },
-  { id: 'n02', start: 5.4, end: 9.4, spread: 0, text: 'A ballroom. A beach. A café in Paris.' },
-  { id: 'n03', start: 12.0, end: 14.2, spread: 1, text: 'Theirs started at Walmart.' },
-  { id: 'n04', start: 15.0, end: 16.3, spread: 1, text: 'Yes, really.' },
-  { id: 'n05', start: 17.5, end: 19.3, spread: 1, text: 'They were coworkers first.' },
-  { id: 'n06', start: 19.8, end: 26.5, spread: 1, text: 'Then came the lunch breaks, full of talking, laughing, and arguing over who was going to pay.' },
-  { id: 'n07', start: 27.0, end: 28.4, spread: 1, text: 'He always won.' },
-  { id: 'n08', start: 29.3, end: 33.2, spread: 1, text: 'They talked so much they could never finish their food.' },
-  { id: 'n09', start: 33.8, end: 37.2, spread: 1, text: "That's when they knew this was something different." },
-  { id: 'n10', start: 42.0, end: 43.8, spread: 2, text: "It wasn't exactly simple." },
-  { id: 'n11', start: 44.3, end: 49.2, spread: 2, text: 'There were strict parents, so a walk with the dog became a date.' },
-  { id: 'n12', start: 49.8, end: 55.6, spread: 2, text: 'Her little sister came along on just about every outing, their most dedicated chaperone.' },
-  { id: 'n13', start: 56.5, end: 62.6, spread: 2, text: 'Once, they chased down an Uber to rescue a lost phone, and called it an adventure.' },
-  { id: 'n14', start: 63.6, end: 68.2, spread: 2, text: 'Then fate stepped in again, and sent them to the same school.' },
-  { id: 'n15', start: 73.5, end: 78.6, spread: 3, text: 'On February 7th, 2024, they finally made it official.' },
-  { id: 'n16', start: 79.8, end: 82.8, spread: 3, text: 'He still swears they were already dating.' },
-  { id: 'n17', start: 88.0, end: 90.6, spread: 4, text: 'After that, the pages filled up fast.' },
-  { id: 'n18', start: 91.4, end: 93.0, spread: 4, text: 'A first place together.' },
-  { id: 'n19', start: 93.8, end: 95.4, spread: 4, text: 'A dog of their own.' },
-  { id: 'n20', start: 96.2, end: 98.8, spread: 4, text: 'A home with both their names on it.' },
-  { id: 'n21', start: 99.6, end: 102.2, spread: 4, text: 'And a trip all the way to Japan.' },
-  { id: 'n22', start: 108.5, end: 113.4, spread: 5, text: "Then, on her birthday, he asked the one question he'd been saving." },
-  { id: 'n23', start: 116.0, end: 117.6, spread: 5, text: 'She said yes.' },
-  { id: 'n24', start: 124.5, end: 131.6, spread: 6, text: "Now they're getting married on February 6th, 2027, one day before their anniversary." },
-  { id: 'n25', start: 132.4, end: 133.9, spread: 6, text: 'They love that date.' },
-  { id: 'n26', start: 134.4, end: 136.0, spread: 6, text: 'Just not on a Sunday.' },
-  { id: 'n27', start: 138.0, end: 140.8, spread: 6, text: 'From Walmart coworkers to forever.' },
-  { id: 'n28', start: 141.6, end: 144.4, spread: 6, text: "We can't wait to celebrate with you." },
+  {
+    "id": "c1",
+    "start": 2.6,
+    "end": 5.2,
+    "spread": 0,
+    "text": "This is our love story.",
+    "es": "Esta es nuestra historia de amor."
+  },
+  {
+    "id": "c2",
+    "start": 5.9,
+    "end": 8.9,
+    "spread": 0,
+    "text": "It began in the most unexpected place…",
+    "es": "Comenzó en el lugar más inesperado…"
+  },
+  {
+    "id": "w1",
+    "start": 12.5,
+    "end": 14.1,
+    "spread": 1,
+    "text": "Walmart.",
+    "es": "Walmart."
+  },
+  {
+    "id": "w2",
+    "start": 15.2,
+    "end": 22.3,
+    "spread": 1,
+    "text": "What started as two coworkers quickly turned into something neither of us saw coming.",
+    "es": "Lo que empezó como dos compañeros de trabajo pronto se convirtió en algo que ninguno de los dos vio venir."
+  },
+  {
+    "id": "w3",
+    "start": 23.1,
+    "end": 27.8,
+    "spread": 1,
+    "text": "At first, we were just passing by each other during our shifts.",
+    "es": "Al principio, solo nos cruzábamos durante nuestros turnos."
+  },
+  {
+    "id": "w4",
+    "start": 28.6,
+    "end": 35.8,
+    "spread": 1,
+    "text": "Marlin was a little shy and nervous around people. Brian was always kind and easy to talk to.",
+    "es": "Marlin era un poco tímida y se ponía nerviosa con la gente. Brian siempre fue amable y muy fácil de tratar."
+  },
+  {
+    "id": "w5",
+    "start": 36.6,
+    "end": 44.5,
+    "spread": 1,
+    "text": "Something made us curious about each other, and little by little, our conversations turned into something more.",
+    "es": "Algo nos despertó curiosidad el uno por el otro y, poco a poco, nuestras conversaciones se convirtieron en algo más."
+  },
+  {
+    "id": "l1",
+    "start": 50.1,
+    "end": 56,
+    "spread": 2,
+    "text": "Our first real connection happened during an assigned lunch break.",
+    "es": "Nuestra primera conexión de verdad surgió en un descanso de almuerzo que nos asignaron."
+  },
+  {
+    "id": "l2",
+    "start": 56.8,
+    "end": 62.6,
+    "spread": 2,
+    "text": "What was supposed to be a quick break turned into hours of talking and laughing.",
+    "es": "Lo que iba a ser un descanso rápido se convirtió en horas de hablar y reír."
+  },
+  {
+    "id": "l3",
+    "start": 63.4,
+    "end": 71,
+    "spread": 2,
+    "text": "From then on, lunch breaks became our thing, and we always found ourselves looking forward to the next one.",
+    "es": "Desde entonces, los almuerzos se volvieron lo nuestro, y siempre nos quedábamos esperando el siguiente."
+  },
+  {
+    "id": "d1",
+    "start": 76.6,
+    "end": 82.1,
+    "spread": 3,
+    "text": "As we got closer, we had to get creative with our dates.",
+    "es": "A medida que nos acercábamos, tuvimos que ponernos creativos con nuestras citas."
+  },
+  {
+    "id": "d2",
+    "start": 82.9,
+    "end": 89.4,
+    "spread": 3,
+    "text": "Because of strict parents, our first little adventures were walking Oliver together…",
+    "es": "Con papás estrictos, nuestras primeras pequeñas aventuras fueron sacar a pasear a Oliver juntos…"
+  },
+  {
+    "id": "d3",
+    "start": 90,
+    "end": 98.2,
+    "spread": 3,
+    "text": "…and before long, Marlin’s little sister became our unofficial third wheel, tagging along on practically every date.",
+    "es": "…y muy pronto, la hermanita de Marlin se convirtió en nuestra chaperona no oficial, acompañándonos en casi todas las citas."
+  },
+  {
+    "id": "d4",
+    "start": 99,
+    "end": 108.7,
+    "spread": 3,
+    "text": "Between dog walks, late nights, and even chasing down an Uber to rescue a forgotten phone, we started making memories of our own.",
+    "es": "Entre paseos con el perro, noches largas y hasta perseguir un Uber para rescatar un celular olvidado, empezamos a crear nuestros propios recuerdos."
+  },
+  {
+    "id": "f1",
+    "start": 114.3,
+    "end": 118.7,
+    "spread": 4,
+    "text": "Our first official date outside of work was at the movies.",
+    "es": "Nuestra primera cita oficial fuera del trabajo fue en el cine."
+  },
+  {
+    "id": "f2",
+    "start": 119.4,
+    "end": 124.1,
+    "spread": 4,
+    "text": "We didn’t even sit next to each other… but hey, it was a start!",
+    "es": "Ni siquiera nos sentamos juntos… ¡pero por algo se empieza!"
+  },
+  {
+    "id": "f3",
+    "start": 125.1,
+    "end": 130.9,
+    "spread": 4,
+    "text": "Somewhere along the way, we discovered we were meant to cross paths again.",
+    "es": "En algún punto del camino, descubrimos que estábamos destinados a cruzarnos otra vez."
+  },
+  {
+    "id": "f4",
+    "start": 131.7,
+    "end": 141.5,
+    "spread": 4,
+    "text": "When Marlin was encouraged to go to college, and was even thinking about leaving Walmart, she found out Brian went to the very same school.",
+    "es": "Cuando animaron a Marlin a ir a la universidad, y hasta pensaba dejar Walmart, descubrió que Brian estudiaba en la misma escuela."
+  },
+  {
+    "id": "f5",
+    "start": 142.3,
+    "end": 147.2,
+    "spread": 4,
+    "text": "What seemed like a coincidence felt a little more like fate.",
+    "es": "Lo que parecía una coincidencia se sintió un poco más como el destino."
+  },
+  {
+    "id": "o1",
+    "start": 152.8,
+    "end": 157.4,
+    "spread": 5,
+    "text": "On February 7, 2024, we finally made it official…",
+    "es": "El 7 de febrero de 2024, por fin hicimos oficial nuestra relación…"
+  },
+  {
+    "id": "o2",
+    "start": 158,
+    "end": 162.8,
+    "spread": 5,
+    "text": "…although Brian still insists he thought we were already dating.",
+    "es": "…aunque Brian todavía insiste en que él creía que ya éramos novios."
+  },
+  {
+    "id": "o3",
+    "start": 163.7,
+    "end": 167.2,
+    "spread": 5,
+    "text": "We went to school together, worked together…",
+    "es": "Íbamos a la escuela juntos, trabajábamos juntos…"
+  },
+  {
+    "id": "o4",
+    "start": 167.8,
+    "end": 171.8,
+    "spread": 5,
+    "text": "…and shared our first kiss on Valentine’s Day.",
+    "es": "…y nos dimos nuestro primer beso el Día de San Valentín."
+  },
+  {
+    "id": "h1",
+    "start": 177.4,
+    "end": 181.5,
+    "spread": 6,
+    "text": "As time went on, we kept building our life together.",
+    "es": "Con el tiempo, seguimos construyendo nuestra vida juntos."
+  },
+  {
+    "id": "h2",
+    "start": 182.3,
+    "end": 188.1,
+    "spread": 6,
+    "text": "We moved in together, and welcomed our first dog together: Cherry.",
+    "es": "Nos fuimos a vivir juntos y le dimos la bienvenida a nuestra primera perrita: Cherry."
+  },
+  {
+    "id": "h3",
+    "start": 188.9,
+    "end": 192.1,
+    "spread": 6,
+    "text": "Later, we bought a home of our own.",
+    "es": "Más adelante, compramos nuestra propia casa."
+  },
+  {
+    "id": "h4",
+    "start": 193,
+    "end": 200,
+    "spread": 6,
+    "text": "And for our two-year anniversary, we traveled to Japan, where another unforgettable chapter began.",
+    "es": "Y para nuestro segundo aniversario, viajamos a Japón, donde comenzó otro capítulo inolvidable."
+  },
+  {
+    "id": "p1",
+    "start": 205.6,
+    "end": 209.4,
+    "spread": 7,
+    "text": "On Marlin’s birthday, Brian got down on one knee…",
+    "es": "En el cumpleaños de Marlin, Brian se arrodilló…"
+  },
+  {
+    "id": "p2",
+    "start": 210.1,
+    "end": 213.3,
+    "spread": 7,
+    "text": "…and asked her to spend forever with him.",
+    "es": "…y le pidió pasar toda la vida juntos."
+  },
+  {
+    "id": "x1",
+    "start": 223.9,
+    "end": 230.7,
+    "spread": 8,
+    "text": "And now, after three years together, we’re finally making it official in a whole new way!",
+    "es": "Y ahora, después de tres años juntos, ¡por fin lo haremos oficial de una manera completamente nueva!"
+  },
+  {
+    "id": "x2",
+    "start": 231.5,
+    "end": 234.9,
+    "spread": 8,
+    "text": "On February 6, 2027, we’ll be saying “I do.”",
+    "es": "El 6 de febrero de 2027 diremos «Sí, acepto»."
+  },
+  {
+    "id": "x3",
+    "start": 235.9,
+    "end": 244,
+    "spread": 8,
+    "text": "We wanted February 7, our anniversary… but apparently a Sunday wasn’t everyone’s idea of a good party!",
+    "es": "Queríamos el 7 de febrero, nuestro aniversario… ¡pero al parecer un domingo no era la idea de una buena fiesta para todos!"
+  },
+  {
+    "id": "x4",
+    "start": 245,
+    "end": 251.9,
+    "spread": 8,
+    "text": "From Walmart coworkers to college classmates, dog parents, homeowners, and now husband and wife…",
+    "es": "De compañeros en Walmart a compañeros de universidad, papás perrunos, dueños de casa y, ahora, esposos…"
+  },
+  {
+    "id": "x5",
+    "start": 252.5,
+    "end": 258.4,
+    "spread": 8,
+    "text": "…our story has been full of unexpected turns, laughter, and a little bit of fate.",
+    "es": "…nuestra historia ha estado llena de giros inesperados, risas y un poquito de destino."
+  },
+  {
+    "id": "x6",
+    "start": 259.3,
+    "end": 263.9,
+    "spread": 8,
+    "text": "We can’t wait to celebrate the next chapter with you!",
+    "es": "¡No podemos esperar para celebrar el próximo capítulo con ustedes!"
+  }
 ];
 
 /** Named moments (film seconds). Spreads, camera, lights and score animate to these. */
 export const BEATS = {
-  // cover
-  lampOn: 0.4,
-  coverReveal: 1.5,
-  // 1 · walmart
-  walmartSign: 12.0,
-  coworkers: 17.5,
-  lunch: 19.8,
-  payArgument: 23.0,
-  heWins: 27.0,
-  foodUntouched: 29.3,
-  sparks: 33.8,
-  // 2 · dates
-  strictParents: 44.3,
-  dogWalk: 45.5,
-  sisterTagsAlong: 49.8,
-  uberChaseStart: 56.5,
-  phoneRescued: 61.0,
-  sameSchool: 63.6,
-  // 3 · official
-  calendar: 73.5,
-  official: 77.0,
-  alreadyDating: 79.8,
-  // 4 · life
-  firstPlace: 91.4,
-  dogOfTheirOwn: 93.8,
-  home: 96.2,
-  japan: 99.6,
-  // 5 · proposal
-  kneel: 108.5,
-  question: 112.0,
-  photoReveal: 114.3,
-  yes: 116.0,
-  // 6 · wedding + epilogue
-  weddingDate: 124.5,
-  notSunday: 134.4,
-  walmartToForever: 138.0,
-  celebrate: 141.6,
-  endCard: 145.5,
-  fadeOut: 150.5,
+  "lampOn": 0.4,
+  "coverReveal": 1.5,
+  "walmartSign": 12.5,
+  "coworkers": 15.2,
+  "passingBy": 23.1,
+  "shy": 28.6,
+  "kind": 32.3,
+  "curious": 36.6,
+  "somethingMore": 40.9,
+  "lunch": 50.1,
+  "quickBreak": 56.8,
+  "hoursTalking": 59.4,
+  "ourThing": 63.4,
+  "sparks": 68,
+  "creativeDates": 76.6,
+  "strictParents": 82.9,
+  "dogWalk": 85.6,
+  "sisterTagsAlong": 91,
+  "lateNights": 100.2,
+  "uberChaseStart": 101.9,
+  "phoneRescued": 105.4,
+  "memories": 106.8,
+  "movies": 114.3,
+  "apartSeats": 119.4,
+  "itsAStart": 122.2,
+  "crossPaths": 125.1,
+  "college": 131.7,
+  "leavingWalmart": 134.9,
+  "sameSchool": 137.8,
+  "fate": 142.3,
+  "calendar": 152.8,
+  "official": 155.3,
+  "alreadyDating": 158.5,
+  "schoolTogether": 163.7,
+  "workTogether": 165.6,
+  "firstKiss": 168.6,
+  "buildingLife": 177.4,
+  "firstPlace": 182.3,
+  "cherry": 185.2,
+  "home": 188.9,
+  "japan": 195.1,
+  "nextChapter": 197.9,
+  "birthday": 205.6,
+  "kneel": 207.5,
+  "question": 210.1,
+  "threeYears": 223.9,
+  "weddingDate": 231.5,
+  "iDo": 233.5,
+  "anniversaryWish": 235.9,
+  "notSunday": 239.5,
+  "coworkersMilestone": 245.4,
+  "classmatesMilestone": 246.9,
+  "dogParentsMilestone": 248.2,
+  "homeownersMilestone": 249.3,
+  "husbandAndWife": 250.5,
+  "fullOfFate": 252.5,
+  "celebrate": 259.3,
+  "photoReveal": 214.2,
+  "yes": 216.1,
+  "endCard": 266.1,
+  "fadeOut": 271.6
 };
 
+/**
+ * version-1 aliases — beat names the six existing scenes (and the score) still import.
+ * Each is the version-2 beat that now carries that moment. Do not delete these until those
+ * scenes stop reading the old names.
+ */
+BEATS.payArgument = BEATS.hoursTalking; // version-1 name, same moment as hoursTalking
+BEATS.heWins = BEATS.hoursTalking; // version-1 name, same moment as hoursTalking
+BEATS.foodUntouched = BEATS.ourThing; // version-1 name, same moment as ourThing
+BEATS.dogOfTheirOwn = BEATS.cherry; // version-1 name, same moment as cherry
+BEATS.walmartToForever = BEATS.coworkersMilestone; // version-1 name, same moment as coworkersMilestone
+
 /** The closing card (names + date): appears at start, the picture fades from fadeStart to end. */
-export const END_CARD = { start: 145.5, end: 153, fadeStart: 150.5 };
+export const END_CARD = {
+  "start": 266.1,
+  "end": 275,
+  "fadeStart": 271.6
+};
 
 /** Scrubber chapters, derived: the cover, one per spread (from the moment it starts opening), the end card. */
 export const CHAPTERS = [
-  { t: 0, label: 'Cover' },
-  ...SPREADS.map((s) => ({ t: s.start, label: s.title })),
-  { t: END_CARD.start, label: 'See you there' },
+  { t: 0, label: tr('chapterCover') },
+  ...SPREADS.map((s) => ({ t: s.start, label: L(s.title, s.titleEs) })),
+  { t: END_CARD.start, label: tr('chapterEnd') },
 ];
 
 export function clamp(x, a = 0, b = 1) {
@@ -168,8 +572,8 @@ export const ease = {
 };
 
 /**
- * Leaf angles [φ0..φ6] at film time t. φ6 (back cover) is always 0. Pass `out` (an array of ≥ 7
- * numbers) to fill and return it instead of allocating a new array (per-frame use).
+ * Leaf angles [φ0..φ(LEAVES−1)] at film time t. The back cover is always 0. Pass `out` (an array
+ * of at least LEAVES numbers) to fill and return it instead of allocating (per-frame use).
  */
 export function leafAngles(t, out = new Array(LEAVES).fill(0)) {
   out.fill(0, 0, LEAVES);
@@ -179,7 +583,7 @@ export function leafAngles(t, out = new Array(LEAVES).fill(0)) {
   return out;
 }
 
-/** Opening angle α_k of spread k (1..6) for the given leaf angles. */
+/** Opening angle α_k of spread k (1..SPREADS.length) for the given leaf angles. */
 export function spreadAlpha(k, phis) {
   return phis[k - 1] - phis[k];
 }

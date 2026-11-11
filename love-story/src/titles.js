@@ -21,6 +21,7 @@
  */
 import { COUPLE, END_CARD, LEAF_TURNS, NARRATION, SPREADS, ease, seg, smoothstep } from './timeline.js';
 import { FONT } from './fonts.js';
+import { L, narrationText, spreadTitle, tr } from './i18n.js';
 
 const CAPTION_FADE = 0.5;
 const CAPTION_HOLD = 0.6;
@@ -35,20 +36,22 @@ const TAPES = [
   { tilt: '2.15deg', color: '#2c5476' },
   { tilt: '-1.9deg', color: '#3d663c' },
   { tilt: '1.4deg', color: '#7a3b50' },
+  { tilt: '-2.6deg', color: '#8a5a2b' },
+  { tilt: '1.15deg', color: '#5a3d78' },
 ];
 
 /** Spread k's label rides the leaf turn that opens it: turn start + 0.4 s → turn end. */
 const PAGE_TITLES = SPREADS.map((s, i) => {
   const turn = LEAF_TURNS.find((tr) => tr.leaf === s.k - 1);
   const tape = TAPES[i % TAPES.length];
-  return { start: turn.start + 0.4, end: turn.end, text: s.title, tilt: tape.tilt, color: tape.color };
+  return { start: turn.start + 0.4, end: turn.end, text: spreadTitle(s), tilt: tape.tilt, color: tape.color };
 });
 
 /** Hold each spoken line 0.6 s past its end, but never into the next line. */
 const LINES = NARRATION.map((n, i) => {
   const next = NARRATION[i + 1];
   const showEnd = Math.min(n.end + CAPTION_HOLD, next ? next.start : n.end + CAPTION_HOLD);
-  return { text: n.text, start: n.start, showEnd };
+  return { text: narrationText(n), start: n.start, showEnd };
 });
 
 const CSS = `
@@ -82,12 +85,12 @@ const CSS = `
   display: flex; justify-content: center; padding: 0 14px;
 }
 .tt-tag {
-  display: inline-block; max-width: min(18em, calc(100vw - 32px));
+  display: inline-block; max-width: min(14em, calc(100vw - 28px));
   padding: 0.14em 0.82em 0.18em; text-align: center;
   font-family: ${FONT.hand}; font-weight: 700; font-style: normal;
-  font-size: clamp(1.4rem, 0.55rem + 1.7vw, 4.6rem); line-height: 1.12;
+  font-size: clamp(1.15rem, 0.48rem + 1.35vw, 3.6rem); line-height: 1.08;
   letter-spacing: 0.005em; color: var(--tt-cream);
-  overflow-wrap: break-word; transform: rotate(var(--tt-tilt, -2deg));
+  overflow-wrap: break-word; text-wrap: balance; transform: rotate(var(--tt-tilt, -2deg));
   background-color: var(--tt-tape, #8a4038);
   background-image:
     linear-gradient(180deg, rgba(255,255,255,.3), rgba(255,255,255,0) 40%, rgba(0,0,0,.16)),
@@ -109,8 +112,8 @@ const CSS = `
 .tt-cap {
   grid-area: 1 / 1; position: relative; isolation: isolate;
   max-width: min(38em, 100%); margin: 0; padding: 0.16em 0.55em 0.2em;
-  font-style: italic; font-size: clamp(1.67rem, 0.79rem + 1.99vw, 5.56rem); line-height: 1.28;
-  letter-spacing: 0.004em; text-align: center; text-wrap: balance; overflow-wrap: break-word;
+  font-style: italic; font-size: var(--tt-cap-size, clamp(1.67rem, 0.79rem + 1.99vw, 5.56rem)); line-height: 1.28;
+  letter-spacing: 0.004em; text-align: center; text-wrap: wrap; white-space: pre-line; overflow-wrap: break-word;
   text-shadow:
     0 1px 2px rgba(var(--tt-ink), .95),
     0 0 0.4em rgba(var(--tt-ink), .92),
@@ -215,6 +218,99 @@ class Layer {
   }
 }
 
+/**
+ * Break a caption into at most three balanced lines and shrink the type until every line fits
+ * the frame. Layout depends on the viewport, never on film time, so a seek does not reflow it.
+ */
+function fitCaptions(nodes) {
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const vw = window.innerWidth || 1280;
+  const vh = window.innerHeight || 720;
+  const fluid = 0.79 * rem + 0.0199 * vw;
+  const preferred = Math.min(5.56 * rem, Math.max(1.67 * rem, fluid));
+  const pad = Math.min(72, Math.max(14, 0.04 * vw));
+  const probe = document.createElement('span');
+  probe.style.cssText = `position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre;font-style:italic;font-weight:400;letter-spacing:0.004em;font-family:${FONT.serif};`;
+  document.body.appendChild(probe);
+  const measure = (text, px) => {
+    probe.style.fontSize = `${px}px`;
+    probe.textContent = text;
+    return probe.getBoundingClientRect().width;
+  };
+  const layout = (text, px, maxW) => {
+    const words = text.split(/\s+/).filter(Boolean);
+    if (!words.length) return [text];
+    const space = measure(' ', px);
+    const widths = words.map((w) => measure(w, px));
+    const span = (i, j) => {
+      let w = 0;
+      for (let k = i; k < j; k++) w += widths[k] + (k > i ? space : 0);
+      return w;
+    };
+    if (span(0, words.length) <= maxW) return [text];
+    const join = (i, j) => words.slice(i, j).join(' ');
+    const pick = (count) => {
+      let best = null;
+      const breaksOf = (cuts) => {
+        const edges = [0, ...cuts, words.length];
+        const measured = [];
+        for (let e = 0; e < edges.length - 1; e++) measured.push(span(edges[e], edges[e + 1]));
+        const lines = [];
+        for (let e = 0; e < edges.length - 1; e++) lines.push(join(edges[e], edges[e + 1]));
+        const widest = Math.max(...measured);
+        const uneven = widest - Math.min(...measured);
+        if (!best || widest < best.widest - 0.5 || (Math.abs(widest - best.widest) <= 0.5 && uneven < best.uneven)) {
+          best = { lines, widest, uneven };
+        }
+      };
+      if (count === 2) {
+        for (let i = 1; i < words.length; i++) breaksOf([i]);
+      } else {
+        for (let i = 1; i < words.length - 1; i++) {
+          for (let j = i + 1; j < words.length; j++) breaksOf([i, j]);
+        }
+      }
+      return best;
+    };
+    const two = words.length >= 2 ? pick(2) : null;
+    if (two && two.widest <= maxW) return two.lines;
+    const three = words.length >= 3 ? pick(3) : null;
+    if (three) return three.lines;
+    return two ? two.lines : [text];
+  };
+  for (const node of nodes) {
+    const text = node.dataset.raw || node.textContent;
+    node.dataset.raw = text;
+    const clean = text.replace(/\s+/g, ' ').trim();
+    let lo = 12;
+    let hi = preferred;
+    let chosen = lo;
+    let lines = [clean];
+    let fitted = false;
+    for (let n = 0; n < 14; n++) {
+      const mid = (lo + hi) / 2;
+      const maxW = Math.max(80, vw - pad * 2 - 8) - mid * 1.1;
+      const maxBlock = vh * 0.3;
+      const laid = layout(clean, mid, maxW);
+      const widest = Math.max(...laid.map((ln) => measure(ln, mid)));
+      const block = laid.length * mid * 1.28 + mid * 0.4;
+      if (laid.length <= 3 && widest <= maxW && block <= maxBlock) {
+        chosen = mid;
+        lines = laid;
+        fitted = true;
+        lo = mid;
+      } else hi = mid;
+    }
+    if (!fitted) {
+      const maxW = Math.max(80, vw - pad * 2 - 8) - 12 * 1.1;
+      lines = layout(clean, 12, maxW);
+    }
+    node.style.setProperty('--tt-cap-size', `${chosen.toFixed(2)}px`);
+    node.textContent = lines.join('\n');
+  }
+  probe.remove();
+}
+
 function injectStyle() {
   if (document.getElementById('tt-style')) return;
   const style = document.createElement('style');
@@ -243,18 +339,23 @@ export function createTitles(container, { captions } = {}) {
 
   const caps = el('div', 'tt-caps');
   const lines = LINES.map((c) => {
-    const layer = new Layer(el('p', 'tt-cap tt-l', c.text));
+    const node = el('p', 'tt-cap tt-l', c.text);
+    node.dataset.raw = c.text;
+    const layer = new Layer(node);
     caps.appendChild(layer.node);
     return { start: c.start, showEnd: c.showEnd, layer };
   });
   if (!showCaptions) caps.hidden = true;
+  const refit = () => fitCaptions(lines.map((c) => c.layer.node));
+  refit();
+  window.addEventListener('resize', refit);
 
   const endNode = el('div', 'tt-end tt-l');
   const glow = el('div', 'tt-end-glow');
   const stack = el('div', 'tt-end-stack');
-  stack.append(el('div', 'tt-end-names', COUPLE.names));
+  stack.append(el('div', 'tt-end-names', tr('endNames')));
   stack.insertAdjacentHTML('beforeend', HEART_SVG);
-  stack.append(el('div', 'tt-end-date', COUPLE.weddingDate));
+  stack.append(el('div', 'tt-end-date', L(COUPLE.weddingDate, COUPLE.weddingDateEs)));
   endNode.append(glow, stack);
   const end = new Layer(endNode);
 

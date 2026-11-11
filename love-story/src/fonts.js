@@ -1,7 +1,8 @@
 // fonts.js — the film's typefaces and the loader that makes them usable in 2D canvases.
 //
-// Two vendored open-licence faces live in ../fonts/ (latin subset: basic Latin + Latin-1 incl. é,
-// curly quotes “ ” ‘ ’, dashes, &); their @font-face rules are in styles.css:
+// Two vendored open-licence faces live in ../fonts/ (latin subset: basic Latin, Latin-1 and the
+// Spanish letters this film letters — Á É Í Ó Ú Ñ á é í ó ú ñ ¡ ¿ « » … — plus curly quotes
+// “ ” ‘ ’ and dashes). Their @font-face rules are in styles.css:
 //
 //   FONT.display  "Luckiest Guy" 400  — chunky, friendly, hand-cut-looking capitals. Lowercase letters
 //                 are cap-height alternates (a few — e, n, u … — keep a lowercase shape), so mixed
@@ -21,7 +22,7 @@
 export const FONT = {
   display: '"Luckiest Guy","Arial Rounded MT Bold","Trebuchet MS",Impact,sans-serif',
   hand: '"Caveat","Segoe Print","Bradley Hand","Comic Sans MS",cursive',
-  serif: '"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif',
+  serif: '"Iowan Old Style","Palatino Linotype",Palatino,"Liberation Serif",Caladea,FreeSerif,Georgia,serif',
 };
 
 // [family, weight, file]. Everything loadFonts() guarantees.
@@ -32,7 +33,7 @@ const FACES = [
 ];
 
 // Characters the film letters with; asking document.fonts for them makes sure the right file is in.
-const SAMPLE = 'Our Love Story & é “ ” ’ 0123456789';
+const SAMPLE = 'Our Love Story NUESTRA HISTORIA ÁÉÍÓÚÑáéíóúñ¡¿«»… “ ” ’ 0123456789';
 
 const FONT_DIR = new URL('../fonts/', import.meta.url);
 

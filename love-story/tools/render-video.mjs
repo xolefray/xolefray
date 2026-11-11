@@ -2,9 +2,13 @@
  * render-video.mjs — deterministic MP4 export of the film.
  *
  * Usage:
- *   node love-story/tools/render-video.mjs --out film.mp4 [--size 1920x1080] [--fps 30]
- *        [--from 0] [--to DURATION] [--jobs 3] [--query "k=v&k2=v"] [--crf 18]
- *        [--narration file.mp3] [--no-audio] [--keep-frames]
+ *   node love-story/tools/render-video.mjs [--out film-en.mp4] [--lang en|es]
+ *        [--size 1920x1080] [--fps 30] [--from 0] [--to DURATION] [--jobs 3]
+ *        [--query "k=v&k2=v"] [--crf 18] [--narration file.mp3] [--no-audio] [--keep-frames]
+ *
+ * `--lang` appends `lang=` to the page query. The default output name is film-<lang>.mp4
+ * (language from --lang, else from an existing lang= in --query, else en). DURATION comes
+ * from the timeline, so a longer film needs no change here.
  *
  * Each job opens index.html once (ui=0, mute=1, t=chunk start, plus --query), waits for
  * window.__ready, then seeks every frame and screenshots the page (DOM captions included).
@@ -42,9 +46,9 @@ const CHROMIUM_ARGS = [
 ];
 const OPTIONAL_ASSET = /\/(photos\/[^/?#]+\.(jpe?g|png|webp)|audio\/narration\.[a-z0-9]+)([?#]|$)/i;
 
-const USAGE = `usage: node love-story/tools/render-video.mjs --out film.mp4 [--size 1920x1080] [--fps 30]
-       [--from 0] [--to DURATION] [--jobs 3] [--query "k=v"] [--crf 18]
-       [--narration file.mp3] [--no-audio] [--keep-frames]`;
+const USAGE = `usage: node love-story/tools/render-video.mjs [--out film-<lang>.mp4] [--lang en|es]
+       [--size 1920x1080] [--fps 30] [--from 0] [--to DURATION] [--jobs 3] [--query "k=v"]
+       [--crf 18] [--narration file.mp3] [--no-audio] [--keep-frames]`;
 
 function loadPlaywright() {
   const candidates = ['playwright', '/usr/local/lib/node_modules_global/playwright', '/opt/node22/lib/node_modules/playwright'];
@@ -84,6 +88,7 @@ function parseArgs(argv) {
     query: '',
     crf: '18',
     narration: null,
+    lang: null,
   };
   let noAudio = false;
   let keepFrames = false;
@@ -105,7 +110,9 @@ function parseArgs(argv) {
     if (val === undefined) throw new Error(`missing value for ${arg}\n${USAGE}`);
     raw[key] = val;
   }
-  if (!raw.out) throw new Error(`--out <file.mp4> is required\n${USAGE}`);
+  if (raw.lang != null && raw.lang !== 'en' && raw.lang !== 'es') {
+    throw new Error(`bad --lang ${raw.lang} (expected en or es)\n${USAGE}`);
+  }
 
   const size = /^(\d+)x(\d+)$/.exec(raw.size);
   if (!size) throw new Error(`bad --size ${raw.size} (expected WxH, for example 1920x1080)`);
@@ -135,8 +142,15 @@ function parseArgs(argv) {
   const totalFrames = frameCount(from, to, fps);
   if (totalFrames < 1) throw new Error(`range ${from}–${to} at ${fps} fps contains no frames`);
 
+  let query = raw.query.replace(/^[?&]/, '');
+  const fromQuery = new URLSearchParams(query).getAll('lang').at(-1);
+  const detected = fromQuery === 'es' || fromQuery === 'en' ? fromQuery : null;
+  const lang = raw.lang || detected || 'en';
+  if (raw.lang) query = [query, `lang=${raw.lang}`].filter(Boolean).join('&');
+  const out = raw.out || `film-${lang}.mp4`;
+
   return {
-    out: path.resolve(raw.out),
+    out: path.resolve(out),
     width,
     height,
     fps,
@@ -144,7 +158,8 @@ function parseArgs(argv) {
     to,
     jobs,
     crf,
-    query: raw.query.replace(/^[?&]/, ''),
+    query,
+    lang,
     narration,
     noAudio,
     keepFrames,

@@ -17,9 +17,9 @@
  *   function of t in the vertex shader, and each mote only glows while it is inside the cone.
  *
  * Light, from the timeline (no hard-coded film times): the lamp ignites BEATS.lampOn → ~2.8 s
- * with a small flicker; warm level 1 through spreads 1–4; spread 5 eases to a dimmer rosier 0.85
- * across its opening turn, with a soft swell at BEATS.yes; spread 6 eases to a bright gold 1.15
- * across its opening turn; the room fades to near black over 147.5–152.5.
+ * with a small flicker; warm level 1 until the proposal spread, which eases to a dimmer rosier
+ * 0.85 across its opening turn, with a soft swell at BEATS.yes; the wedding spread eases to a
+ * bright gold 1.15 across its opening turn; the room fades to near black across the end card.
  *
  * Everything in update(t) is a pure function of film time and allocates nothing. Physical light
  * units (decay 2), tuned for ACESFilmic at exposure 1.
@@ -45,8 +45,8 @@ const PROPOSAL_LEVEL = 0.85;
 const WEDDING_LEVEL = 1.15;
 const YES_SWELL = 0.18; // added to the proposal level at BEATS.yes, then let go
 
-const PROPOSAL = SPREADS.find((s) => s.k === 5);
-const WEDDING = SPREADS.find((s) => s.k === 6);
+const PROPOSAL = SPREADS.find((s) => s.id === 'proposal');
+const WEDDING = SPREADS.find((s) => s.id === 'wedding');
 
 const DESK_SIZE = 40;
 const TILE_X = 12; // world units covered by one wood texture tile (grain runs along X)

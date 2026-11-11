@@ -739,6 +739,41 @@ body {
   white-space: nowrap;
 }
 
+.pb-lang {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15em;
+  margin: 0 2px 0 6px;
+  color: var(--cream-3);
+  font: 600 11px/1 var(--font-ui);
+  letter-spacing: 0.08em;
+}
+
+.pb-lang__btn {
+  border: 0;
+  padding: 6px 2px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.pb-lang__btn[aria-pressed="true"] {
+  color: var(--cream);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pb-lang__btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.pb-lang__sep {
+  opacity: 0.55;
+}
+
 .pb-replay {
   position: absolute;
   left: 50%;

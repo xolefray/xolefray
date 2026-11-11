@@ -1,33 +1,32 @@
 /**
- * book.js — the hand-made scrapbook: seven hinged leaves, a red cloth spine tied with a cord, the
- * leather cover with its cut-paper title and photo medallion, and the six spread anchors
- * (contract §3, §5 "src/book.js").
+ * book.js — the hand-made scrapbook: LEAVES hinged leaves (dims.js), a red cloth spine tied with a
+ * cord, the leather cover with its cut-paper title and photo medallion, and one anchor per spread
+ * (contract §3, §5 "src/book.js"). Version 2 has nine leaves and eight spreads; nothing below
+ * assumes that count.
  *
- * Leaves: 0 = front cover, 1..5 = thick scrapbook card, 6 = back cover. Every leaf is a rounded slab
- * in its own local frame (x ∈ [0, w] from its gutter edge, y ∈ [0, t] from its BACK face to its
- * FRONT face, z centred) and is turned by exactly its φ about a Z-parallel hinge line at its gutter
- * edge.
+ * Leaves: 0 = front cover, 1..LEAVES−2 = thick scrapbook card, LEAVES−1 = back cover. Every leaf is
+ * a rounded slab in its own local frame (x ∈ [0, w] from its gutter edge, y ∈ [0, t] from its BACK
+ * face to its FRONT face, z centred) and is turned by exactly its φ about a Z-parallel hinge line
+ * at its gutter edge.
  *
  * Hinge chain (why gutters stay clean and nothing interpenetrates): leaf i's back-face gutter edge
  * sits on point Q[i+1] and its front-face gutter edge is Q[i] = Q[i+1] + t_i·n(φ_i), with
- * n(φ) = (−sin φ, cos φ) and Q[7] the back cover's outer gutter edge. So the two printed surfaces of
- * spread k (back face of leaf k−1, front face of leaf k) both start on the line through Q[k] for
- * every opening angle — during turns too. Adjacent leaves only ever touch along that line, so no
- * two leaves can overlap; the pile that is not under the turning leaf just glides around a circle
- * of radius t_k while the leaf turns. The chain is finally lifted so that its lowest corner rests on
- * the desk (y = 0).
+ * n(φ) = (−sin φ, cos φ) and Q[LEAVES] the back cover's outer gutter edge. So the two printed
+ * surfaces of spread k (back face of leaf k−1, front face of leaf k) both start on the line through
+ * Q[k] for every opening angle — during turns too. Adjacent leaves only ever touch along that line,
+ * so no two leaves can overlap; the pile that is not under the turning leaf just glides around a
+ * circle of radius t_k while the leaf turns. The chain is finally lifted so that its lowest corner
+ * rests on the desk (y = 0).
  *
  * Float: an open spread is perfectly flat, so its two piles — of different thickness — cannot both
- * lie on the desk: the thinner one hovers by |2k − 7|·BOARD_T (0.110, 0.066, 0.022 for spreads 1–3,
- * where the turned-over front cover hovers; the same for spreads 6, 5, 4, where the back cover
- * does). The cover boards do not matter, only the inner cards, which is why those are thin. The gap
- * is hidden by a dark recessed plinth under each hovering pile (it reads as the shadow under the
- * cover's overhang and stops any see-through at desk level) and by a soft contact shadow round both
- * footprints.
+ * lie on the desk: the thinner one hovers by |2k − LEAVES|·BOARD_T. The cover boards do not count,
+ * only the inner cards, which is why those are thin. The gap is hidden by a dark recessed plinth
+ * under each hovering pile (it reads as the shadow under the cover's overhang and stops any
+ * see-through at desk level) and by a soft contact shadow round both footprints.
  *
- * Anchor k (1..6) sits on Q[k] rotated by φ_k: origin on the right page's printed surface at the
- * gutter, +X along the right page, +Y its normal, +Z toward the reader; the left page (back of leaf
- * k−1) leaves the same Z axis in direction L(α_k) exactly. Page art (1024 × 853 canvases) is mapped
+ * Anchor k (1..LEAVES−1) sits on Q[k] rotated by φ_k: origin on the right page's printed surface at
+ * the gutter, +X along the right page, +Y its normal, +Z toward the reader; the left page (back of
+ * leaf k−1) leaves the same Z axis in direction L(α_k) exactly. Page art (1024 × 853 canvases) is mapped
  * with explicit UVs: front faces u = x/W, back faces u = 1 − x/W, v = 1 at the far edge; the page
  * shader darkens a soft strip along the gutter, and the cards' gutter-side faces are dark so the
  * fold never shows as a bright seam. Cards differ by a hair in size and edge tint (a hand-cut
@@ -52,13 +51,14 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mulberry32 } from './util/rng.js';
 import { PAGE_W, PAGE_D, LEAVES as LEAF_COUNT } from './dims.js';
 import { FONT } from './fonts.js';
+import { tr } from './i18n.js';
 import * as paperLib from './paper.js';
 import * as timeline from './timeline.js';
 
-export const BOOK = { PAGE_W, PAGE_D, BOARD_T: 0.022, LEAVES: LEAF_COUNT };
+const COVER_T = 0.05; // cover board thickness (inner cards are T)
+export const BOOK = { PAGE_W, PAGE_D, BOARD_T: 0.022, COVER_T, LEAVES: LEAF_COUNT };
 
 const { PAGE_W: W, PAGE_D: D, BOARD_T: T, LEAVES } = BOOK;
-const COVER_T = 0.05; // cover board thickness (inner cards are T)
 const OVERHANG_X = 0.08; // the covers' "squares" beyond the cards: fore-edge …
 const OVERHANG_Z = 0.06; // … and head / tail
 const COVER_W = W + OVERHANG_X;
@@ -91,7 +91,9 @@ const GOLD_INK = ['#f7e7b4', '#e3bf73'];
 
 // Cover composition (world units in the cover's frame: x from the hinge edge, z toward the reader).
 const BORDER_INSET = 0.11; // stitched border, measured from the leather panel's edges
-const TITLE = {
+// English keeps the original column. Spanish is a narrower three-line block (NUESTRA / HISTORIA /
+// DE AMOR) so the letters stay clear of the photo medallion on the right and the names below it.
+const TITLE_EN = {
   x: 1.47, // centre line of the title column
   z: -0.1, // centre of the three-line block
   width: 1.46,
@@ -102,6 +104,30 @@ const TITLE = {
     { text: 'STORY', cap: 0.345, colors: ['leaf', 'mustard', 'sky', 'tomato', 'cream'], dx: 0, tilt: -0.015 },
   ],
 };
+const TITLE_ES = {
+  x: 1.4,
+  z: -0.12,
+  width: 1.28,
+  gap: 0.09,
+  lines: [
+    { text: 'NUESTRA', cap: 0.3, colors: ['mustard', 'sky', 'tomato'], dx: -0.06, tilt: -0.03 },
+    { text: 'HISTORIA', cap: 0.28, colors: ['tomato', 'cream', 'teal', 'mustard'], dx: 0.02, tilt: 0.01 },
+    { text: 'DE AMOR', cap: 0.3, colors: ['leaf', 'mustard', 'sky', 'tomato', 'cream', 'teal'], dx: 0.04, tilt: -0.012 },
+  ],
+};
+/** The layout paintCover reads. selectCoverLayout sets it before the cover is painted. */
+let COVER_TITLE = TITLE_EN;
+
+function selectCoverLayout(title) {
+  const upper = String(title || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  if (upper === 'NUESTRA HISTORIA DE AMOR') {
+    COVER_TITLE = TITLE_ES;
+    return;
+  }
+  COVER_TITLE = TITLE_EN;
+  const words = upper.split(' ');
+  if (words.length === TITLE_EN.lines.length) words.forEach((word, i) => (TITLE_EN.lines[i].text = word));
+}
 const MEDALLION = { x: 2.815, z: -0.2, rx: 0.5, rz: 0.65, mat: 0.105, frame: 0.05 };
 /** Which part of the cover photo shows in the oval: centre and height as fractions of the photo. */
 const COVER_PHOTO_CROP = { cx: 0.475, cy: 0.345, h: 0.63 };
@@ -695,10 +721,14 @@ function gluePiece(L, mask, o) {
   }
 }
 
-/** Silhouette of one glyph, tightly boxed. */
+/** Silhouette of one glyph, tightly boxed. A space advances and carries no paper. */
 function glyphMask(ch, fontSpec) {
   const probe = makeCanvas(4, 4).ctx;
   probe.font = fontSpec;
+  if (ch === ' ' || ch === '\u00a0') {
+    const m = probe.measureText(' ');
+    return { canvas: null, advance: m.width || probe.measureText('n').width * 0.33, blank: true };
+  }
   const m = probe.measureText(ch);
   const left = m.actualBoundingBoxLeft;
   const w = Math.ceil(left + m.actualBoundingBoxRight) + 4;
@@ -1059,31 +1089,37 @@ function paintCover({ leather, cloth, photo, font, title, names, cord }) {
     probe.font = `200px ${font.display}`;
     const capRatio = probe.measureText('H').actualBoundingBoxAscent / 200 || 0.7;
     const TRACK = 0.035; // extra advance between letters, in em
-    const laid = TITLE.lines.map((line) => {
+    const laid = COVER_TITLE.lines.map((line) => {
       let px = (line.cap * K) / capRatio;
       const measure = () => {
         const spec = `${Math.round(px)}px ${font.display}`;
         const glyphs = [...line.text].map((ch) => glyphMask(ch, spec));
-        const width = glyphs.reduce((s, g) => s + g.advance, 0) + TRACK * px * (glyphs.length - 1);
+        const width = glyphs.reduce((s, g) => s + g.advance, 0) + TRACK * px * Math.max(0, glyphs.length - 1);
         return { glyphs, width };
       };
       let m = measure();
-      if (m.width > TITLE.width * K) {
-        px *= (TITLE.width * K) / m.width;
+      if (m.width > COVER_TITLE.width * K) {
+        px *= (COVER_TITLE.width * K) / m.width;
         m = measure();
       }
       return { line, px, cap: px * capRatio, ...m };
     });
-    const total = laid.reduce((s, l) => s + l.cap, 0) + TITLE.gap * K * (laid.length - 1);
-    let top = Z(TITLE.z) - total / 2;
+    const total = laid.reduce((s, l) => s + l.cap, 0) + COVER_TITLE.gap * K * (laid.length - 1);
+    let top = Z(COVER_TITLE.z) - total / 2;
     let n = 0;
     for (const l of laid) {
       const baseline = top + l.cap;
       let pen = -l.width / 2;
-      const ox = X(TITLE.x + l.line.dx);
+      const chars = [...l.line.text];
+      const ox = X(COVER_TITLE.x + l.line.dx);
       const cosT = Math.cos(l.line.tilt);
       const sinT = Math.sin(l.line.tilt);
       l.glyphs.forEach((g, i) => {
+        const ch = chars[i];
+        if (g.blank || ch === ' ' || ch === '\u00a0') {
+          pen += g.advance + TRACK * l.px;
+          return;
+        }
         const gx = pen + (g.right - g.left) / 2; // glyph box centre along the line …
         const gy = (g.descent - g.ascent) / 2 + (rand() - 0.5) * 0.045 * K; // … and across it, with a little bounce
         gluePiece(L, g.canvas, {
@@ -1097,7 +1133,7 @@ function paintCover({ leather, cloth, photo, font, title, names, cord }) {
         });
         pen += g.advance + TRACK * l.px;
       });
-      top += l.cap + TITLE.gap * K;
+      top += l.cap + COVER_TITLE.gap * K;
     }
   }
 
@@ -1635,8 +1671,8 @@ function shadowed(mesh, cast = true) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Spine: a curved cloth shell from the back cover's outer gutter edge (Q[7]) to the front cover's
-// (Q[0]), re-shaped every time the leaves move.
+// Spine: a curved cloth shell from the back cover's outer gutter edge (Q[LEAVES]) to the front
+// cover's (Q[0]), re-shaped every time the leaves move.
 
 function createSpine(clothMat) {
   const n1 = SPINE_SEGMENTS + 1;
@@ -1646,7 +1682,9 @@ function createSpine(clothMat) {
   const sNrm = new Float32Array(shellCount * 3);
   const sUv = new Float32Array(shellCount * 2);
   const index = [];
-  const closedLength = 0.26; // UV scale: spine profile length of the closed book
+  // UV scale follows the closed stack. 0.26 was tuned when that stack was 0.21 (seven leaves).
+  const stackH = THICK.reduce((sum, thick) => sum + thick, 0);
+  const closedLength = stackH * (0.26 / 0.21);
   for (let strip = 0; strip < 4; strip++) {
     for (let i = 0; i < n1; i++) {
       for (let r = 0; r < 2; r++) {
@@ -1783,21 +1821,22 @@ function measureLight(group, cache) {
 
 /**
  * createBook({ photos, fonts, title, names }) →
- *   { group, setLeafAngles(φ[7]), getSpreadAnchor(k), setPageArt(k, {left, right}), update(t, lampLevel?) }
+ *   { group, setLeafAngles(φ[LEAVES]), getSpreadAnchor(k), setPageArt(k, {left, right}), update(t, lampLevel?) }
  *
  * photos  result of loadPhotos(); photos.cover (canvas | null) goes into the cover medallion, null →
  *         a cut-paper heart emblem.
  * fonts   the FONT map ({ display, hand }); call after loadFonts() so the canvas can use the faces.
- * title   three words, one per line, lettered in capitals (default "Our Love Story").
+ * title   cut-paper capitals. English is three lines (OUR / LOVE / STORY). Spanish
+ *         "NUESTRA HISTORIA DE AMOR" is three lines too (NUESTRA / HISTORIA / DE AMOR).
+ *         Default is the active language's cover title.
  * names   default timeline.COUPLE.names.
  */
-export function createBook({ photos = null, fonts = null, title = 'Our Love Story', names = null } = {}) {
+export function createBook({ photos = null, fonts = null, title = null, names = null } = {}) {
   const group = new THREE.Group();
   group.name = 'book';
   const font = { display: (fonts && fonts.display) || FONT.display, hand: (fonts && fonts.hand) || FONT.hand };
   const coupleNames = names || (timeline.COUPLE && timeline.COUPLE.names) || 'Brian & Marlin';
-  const words = String(title).trim().toUpperCase().split(/\s+/);
-  if (words.length === TITLE.lines.length) words.forEach((word, i) => (TITLE.lines[i].text = word));
+  selectCoverLayout(title || tr('coverTitle'));
 
   // Shared textures and materials.
   const leather = paintLeather(PAL.leather, 11);

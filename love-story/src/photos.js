@@ -7,16 +7,18 @@
  * and photoPrint(null, …) paints a finished-looking illustrated placeholder (a doodled heart), so
  * every caller gets a usable canvas either way.
  *
- * loadPhotos({ disabled } = {}) -> Promise<{ cover, proposal, dog }>, each an HTMLCanvasElement (the
- * decoded photo, longest side <= 1600 px) or null. Sources: ../photos/cover.jpg, proposal.jpg,
- * dog.jpg — or, when `window.__PHOTOS = { cover: <url | data URI>, … }` exists, those instead
+ * loadPhotos({ disabled } = {}) -> Promise of eight canvases (or null): cover, proposal, dog,
+ * oliver, walmart, lunch, deed, tokyo. Each is an HTMLCanvasElement (the decoded photo, longest
+ * side <= 1600 px) or null. Sources: ../photos/<name>.jpg — or, when
+ * `window.__PHOTOS = { cover: <url | data URI>, … }` exists, those instead
  * (single-file builds; a name missing from __PHOTOS is simply null, the files are not consulted).
  * Memoised.
  *     const photos = await loadPhotos();
  *     const book = createBook({ photos, fonts: FONT });
  * PHOTOS OFF: with `disabled: true`, or — when `disabled` is not given — with `photos=0` in the
  * page URL (photosDisabled()), nothing is fetched or read and all three are null, so every consumer
- * shows its illustrated fallback. Use it for screenshots that leave the machine. Every page that
+ * shows its illustrated fallback (a heart for the original three; a small scene for each of the
+ * five added names). Use it for screenshots that leave the machine. Every page that
  * calls loadPhotos() honours `?photos=0` without doing anything.
  *
  * photoPrint(photo, { width=512, style='polaroid', caption='', tilt=0, tape=true,
@@ -49,12 +51,38 @@ import { FONT } from './fonts.js';
 import { PAPER, addGrain, makeCanvas } from './paper.js';
 import { mulberry32 } from './util/rng.js';
 
-const NAMES = ['cover', 'proposal', 'dog'];
+const NAMES = ['cover', 'proposal', 'dog', 'oliver', 'walmart', 'lunch', 'deed', 'tokyo'];
 /**
- * Width / height of the three prepared photos (tools/prep-photos.py). Pass `aspect: PHOTO_ASPECT.dog`
- * to photoPrint to get the same-sized piece whether or not the file is present.
+ * Width / height of the eight photos. Pass `aspect: PHOTO_ASPECT.dog` (or the matching name) to
+ * photoPrint to get the same-sized piece whether or not the file is present. The five added
+ * aspects also select that photo's illustrated stand-in when the file is missing.
  */
-export const PHOTO_ASPECT = Object.freeze({ cover: 0.8, proposal: 0.82, dog: 0.7 });
+export const PHOTO_ASPECT = Object.freeze({
+  cover: 0.8,
+  proposal: 0.82,
+  dog: 0.7,
+  oliver: 1.333,
+  walmart: 0.779,
+  lunch: 0.75,
+  deed: 1.181,
+  tokyo: 0.893,
+});
+const MOTIF_NAMES = ['oliver', 'walmart', 'lunch', 'deed', 'tokyo'];
+
+function emptyPhotos() {
+  return Object.fromEntries(NAMES.map((name) => [name, null]));
+}
+
+/** Which illustrated stand-in to draw. An explicit motif wins; otherwise a matching aspect. The default 0.8 is not "cover". */
+function resolveMotif(options) {
+  if (options.motif && MOTIF_NAMES.includes(options.motif)) return options.motif;
+  const aspect = options.aspect;
+  if (typeof aspect !== 'number' || !Number.isFinite(aspect)) return null;
+  for (const name of MOTIF_NAMES) {
+    if (Math.abs(PHOTO_ASPECT[name] - aspect) <= 1e-4) return name;
+  }
+  return null;
+}
 const MAX_SIDE = 1600;
 const LOAD_TIMEOUT_MS = 12000;
 const PHOTO_DIR = new URL('../photos/', import.meta.url);
@@ -116,9 +144,9 @@ export function photosDisabled() {
 }
 
 export function loadPhotos({ disabled } = {}) {
-  if (disabled ?? photosDisabled()) return Promise.resolve({ cover: null, proposal: null, dog: null });
+  if (disabled ?? photosDisabled()) return Promise.resolve(emptyPhotos());
   if (pending) return pending;
-  const out = { cover: null, proposal: null, dog: null };
+  const out = emptyPhotos();
   if (typeof document === 'undefined') {
     pending = Promise.resolve(out);
     return pending;
@@ -251,7 +279,188 @@ function drawPlaceholder(ctx, x, y, w, h, rnd) {
   ctx.restore();
 }
 
-function drawPicture(ctx, photo, x, y, w, h, focus, rnd) {
+function fillRound(ctx, x, y, w, h, r, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.fill();
+}
+
+/** A small standing figure. `vest` paints a blue vest over the torso. */
+function doodlePerson(ctx, x, y, h, { vest = false, laugh = false, ink = '#3a2a24' } = {}) {
+  const head = h * 0.22;
+  ctx.fillStyle = '#f3d2b5';
+  ctx.beginPath();
+  ctx.arc(x, y - h + head * 0.85, head * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = Math.max(1, h * 0.03);
+  ctx.stroke();
+  if (laugh) {
+    ctx.beginPath();
+    ctx.arc(x, y - h + head * 0.95, head * 0.18, 0.15, Math.PI - 0.15);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.arc(x, y - h + head, head * 0.12, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = ink;
+  ctx.beginPath();
+  ctx.moveTo(x - head * 0.16, y - h + head * 0.72);
+  ctx.lineTo(x - head * 0.16, y - h + head * 0.78);
+  ctx.moveTo(x + head * 0.16, y - h + head * 0.72);
+  ctx.lineTo(x + head * 0.16, y - h + head * 0.78);
+  ctx.stroke();
+  const bodyTop = y - h + head * 1.45;
+  fillRound(ctx, x - h * 0.16, bodyTop, h * 0.32, h * 0.38, h * 0.08, vest ? '#2f6fbe' : '#7a4a3a');
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = Math.max(1.2, h * 0.035);
+  ctx.beginPath();
+  ctx.moveTo(x - h * 0.08, y - h * 0.22);
+  ctx.lineTo(x - h * 0.12, y);
+  ctx.moveTo(x + h * 0.08, y - h * 0.22);
+  ctx.lineTo(x + h * 0.12, y);
+  ctx.stroke();
+}
+
+/** Illustrated stand-ins for the five photos added in version 2. */
+function drawMotif(ctx, x, y, w, h, rnd, motif) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  const sky = ctx.createLinearGradient(x, y, x, y + h);
+  if (motif === 'oliver') {
+    sky.addColorStop(0, '#9fd0ea');
+    sky.addColorStop(0.55, '#d7eef6');
+    sky.addColorStop(1, '#6ea84a');
+  } else if (motif === 'tokyo') {
+    sky.addColorStop(0, '#f7d7c4');
+    sky.addColorStop(0.62, '#f3b9a4');
+    sky.addColorStop(1, '#e7d3b0');
+  } else {
+    sky.addColorStop(0, '#f6efe2');
+    sky.addColorStop(1, '#e7d3b4');
+  }
+  ctx.fillStyle = sky;
+  ctx.fillRect(x, y, w, h);
+
+  if (motif === 'oliver') {
+    const ground = y + h * 0.62;
+    ctx.fillStyle = '#7fb069';
+    ctx.fillRect(x, ground, w, h - (ground - y));
+    ctx.fillStyle = '#6a9a52';
+    for (let i = 0; i < 9; i++) {
+      const gx = x + ((i * 0.13 + rnd() * 0.04) % 1) * w;
+      ctx.fillRect(gx, ground + h * 0.08 + rnd() * h * 0.2, w * 0.012, h * 0.08);
+    }
+    const cx = x + w * 0.5;
+    const cy = y + h * 0.58;
+    const s = Math.min(w, h);
+    ctx.fillStyle = '#f4f1ea';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, s * 0.28, s * 0.16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#d5d0c6';
+    ctx.beginPath();
+    ctx.ellipse(cx - s * 0.08, cy - s * 0.02, s * 0.1, s * 0.07, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f7f4ee';
+    ctx.beginPath();
+    ctx.ellipse(cx + s * 0.16, cy - s * 0.1, s * 0.13, s * 0.1, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f4f1ea';
+    ctx.beginPath();
+    ctx.moveTo(cx + s * 0.05, cy - s * 0.16);
+    ctx.lineTo(cx + s * 0.12, cy - s * 0.32);
+    ctx.lineTo(cx + s * 0.2, cy - s * 0.14);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + s * 0.18, cy - s * 0.14);
+    ctx.lineTo(cx + s * 0.28, cy - s * 0.3);
+    ctx.lineTo(cx + s * 0.3, cy - s * 0.1);
+    ctx.fill();
+    ctx.fillStyle = '#222';
+    ctx.beginPath();
+    ctx.ellipse(cx + s * 0.24, cy - s * 0.1, s * 0.035, s * 0.02, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#6aa0c8';
+    ctx.beginPath();
+    ctx.arc(cx + s * 0.2, cy - s * 0.12, s * 0.018, 0, Math.PI * 2);
+    ctx.arc(cx + s * 0.27, cy - s * 0.11, s * 0.018, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#4a4038';
+    ctx.lineWidth = Math.max(1, s * 0.012);
+    ctx.beginPath();
+    ctx.moveTo(cx - s * 0.22, cy);
+    ctx.quadraticCurveTo(cx - s * 0.4, cy - s * 0.05, cx - s * 0.34, cy + s * 0.08);
+    ctx.stroke();
+  } else if (motif === 'walmart') {
+    fillRound(ctx, x + w * 0.08, y + h * 0.55, w * 0.84, h * 0.28, 6, '#c4a574');
+    fillRound(ctx, x + w * 0.62, y + h * 0.38, w * 0.22, h * 0.2, 4, '#5c6570');
+    ctx.fillStyle = '#b7e0f2';
+    ctx.fillRect(x + w * 0.66, y + h * 0.42, w * 0.14, h * 0.09);
+    doodlePerson(ctx, x + w * 0.32, y + h * 0.78, h * 0.42, { vest: true });
+    doodlePerson(ctx, x + w * 0.52, y + h * 0.78, h * 0.4, { vest: true });
+  } else if (motif === 'lunch') {
+    fillRound(ctx, x + w * 0.1, y + h * 0.58, w * 0.8, h * 0.12, 8, '#a87848');
+    ctx.fillStyle = '#f7f1e4';
+    ctx.beginPath();
+    ctx.ellipse(x + w * 0.34, y + h * 0.58, w * 0.1, h * 0.035, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + w * 0.62, y + h * 0.58, w * 0.1, h * 0.035, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e2574c';
+    ctx.beginPath();
+    ctx.arc(x + w * 0.34, y + h * 0.55, w * 0.035, 0, Math.PI * 2);
+    ctx.fill();
+    doodlePerson(ctx, x + w * 0.48, y + h * 0.7, h * 0.46, { laugh: true });
+  } else if (motif === 'deed') {
+    fillRound(ctx, x + w * 0.12, y + h * 0.52, w * 0.76, h * 0.16, 6, '#8d6a45');
+    ctx.fillStyle = '#fbf7ee';
+    ctx.fillRect(x + w * 0.38, y + h * 0.42, w * 0.24, h * 0.14);
+    ctx.strokeStyle = '#3a2f2a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.42, y + h * 0.48);
+    ctx.lineTo(x + w * 0.58, y + h * 0.5);
+    ctx.moveTo(x + w * 0.42, y + h * 0.52);
+    ctx.lineTo(x + w * 0.55, y + h * 0.53);
+    ctx.stroke();
+    doodlePerson(ctx, x + w * 0.28, y + h * 0.74, h * 0.4, {});
+    doodlePerson(ctx, x + w * 0.72, y + h * 0.74, h * 0.4, {});
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = Math.max(1, h * 0.012);
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.34, y + h * 0.48);
+    ctx.lineTo(x + w * 0.46, y + h * 0.5);
+    ctx.moveTo(x + w * 0.66, y + h * 0.48);
+    ctx.lineTo(x + w * 0.54, y + h * 0.51);
+    ctx.stroke();
+  } else if (motif === 'tokyo') {
+    const gate = '#c0392b';
+    const left = x + w * 0.22;
+    const right = x + w * 0.78;
+    const top = y + h * 0.16;
+    const foot = y + h * 0.82;
+    ctx.fillStyle = gate;
+    ctx.fillRect(left, top + h * 0.08, w * 0.06, foot - (top + h * 0.08));
+    ctx.fillRect(right - w * 0.06, top + h * 0.08, w * 0.06, foot - (top + h * 0.08));
+    ctx.beginPath();
+    ctx.moveTo(x + w * 0.12, top + h * 0.1);
+    ctx.quadraticCurveTo(x + w * 0.5, top - h * 0.04, x + w * 0.88, top + h * 0.1);
+    ctx.lineTo(x + w * 0.84, top + h * 0.18);
+    ctx.quadraticCurveTo(x + w * 0.5, top + h * 0.06, x + w * 0.16, top + h * 0.18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillRect(x + w * 0.16, top + h * 0.2, w * 0.68, h * 0.045);
+    doodlePerson(ctx, x + w * 0.42, foot, h * 0.28, {});
+    doodlePerson(ctx, x + w * 0.58, foot, h * 0.26, {});
+  }
+  ctx.restore();
+}
+
+function drawPicture(ctx, photo, x, y, w, h, focus, rnd, motif) {
   if (photo) {
     ctx.save();
     ctx.beginPath();
@@ -259,6 +468,8 @@ function drawPicture(ctx, photo, x, y, w, h, focus, rnd) {
     ctx.clip();
     drawCover(ctx, photo, x, y, w, h, focus);
     ctx.restore();
+  } else if (motif) {
+    drawMotif(ctx, x, y, w, h, rnd, motif);
   } else {
     drawPlaceholder(ctx, x, y, w, h, rnd);
   }
@@ -347,7 +558,7 @@ export function washiTape(length = 220, { height, color, seed = 1 } = {}) {
 
 // ------------------------------------------------------------------------------------------ prints
 
-function paintPolaroid(photo, W, { caption, aspect, focus }, rnd) {
+function paintPolaroid(photo, W, { caption, aspect, focus, motif }, rnd) {
   const b = W * 0.06;
   const a = clamp(aspect ?? (photo ? photo.width / photo.height : 0.8), 0.68, 1.4);
   const ww = W - 2 * b;
@@ -364,7 +575,7 @@ function paintPolaroid(photo, W, { caption, aspect, focus }, rnd) {
   ctx.strokeStyle = 'rgba(90, 70, 50, 0.22)';
   ctx.lineWidth = Math.max(1, W * 0.004);
   ctx.stroke();
-  drawPicture(ctx, photo, b, b, ww, wh, focus, rnd);
+  drawPicture(ctx, photo, b, b, ww, wh, focus, rnd, motif);
   ctx.strokeStyle = 'rgba(40, 30, 20, 0.22)';
   ctx.lineWidth = Math.max(1, W * 0.003);
   ctx.strokeRect(b, b, ww, wh);
@@ -372,7 +583,7 @@ function paintPolaroid(photo, W, { caption, aspect, focus }, rnd) {
   return canvas;
 }
 
-function paintPrint(photo, W, { caption, aspect, focus }, rnd) {
+function paintPrint(photo, W, { caption, aspect, focus, motif }, rnd) {
   const b = W * 0.04;
   const a = clamp(aspect ?? (photo ? photo.width / photo.height : 0.8), 0.6, 1.8);
   const ww = W - 2 * b;
@@ -411,7 +622,7 @@ function paintPrint(photo, W, { caption, aspect, focus }, rnd) {
   ctx.strokeStyle = 'rgba(90, 70, 50, 0.2)';
   ctx.lineWidth = Math.max(1, W * 0.003);
   ctx.stroke();
-  drawPicture(ctx, photo, b, b, ww, wh, focus, rnd);
+  drawPicture(ctx, photo, b, b, ww, wh, focus, rnd, motif);
   ctx.strokeStyle = 'rgba(40, 30, 20, 0.2)';
   ctx.lineWidth = Math.max(1, W * 0.003);
   ctx.strokeRect(b, b, ww, wh);
@@ -419,7 +630,7 @@ function paintPrint(photo, W, { caption, aspect, focus }, rnd) {
   return canvas;
 }
 
-function paintOval(photo, W, { caption, aspect, focus }, rnd) {
+function paintOval(photo, W, { caption, aspect, focus, motif }, rnd) {
   const a = clamp(aspect ?? 0.8, 0.6, 1.5);
   const OH = W / a;
   const banner = caption ? W * 0.2 : 0;
@@ -444,6 +655,7 @@ function paintOval(photo, W, { caption, aspect, focus }, rnd) {
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.clip();
   if (photo) drawCover(ctx, photo, cx - rx, cy - ry, rx * 2, ry * 2, focus);
+  else if (motif) drawMotif(ctx, cx - rx, cy - ry, rx * 2, ry * 2, rnd, motif);
   else drawPlaceholder(ctx, cx - rx, cy - ry, rx * 2, ry * 2, rnd);
   // soft inner vignette so the picture sits IN the mat
   const g = ctx.createRadialGradient(cx, cy, Math.min(rx, ry) * 0.72, cx, cy, Math.max(rx, ry) * 1.02);
@@ -498,12 +710,13 @@ export function photoPrint(photo, options = {}) {
     seed = 1,
     tapeColor,
     shadow = false,
+    motif,
   } = options;
   const painter = PAINTERS[style];
   if (!painter) throw new Error(`photoPrint: unknown style "${style}"`);
   const W = Math.max(48, Math.round(width));
   const rnd = mulberry32((seed * 0x9e3779b1) ^ 0x51f15e ^ (style.length << 8));
-  const piece = painter(photo ?? null, W, { caption: String(caption ?? ''), aspect, focus }, rnd);
+  const piece = painter(photo ?? null, W, { caption: String(caption ?? ''), aspect, focus, motif: resolveMotif({ motif, aspect }) }, rnd);
   // paper tooth over the whole piece (light: it is a photo print, not rough stock)
   addGrain(piece.getContext('2d', { willReadFrequently: true }), piece.width, piece.height, { amount: 0.022, seed: seed + 3, mottle: 0.5 });
 

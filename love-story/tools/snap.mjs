@@ -3,9 +3,10 @@
  *
  * Usage:
  *   node love-story/tools/snap.mjs --out <dir> [--page index.html] [--times 0,8.5]
- *        [--query "k=v&k2=v"] [--size 1280x720] [--timeout 120000]
+ *        [--query "k=v&k2=v"] [--lang en|es] [--size 1280x720] [--timeout 120000]
  *
  * Starts its own static server on a free port, opens `<page>?t=<time>&ui=0&<query>` for each
+ * time. `--lang en|es` appends `lang=` (last occurrence wins in the film).
  * time (or `<page>?ui=0&<query>` once with no --times) in headless Chromium with SwiftShader
  * WebGL, waits for window.__ready, and writes <out>/<page>-t<time>.png (or <out>/<page>.png;
  * "/" in the page path becomes "-", ".html" is dropped). Prints a JSON summary and exits 1 on
@@ -38,7 +39,7 @@ function loadPlaywright() {
 }
 
 function parseArgs(argv) {
-  const opts = { page: 'index.html', times: null, query: '', size: '1280x720', timeout: 120000, out: null };
+  const opts = { page: 'index.html', times: null, query: '', size: '1280x720', timeout: 120000, out: null, lang: null };
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i].replace(/^--/, '');
     const val = argv[++i];
@@ -51,6 +52,12 @@ function parseArgs(argv) {
   const [w, h] = opts.size.split('x').map(Number);
   opts.viewport = { width: w, height: h };
   opts.query = opts.query.replace(/^[?&]/, '');
+  if (opts.lang != null) {
+    const lang = String(opts.lang).toLowerCase();
+    if (lang !== 'en' && lang !== 'es') throw new Error(`bad --lang ${opts.lang} (expected en or es)`);
+    opts.lang = lang;
+    opts.query = [opts.query, `lang=${lang}`].filter(Boolean).join('&');
+  }
   return opts;
 }
 

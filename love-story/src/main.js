@@ -7,7 +7,8 @@
  * hand-drawn characters (characters.js; a missing poses folder yields an empty set, and scenes
  * fall back to the paper dolls) and the paper-doll figures module (imported defensively: if
  * figures.js is missing or incomplete it is logged once and plain stand-ins are passed instead);
- * then environment, the scrapbook (createBook({ photos, fonts })) and the six spreads. Spread k is
+ * then environment, the scrapbook (createBook({ photos, fonts })) and one spread module per
+ * SPREADS entry, in film order. Spread k is
  * built with makeRng(1000 + k) and the context { THREE, paper, popup, rng, BOOK, photos, figures,
  * characters, characterArt, FONT, timeline } (`characters` is the loaded set, `characterArt` the
  * module: characterCard, characterFlip, actor); its group is mounted on book.getSpreadAnchor(k)
@@ -18,7 +19,7 @@
  * moments of the film at a tiny size behind the card so every shader and texture is on the GPU
  * before the first page turn (skipped for clean still frames: ui=0 + t without play).
  *
- * Frame: t = player.time; phis = leafAngles(t) (7 leaves); book.setLeafAngles(phis); per spread
+ * Frame: t = player.time; phis = leafAngles(t) (LEAVES angles); book.setLeafAngles(phis); per spread
  * α = spreadAlpha(k, phis), visible when α > 0.002, update(α, t, t − start); camera rig;
  * environment; titles; audio.sync(t, playing); render. The scene is re-posed and re-rendered only
  * when t changes or something asks for a redraw (seek, resize, free-camera motion), so a paused
@@ -36,7 +37,7 @@
  * dolls · free=1 OrbitControls debug camera instead of the rig. No t / play:
  * poster frame at t = 22 behind the intro card, whose "Begin" (a user gesture) starts audio and
  * plays from 0.
- * Hooks: window.__film = { seek(t), play(), pause(), time, playing, duration, cues }; window.__ready.
+ * Hooks: window.__film = { seek(t), play(), pause(), time, playing, duration, lang, cues }; window.__ready.
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -46,6 +47,7 @@ import { LEAVES } from './dims.js';
 import { makeRng } from './util/rng.js';
 import { resolveFigures } from './util/figures-fallback.js';
 import { FONT, loadFonts } from './fonts.js';
+import { LANG, tr } from './i18n.js';
 import { loadPhotos } from './photos.js';
 import * as characterArt from './characters.js';
 import * as paper from './paper.js';
@@ -103,7 +105,7 @@ const spreadLights = [];
 let worldCues = [];
 const reported = new Set();
 const phis = new Array(LEAVES).fill(0); // leaf angles, refilled every pose (no per-frame allocation)
-let photos = { cover: null, proposal: null, dog: null };
+let photos = { cover: null, proposal: null, dog: null, oliver: null, walmart: null, lunch: null, deed: null, tokyo: null };
 let figures = null;
 let characters = null;
 const sceneArt = {}; // spread id -> loaded art set (same API as `characters`)
@@ -191,6 +193,7 @@ window.__film = {
     return player.playing;
   },
   duration: DURATION,
+  lang: LANG,
   /** The merged world-space camera cues (read-only; for dev tools). */
   get cues() {
     return worldCues;
@@ -208,7 +211,7 @@ function createRenderer() {
   r.shadowMap.enabled = true;
   r.shadowMap.type = THREE.PCFSoftShadowMap;
   r.domElement.setAttribute('role', 'img');
-  r.domElement.setAttribute('aria-label', 'A hand-made pop-up scrapbook on a desk, telling how Brian and Marlin met and got engaged');
+  r.domElement.setAttribute('aria-label', tr('canvasAria'));
   r.domElement.addEventListener('webglcontextlost', onContextLost);
   r.domElement.addEventListener('webglcontextrestored', onContextRestored);
   stage.appendChild(r.domElement);
@@ -544,9 +547,7 @@ function settle() {
 function fail(err) {
   console.error('[film] could not start:', err);
   intro.dataset.state = 'error';
-  statusText.textContent = renderer
-    ? 'The pages stuck together while folding. Please reload to try again.'
-    : 'This film is drawn live with WebGL, which this browser could not provide.';
+  statusText.textContent = renderer ? tr('errorFold') : tr('errorWebgl');
 }
 
 // ---------------------------------------------------------------- boot
@@ -576,7 +577,7 @@ async function boot() {
   await afterPaint();
 
   env = createEnvironment({ scene, renderer });
-  book = createBook({ photos, fonts: FONT });
+  book = createBook({ photos, fonts: FONT, title: tr('coverTitle') });
   scene.add(book.group);
   setLoadProgress(0.2);
 

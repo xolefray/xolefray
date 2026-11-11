@@ -549,9 +549,11 @@ function wedding(out, rng) {
 
 /** A quiet rising (or, into the proposal, falling) celesta line across each page turn. */
 function turnMusic(out) {
+  const proposalLeaf = SPREADS.find((s) => s.id === 'proposal').k - 1;
+  const weddingLeaf = SPREADS.find((s) => s.id === 'wedding').k - 1;
   for (const turn of LEAF_TURNS) {
-    if (turn.leaf === 5) continue; // the "yes" theme is already playing
-    const falling = turn.leaf === 4;
+    if (turn.leaf === weddingLeaf) continue; // the "yes" theme is already playing into the wedding
+    const falling = turn.leaf === proposalLeaf;
     const notes = falling ? [76, 74, 72, 69, 67, 65, 62] : [65, 69, 72, 76, 77, 81, 84];
     const dur = turn.end - turn.start;
     notes.forEach((midi, i) => {

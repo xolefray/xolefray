@@ -9,7 +9,8 @@
 //   • the paper-doll figures on standUps (figures.figureCard, with a plain fallback)
 //   • camera cues in SPREAD-FRAME coordinates, timed from timeline.js (never literal times)
 //   • update(alpha, t, local): pure, no allocation
-import { photoPrint } from '../photos.js';
+import { photoPrint, PHOTO_ASPECT } from '../photos.js';
+import { L, narrationText, spreadTitle, tr } from '../i18n.js';
 
 const GAMMA = 1.9; // one mountain angle for every V-fold of a spread: same-side halves stay parallel
 
@@ -112,12 +113,13 @@ function fallbackFigure(paper, who, heights, color) {
 
 /**
  * @param ctx  the build context main.js passes to every spread
- * @param spec { k, tints:[left,right], outfit, poses:[him,her], photo:'cover'|'proposal'|'dog'|null, photoCaption }
+ * @param spec { id, k, tints:[left,right], outfit, poses:[him,her], photo: name|null, photoCaption }
  */
 export function buildStubSpread(ctx, spec) {
   const { THREE, paper, popup, rng, photos, figures, FONT, timeline } = ctx;
-  const { k } = spec;
-  const info = timeline.SPREADS[k - 1];
+  const info = timeline.SPREADS.find((s) => s.id === spec.id) || timeline.SPREADS[spec.k - 1];
+  const k = info.k;
+  const title = spreadTitle(info);
   const lines = timeline.NARRATION.filter((n) => n.spread === k);
   const C = paper.PALETTES.scrapbook;
   const letterColors = [C.tomato, C.mustard, C.teal, C.sky, C.leaf];
@@ -132,16 +134,16 @@ export function buildStubSpread(ctx, spec) {
     g.setLineDash([14, 10]);
     g.strokeRect(34, 34, w - 68, h - 68);
     g.setLineDash([]);
-    const words = info.title.split(' ');
+    const words = title.split(' ');
     const half = Math.ceil(words.length / 2);
-    const rows = info.title.length > 11 && words.length > 1 ? [words.slice(0, half).join(' '), words.slice(half).join(' ')] : [info.title];
+    const rows = title.length > 11 && words.length > 1 ? [words.slice(0, half).join(' '), words.slice(half).join(' ')] : [title];
     rows.forEach((row, i) => cutLetters(g, row, w / 2, h * (rows.length > 1 ? 0.24 + i * 0.2 : 0.32), 132, w * 0.8, FONT, letterColors, rng));
     g.font = `700 54px ${FONT.hand}`;
     g.fillStyle = C.ink;
     g.textAlign = 'center';
-    g.fillText(`page ${k} of 6 — placeholder`, w / 2, h * 0.68);
+    g.fillText(L(`page ${k} of ${timeline.SPREADS.length} — placeholder`, `página ${k} de ${timeline.SPREADS.length} — boceto`), w / 2, h * 0.68);
     g.font = `400 40px ${FONT.hand}`;
-    g.fillText('“a real pop-up scene goes here” & then some…', w / 2, h * 0.76);
+    g.fillText(L(`“${tr('stubPlaceholder')}” & then some…`, `«${tr('stubPlaceholder')}» y algo más…`), w / 2, h * 0.76);
     for (let i = 0; i < 7; i++) {
       doodleHeart(g, w * (0.12 + 0.76 * rng.next()), h * (0.84 + 0.08 * rng.next()), 10 + rng.next() * 12, letterColors[i % letterColors.length]);
     }
@@ -156,11 +158,18 @@ export function buildStubSpread(ctx, spec) {
     // the narrator's lines for this spread, as a hand-written note (also proves the punctuation set)
     const textW = spec.photo ? w * 0.5 : w * 0.8;
     let y = h * 0.1;
-    for (const n of lines) y = handwrite(g, n.text, w * 0.09, y, textW, 36, FONT, C.ink) + 10;
+    for (const n of lines) y = handwrite(g, narrationText(n), w * 0.09, y, textW, 36, FONT, C.ink) + 10;
     // a taped print, drawn INTO the page (so it asks photoPrint for its own soft shadow)
     if (spec.photo) {
       const print = photoPrint(photos?.[spec.photo] ?? null, {
-        width: 300, style: k === 1 ? 'polaroid' : 'print', caption: spec.photoCaption, tilt: 0.07, seed: 40 + k, shadow: true,
+        width: 300,
+        style: k === 1 ? 'polaroid' : 'print',
+        caption: spec.photoCaption,
+        tilt: 0.07,
+        seed: 40 + k,
+        shadow: true,
+        aspect: PHOTO_ASPECT[spec.photo],
+        motif: spec.photo,
       });
       g.drawImage(print, w * 0.955 - print.width, h * 0.07);
     }
