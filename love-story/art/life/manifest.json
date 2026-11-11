@@ -61,6 +61,21 @@
       "scene": "life",
       "units": 1.85
     },
+    "moving-boxes": {
+      "id": "moving-boxes",
+      "file": "moving-boxes.webp",
+      "w": 578,
+      "h": 877,
+      "feet": [
+        372,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 1.35
+    },
     "page-left": {
       "id": "page-left",
       "file": "page-left.webp",
@@ -135,6 +150,21 @@
       ],
       "scene": "life",
       "units": 0.62
+    },
+    "temple-gate": {
+      "id": "temple-gate",
+      "file": "temple-gate.webp",
+      "w": 810,
+      "h": 739,
+      "feet": [
+        405,
+        714
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "life",
+      "units": 1.58
     },
     "torii": {
       "id": "torii",

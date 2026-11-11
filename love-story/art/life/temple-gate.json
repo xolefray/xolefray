@@ -1,0 +1,15 @@
+{
+  "id": "temple-gate",
+  "file": "temple-gate.webp",
+  "w": 810,
+  "h": 739,
+  "feet": [
+    405.0,
+    714.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "life",
+  "units": 1.58
+}
