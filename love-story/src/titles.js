@@ -8,7 +8,9 @@
  * that turn opens shows SPREADS[k].title as a hand-lettered label on a strip of washi tape. Nothing
  * else is titled during the cover. From END_CARD.start the names, a small heart and the wedding
  * date fade in over 1.2 s and stay through DURATION; a black veil fades from END_CARD.fadeStart to
- * END_CARD.end underneath them.
+ * END_CARD.end underneath them. The lockup sits in the dark band above the pop-up. Landscape keeps
+ * the names on one line; a portrait frame may break before the last word when one line's capitals
+ * would be shorter than 9% of the frame width. The date stays one line.
  *
  * Every opacity and drift is a pure function of film time t — no CSS transitions, no timers — so
  * scrubbing matches in both directions. The DOM is written only when a rounded value changes.
@@ -132,37 +134,38 @@ const CSS = `
 }
 
 .tt-end {
-  position: absolute; inset: 0; z-index: 6; padding: clamp(10px, 2.4vh, 28px) 4vw 0;
+  position: absolute; inset: 0; z-index: 6;
+  padding: clamp(12px, 2.6vh, 32px) clamp(18px, 4vw, 72px) 0;
   display: flex; align-items: flex-start; justify-content: center; text-align: center;
 }
 .tt-end-glow {
-  position: absolute; left: 0; right: 0; top: 0; height: 36%; z-index: -1;
-  background: radial-gradient(ellipse 58% 78% at 50% 12%, rgba(var(--tt-ink), .5), rgba(var(--tt-ink), .16) 52%, rgba(var(--tt-ink), 0) 76%);
+  position: absolute; left: 0; right: 0; top: 0; height: 46%; z-index: -1;
+  background: radial-gradient(ellipse 68% 82% at 50% 14%, rgba(var(--tt-ink), .55), rgba(var(--tt-ink), .16) 50%, rgba(var(--tt-ink), 0) 74%);
 }
 .tt-end-stack {
   --tt-name: clamp(1.7rem, min(8vw, 9.4vh), 6.4rem);
   display: flex; flex-direction: column; align-items: center;
-  gap: clamp(2px, 0.5vh, 10px);
-  width: min(92vw, 16em); max-width: min(92vw, 16em); min-width: 0;
+  gap: clamp(3px, calc(var(--tt-name) * 0.06), 14px);
+  width: 100%; max-width: 100%; min-width: 0;
   overflow: visible;
 }
 .tt-end-names {
   margin: 0; max-width: 100%;
   font-family: ${FONT.display}; font-weight: 400; font-style: normal;
   font-size: var(--tt-name); line-height: 0.92; letter-spacing: 0.005em;
-  text-wrap: balance; overflow-wrap: break-word;
+  white-space: nowrap; text-wrap: nowrap; overflow-wrap: normal; word-break: keep-all;
   text-shadow: 0 0.035em 0.1em rgba(var(--tt-ink), .55), 0 0 0.4em rgba(var(--tt-ink), .32);
 }
 .tt-heart {
-  width: clamp(14px, min(1.9vw, 2.5vh), 40px); height: auto; display: block;
+  width: clamp(14px, calc(var(--tt-name) * 0.16), 36px); height: auto; display: block; flex: none;
   fill: #e15a4e; filter: drop-shadow(0 0.12em 0.2em rgba(var(--tt-ink), .45));
 }
 .tt-end-date {
-  margin: 0; width: max-content; max-width: 92vw;
+  margin: 0; width: max-content; max-width: 100%;
   font-family: ${FONT.hand}; font-weight: 700; font-style: normal; color: var(--tt-gold);
-  font-size: calc(var(--tt-name) * 0.6); line-height: 1.05;
-  white-space: nowrap;
-  text-shadow: 0 1px 1px rgba(var(--tt-ink), .6), 0 0 0.45em rgba(var(--tt-ink), .35);
+  font-size: calc(var(--tt-name) * 0.55); line-height: 1.08;
+  white-space: nowrap; text-wrap: nowrap;
+  text-shadow: 0 1px 1px rgba(var(--tt-ink), .6), 0 0 0.35em rgba(var(--tt-ink), .35);
 }
 `;
 
@@ -224,26 +227,101 @@ class Layer {
   }
 }
 
+/** Cap-height / em of the display face. Falls back to Luckiest Guy's measured ratio. */
+function displayCapRatio() {
+  const px = 200;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx || typeof ctx.measureText !== 'function') return 0.72;
+  ctx.font = `400 ${px}px ${FONT.display}`;
+  const cap = ctx.measureText('H').actualBoundingBoxAscent;
+  return cap > 10 ? cap / px : 0.72;
+}
+
+/** One line, or a break before the last word ("BRIAN &" / "MARLIN"). Each line stays nowrap. */
+function layEndNames(node, raw, wrap) {
+  const cut = wrap ? raw.lastIndexOf(' ') : -1;
+  node.replaceChildren();
+  if (cut <= 0) {
+    node.textContent = raw;
+    return;
+  }
+  node.append(raw.slice(0, cut), document.createElement('br'), raw.slice(cut + 1));
+}
+
 /**
- * Shrink the end-card stack until the names and the date sit in the top band.
- * Viewport only — never called from the per-frame update.
+ * Fit the end card into the clear band above the pop-up (the pop-up fills the lower ~55%).
+ * Landscape keeps "BRIAN & MARLIN" on one line, as large as that band and the frame allow.
+ * A portrait frame (9:16) may use two lines when one line's cap height would be under 9% of
+ * the frame width — so the capitals can be larger — and never otherwise. The date stays one
+ * line. Viewport only — never called from the per-frame update.
  */
 function fitEndCard(stack) {
   const names = stack.querySelector('.tt-end-names');
   const date = stack.querySelector('.tt-end-date');
   if (!names || !date) return;
-  stack.style.removeProperty('--tt-name');
-  const maxH = (window.innerHeight || 720) * 0.3;
-  const nameMax = Math.max(stack.clientWidth, 40);
-  /* The date may run wider than the name lockup; it only has to fit the frame. */
-  const dateMax = Math.max((window.innerWidth || 1280) * 0.92, 40);
-  for (let i = 0; i < 8; i++) {
-    const wide = names.scrollWidth > nameMax + 1 || date.scrollWidth > dateMax + 1;
-    const tall = stack.offsetHeight > maxH;
-    if (!wide && !tall) return;
-    const cur = parseFloat(getComputedStyle(names).fontSize);
-    if (!(cur > 12)) return;
-    stack.style.setProperty('--tt-name', `${(cur * 0.9).toFixed(2)}px`);
+  const raw = (names.dataset.raw || names.textContent || '').replace(/\s+/g, ' ').trim();
+  names.dataset.raw = raw;
+  const end = stack.parentElement;
+  const vw = window.innerWidth || 1280;
+  const vh = window.innerHeight || 720;
+  const cs = end ? getComputedStyle(end) : null;
+  const padX = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : vw * 0.08;
+  /* clientWidth includes padding (border-box). The lockup has to fit the content box,
+     or a nowrap line runs through the padding and the root clips it. */
+  const box = Math.max(40, (end ? end.clientWidth : vw) - padX - 6);
+  if (!(box > 40) || !(vh > 40)) return;
+  const padTop = cs ? parseFloat(cs.paddingTop) || 0 : 0;
+  /* Ink stays above ~42% so it clears the arch, including the short settle at the fade-in. */
+  const maxH = Math.max(48, vh * 0.42 - padTop - vh * 0.008);
+
+  const paint = (px, wrap) => {
+    stack.style.setProperty('--tt-name', `${px.toFixed(2)}px`);
+    layEndNames(names, raw, wrap);
+  };
+  const wide = (node) => node.scrollWidth > box + 0.5 || node.scrollWidth > node.clientWidth + 1;
+  const fits = (px, wrap) => {
+    paint(px, wrap);
+    return !wide(names) && !wide(date) && stack.offsetHeight <= maxH + 0.5;
+  };
+  const search = (wrap) => {
+    let lo = 12;
+    let hi = Math.max(vw, vh);
+    if (!fits(lo, wrap)) return lo;
+    if (fits(hi, wrap)) return hi;
+    for (let i = 0; i < 16; i++) {
+      const mid = (lo + hi) / 2;
+      if (fits(mid, wrap)) lo = mid;
+      else hi = mid;
+    }
+    fits(lo, wrap);
+    return lo;
+  };
+
+  const one = search(false);
+  const portrait = vh / vw >= 1.2;
+  let wrap = false;
+  if (portrait && one * displayCapRatio() < vw * 0.09) {
+    const two = search(true);
+    wrap = two + 0.25 >= one;
+    if (!wrap) search(false);
+  }
+  /* Side bearings sit outside the advance width. Pull back if any ink touches the frame. */
+  const inkOutside = () => {
+    const range = document.createRange();
+    const past = (node) => {
+      range.selectNodeContents(node);
+      const r = range.getBoundingClientRect();
+      return r.left < 2 || r.right > vw - 2 || r.width > box + 2;
+    };
+    const hit = past(names) || past(date);
+    range.detach?.();
+    return hit;
+  };
+  let px = parseFloat(stack.style.getPropertyValue('--tt-name')) || one;
+  for (let i = 0; i < 8 && inkOutside(); i++) {
+    px *= 0.96;
+    paint(px, wrap);
   }
 }
 
@@ -382,7 +460,9 @@ export function createTitles(container, { captions } = {}) {
   const endNode = el('div', 'tt-end tt-l');
   const glow = el('div', 'tt-end-glow');
   const stack = el('div', 'tt-end-stack');
-  stack.append(el('div', 'tt-end-names', tr('endNames')));
+  const nameNode = el('div', 'tt-end-names', tr('endNames'));
+  nameNode.dataset.raw = tr('endNames');
+  stack.append(nameNode);
   stack.insertAdjacentHTML('beforeend', HEART_SVG);
   stack.append(el('div', 'tt-end-date', L(COUPLE.weddingDate, COUPLE.weddingDateEs)));
   endNode.append(glow, stack);
