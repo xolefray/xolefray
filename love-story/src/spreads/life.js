@@ -11,6 +11,8 @@ const SKY_Z0 = -0.42;
 const OPEN = 0.92;
 const CLEAR = 0.02;
 const SMALL = 0.34;
+const POP_DUR = 0.32; // pop-in / pop-out, under 0.35 s
+const FLIP_HALF = 0.15; // squash to a sliver, then open: 0.3 s for the swap
 
 // Page distance from the gutter. Spread x is −x on the left page and +x on the right.
 const BOX_X = 3.12;
@@ -113,7 +115,8 @@ export default {
     const castAt = [];
     const castLeave = [];
     const castPhase = [];
-    const castPop = [];
+    const castIn = [];
+    const castOut = [];
     const photoRigs = [];
     const tagHolds = [];
     const tagAt = [];
@@ -125,12 +128,13 @@ export default {
       showAt.push(at);
       return rig;
     };
-    const addCast = (rig, at, leave, phase, pop = 0.36) => {
+    const addCast = (rig, at, leave, phase, how) => {
       castRigs.push(rig);
       castAt.push(at);
       castLeave.push(leave);
       castPhase.push(phase);
-      castPop.push(pop);
+      castIn.push(how && how.in ? how.in : 'pop');
+      castOut.push(how && how.out ? how.out : 'pop');
       return rig;
     };
     const watch = (zone, root) => {
@@ -158,6 +162,9 @@ export default {
       seat(drawn, info, height);
       drawn.name = id;
       rig.add(drawn);
+      // Hero cards stay at the painted colours. The zone emissive is for props only:
+      // a peach wash on a near-black coat flattens it to tan and reads as see-through.
+      if (source === 'char') sealCard(drawn);
       return drawn;
     }
 
@@ -248,10 +255,10 @@ export default {
 
     const boxerW = propW(charInfo('life-box'), BOXER_H, 0.94);
     const boxers = stand('left', BOXER_X, BOXER_Z, boxerW, BOXER_H);
-    const boxerRig = addCast(rigOn(boxers, 'life-box'), building, cherry, 0.2);
-    watch(0, mountDrawing(boxerRig, 'char', 'life-box', BOXER_H, {
+    const boxerRig = addCast(rigOn(boxers, 'life-box'), building, cherry, 0.2, { in: 'pop', out: 'pop' });
+    mountDrawing(boxerRig, 'char', 'life-box', BOXER_H, {
       who: 'him', outfit: 'casual', pose: 'stand', facing: 'left',
-    }));
+    });
     const firstTag = layTag(paper, THREE, popup, track, FONT, 'left', 2.15, 0.5, 1.75, 0.4,
       L('our first place', 'nuestro primer hogar'), C, 3, 1.36);
     tagHolds.push(firstTag);
@@ -266,15 +273,15 @@ export default {
 
     const jumpW = propW(charInfo('dog-jump'), JUMP_H, 0.5);
     const jumpStand = stand('left', JUMP_X, JUMP_Z, jumpW, JUMP_H);
-    const jumpRig = addCast(rigOn(jumpStand, 'dog-jump'), cherry, cuddleAt, 1.4);
-    watch(2, mountDrawing(jumpRig, 'char', 'dog-jump', JUMP_H, { who: 'dog', pose: 'run' }));
+    const jumpRig = addCast(rigOn(jumpStand, 'dog-jump'), cherry, cuddleAt, 1.4, { in: 'pop', out: 'pop' });
+    mountDrawing(jumpRig, 'char', 'dog-jump', JUMP_H, { who: 'dog', pose: 'run' });
 
     const cuddleW = propW(charInfo('life-dogcuddle'), CUDDLE_H, 0.86);
     const cuddleStand = stand('left', CUDDLE_X, CUDDLE_Z, Math.max(cuddleW, 1.15), 2.0);
-    const cuddleRig = addCast(rigOn(cuddleStand, 'life-dogcuddle'), cuddleAt, home, 0.6);
-    watch(2, mountDrawing(cuddleRig, 'char', 'life-dogcuddle', CUDDLE_H, {
+    const cuddleRig = addCast(rigOn(cuddleStand, 'life-dogcuddle'), cuddleAt, home, 0.6, { in: 'pop', out: 'pop' });
+    mountDrawing(cuddleRig, 'char', 'life-dogcuddle', CUDDLE_H, {
       who: 'her', outfit: 'casual', pose: 'stand', facing: 'right',
-    }));
+    });
     const cherryTag = paper.card({
       canvas: paintTag(paper, FONT, L('Cherry ♥', 'Cherry ♥'), C, 5, true),
       width: 1.15,
@@ -359,14 +366,15 @@ export default {
     const keysW = propW(charInfo('life-keys'), KEYS_H, 0.85);
     const deedW = propW(charInfo('life-deed'), DEED_H, 1.05);
     const homeStand = stand('right', HOME_X, HOME_Z, Math.max(deedW, keysW), KEYS_H);
-    const deedRig = addCast(rigOn(homeStand, 'life-deed'), home, keysAt, 0.4);
-    watch(3, mountDrawing(deedRig, 'char', 'life-deed', DEED_H, {
+    // Same stand: squash the old pose to a sliver, then open the next. No overlap.
+    const deedRig = addCast(rigOn(homeStand, 'life-deed'), home, keysAt, 0.4, { in: 'pop', out: 'flip' });
+    mountDrawing(deedRig, 'char', 'life-deed', DEED_H, {
       who: 'him', outfit: 'casual', pose: 'sit', facing: 'right',
-    }));
-    const keysRig = addCast(rigOn(homeStand, 'life-keys'), keysAt, travelAt, 1.1);
-    watch(3, mountDrawing(keysRig, 'char', 'life-keys', KEYS_H, {
+    });
+    const keysRig = addCast(rigOn(homeStand, 'life-keys'), keysAt + FLIP_HALF, travelAt, 1.1, { in: 'flip', out: 'flip' });
+    mountDrawing(keysRig, 'char', 'life-keys', KEYS_H, {
       who: 'her', outfit: 'casual', pose: 'stand', facing: 'left',
-    }));
+    });
 
     // Right of the couple and the SOLD sign, same depth, so the close cue holds all three.
     layPhoto(paper, THREE, popup, track, photoRigs, photos ? photos.deed : null, {
@@ -385,10 +393,10 @@ export default {
     // ---------------------------------------------------------------- Japan
     const travelW = propW(charInfo('life-japan'), TRAVEL_H, 1.0);
     const travel = stand('right', TRAVEL_X, TRAVEL_Z, travelW, TRAVEL_H);
-    const travelRig = addCast(rigOn(travel, 'life-japan'), travelAt, japan, 0.3);
-    watch(3, mountDrawing(travelRig, 'char', 'life-japan', TRAVEL_H, {
+    const travelRig = addCast(rigOn(travel, 'life-japan'), travelAt + FLIP_HALF, japan, 0.3, { in: 'flip', out: 'flip' });
+    mountDrawing(travelRig, 'char', 'life-japan', TRAVEL_H, {
       who: 'him', outfit: 'casual', pose: 'wave', facing: 'left',
-    }));
+    });
 
     const toriiW = propW(meta('torii'), TORII_H, 0.9);
     const torii = stand('right', TORII_X, TORII_Z, toriiW, TORII_H);
@@ -402,11 +410,10 @@ export default {
 
     const selfieW = propW(charInfo('japan-selfie'), SELFIE_H, 1.0);
     const selfieStand = stand('right', SELFIE_X, SELFIE_Z, Math.max(selfieW, 1.82), 2.02);
-    // Pop finishes inside 0.35 s so the close-up sees the card at full colour.
-    const selfieRig = addCast(rigOn(selfieStand, 'japan-selfie'), japan, null, 1.6, 0.3);
-    watch(4, mountDrawing(selfieRig, 'char', 'japan-selfie', SELFIE_H, {
+    const selfieRig = addCast(rigOn(selfieStand, 'japan-selfie'), japan + FLIP_HALF, null, 1.6, { in: 'flip', out: 'pop' });
+    mountDrawing(selfieRig, 'char', 'japan-selfie', SELFIE_H, {
       who: 'him', outfit: 'casual', pose: 'wave', facing: 'right',
-    }));
+    });
     const japanTag = paper.card({
       canvas: paintTag(paper, FONT, L('our two-year anniversary', 'nuestro segundo aniversario'), C, 9, true),
       width: 1.78,
@@ -477,12 +484,13 @@ export default {
     fill.position.set(0.2, 2.5, 1.5);
     group.add(fill);
 
+    // Above and in front of the cards. A light parked on the paper bleaches it.
     const lightAt = [
-      [-1.9, 1.55, 0.9],
-      [-1.85, 1.45, 0.85],
-      [-1.35, 1.5, 0.95],
-      [1.55, 1.45, 1.05],
-      [1.15, 2.65, 2.15],
+      [-1.9, 2.35, 1.7],
+      [-1.85, 2.35, 1.7],
+      [-1.35, 2.4, 1.75],
+      [1.55, 2.45, 1.85],
+      [1.15, 2.55, 1.95],
     ];
 
     const cues = [
@@ -551,7 +559,7 @@ export default {
         }
 
         for (let i = 0; i < castRigs.length; i++) {
-          poseCast(castRigs[i], t, castAt[i], castLeave[i], castPhase[i], outBack, castPop[i]);
+          poseCast(castRigs[i], t, castAt[i], castLeave[i], castPhase[i], outBack, castIn[i], castOut[i]);
         }
         {
           const walk = smoothstep(building, building + 1.15, t);
@@ -665,11 +673,10 @@ export default {
         glow.position.x = at[0];
         glow.position.y = at[1];
         glow.position.z = at[2];
-        let key = zone === 0 ? 1.05 : 0.9;
-        if (zone === 4 && !finale) key = 0.95;
-        if (finale) key = 1.2;
+        let key = zone === 0 ? 0.55 : 0.42;
+        if (finale) key = 0.6;
         glow.intensity = risen * key;
-        fill.intensity = risen * (zone === 4 || finale ? 0.9 : 0.62);
+        fill.intensity = risen * (finale ? 0.35 : 0.28);
         for (let v = 0; v < mats.length; v++) {
           const warm = (finale ? 0.14 : (v === zone ? 0.28 : 0.07)) * risen;
           const list = mats[v];
@@ -722,34 +729,70 @@ function houseAmount(t, home, japan, _next, outBack, smoothstep) {
   return up * (1 - down);
 }
 
-function poseCast(rig, t, arrive, leave, phase, outBack, dur) {
-  let s = 0;
-  let squash = 0;
-  const span = dur > 0 ? dur : 0.36;
+function smooth01(u) {
+  if (u <= 0) return 0;
+  if (u >= 1) return 1;
+  return u * u * (3 - 2 * u);
+}
+
+// `in` / `out`: 'pop' scales the whole card within POP_DUR; 'flip' squashes around
+// the vertical axis for FLIP_HALF, and the next pose opens only once this one is a sliver.
+function poseCast(rig, t, arrive, leave, phase, outBack, howIn, howOut) {
+  let sx = 0;
+  let sy = 0;
   if (t >= arrive) {
-    const u = (t - arrive) / span;
-    if (u >= 1) s = 1;
-    else {
-      s = outBack(u);
-      if (s < 0) s = 0;
-      else if (s > 1) s = 1;
-      squash = Math.sin(u * Math.PI);
+    if (howIn === 'flip') {
+      const u = smooth01((t - arrive) / FLIP_HALF);
+      sx = u;
+      sy = u > 0 ? 1 : 0;
+    } else {
+      const u = (t - arrive) / POP_DUR;
+      if (u >= 1) {
+        sx = 1;
+        sy = 1;
+      } else {
+        let s = outBack(u);
+        if (s < 0) s = 0;
+        else if (s > 1) s = 1;
+        const squash = Math.sin(u * Math.PI);
+        sx = s * (1 - 0.05 * squash);
+        sy = s * (1 + 0.07 * squash);
+      }
     }
     if (leave != null && t > leave) {
-      const v = (t - leave) / 0.4;
-      if (v >= 1) s = 0;
-      else {
-        const k = v * v * (3 - 2 * v);
-        s *= 1 - k;
+      if (howOut === 'flip') {
+        const u = smooth01((t - leave) / FLIP_HALF);
+        sx = 1 - u;
+        sy = u >= 1 ? 0 : 1;
+      } else {
+        const k = smooth01((t - leave) / POP_DUR);
+        sx *= 1 - k;
+        sy *= 1 - k;
       }
-      squash = 0;
     }
   }
-  const live = s > 0.001;
+  const live = sx > 0.001 && sy > 0.001;
   const breathe = live ? 1 + Math.sin(t * 1.7 + phase) * 0.01 : 1;
-  rig.scale.set(s * breathe * (1 - 0.05 * squash), s * breathe * (1 + 0.07 * squash), 1);
+  rig.scale.set(live ? sx * breathe : 0.001, live ? sy * breathe : 0.001, 1);
   rig.position.y = live ? Math.sin(t * 1.5 + phase) * 0.01 : 0;
   rig.rotation.z = live ? Math.sin(t * 1.2 + phase) * 0.015 : 0;
+}
+
+function sealCard(root) {
+  root.traverse((o) => {
+    if (!o.isMesh || !o.material) return;
+    const list = Array.isArray(o.material) ? o.material : [o.material];
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i];
+      m.opacity = 1;
+      m.transparent = false;
+      m.depthWrite = true;
+      if (m.emissive) {
+        m.emissive.setHex(0x000000);
+        m.emissiveIntensity = 0;
+      }
+    }
+  });
 }
 
 function photoK(t, arrive, shrink, outBack, dur) {

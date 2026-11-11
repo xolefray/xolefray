@@ -14,8 +14,12 @@ const SCREEN_H = 1.62;
 const MARQUEE_H = 0.5;
 const COLLEGE_H = 2.04;
 const MOVIES_H = 1.5;
-const HER_H = 1.55;
-const HIM_H = 1.56;
+const HER_H = 1.5;
+const HIM_H = 1.5;
+// Front two-shot, in front of the college steps. Her on the left, him on the right.
+const REVEAL_Z = 0.48;
+const HER_X = 1.18;
+const HIM_X = 2.02;
 const COUPLE_H = 1.58;
 
 function bump(t, at, dur) {
@@ -75,7 +79,7 @@ export default {
   title: 'A little bit of fate',
   build(ctx) {
     const { THREE, paper, popup, characters, characterArt, art, FONT, timeline, figures } = ctx;
-    const { BEATS, SPREADS, smoothstep, ease } = timeline;
+    const { BEATS, SPREADS, NARRATION, smoothstep, ease } = timeline;
     const spread = SPREADS.find((s) => s.id === 'fate');
     const C = paper.PALETTES.scrapbook;
     const group = new THREE.Group();
@@ -95,6 +99,7 @@ export default {
     const leaving = BEATS.leavingWalmart;
     const schoolAt = BEATS.sameSchool;
     const fateAt = BEATS.fate;
+    const sameLine = NARRATION.find((n) => n.id === 'f4');
 
     // ---------------------------------------------------------------- pages
     let leftArt;
@@ -318,7 +323,7 @@ export default {
     bubWalmart.rotation.y = -0.70;
     herHold.add(bubWalmart);
 
-    const himMount = stand('right', 1.78, 0.68, 'back', himW, HIM_H, 'him-campus');
+    const himMount = stand('right', HIM_X, REVEAL_Z, 'back', himW, HIM_H, 'him-campus');
     const himHold = holdOf(himMount, 'him-campus');
     const him = characterArt.actor(
       paper, characters, figures, 'him-campus',
@@ -332,9 +337,24 @@ export default {
     }
     const himLine = doodle(paper, THREE, surpriseBubble(FONT, C, L('You go here too?!', '¿Tú también estudias aquí?!')));
     himLine.name = 'you-go-here';
-    // Above his head, on the outer side of the page, so it cannot sit across Marlin's face.
-    himLine.position.set(0.72, 1.72, 0.03);
+    // Above and to his right. Text sits in the right half of the card, clear of both faces.
+    himLine.position.set(0.86, 1.56, 0.04);
     himHold.add(himLine);
+
+    // The walk leaves her facing along the path. The reveal is a second card, square to the reader.
+    const herFrontW = widthOf(charInfo('her-campus'), HER_H, 0.7);
+    const herFrontMount = stand('right', HER_X, REVEAL_Z, 'back', herFrontW, HER_H, 'her-front');
+    const herFront = holdOf(herFrontMount, 'her-front');
+    const herFace = characterArt.actor(
+      paper, characters, figures, 'her-campus',
+      { who: 'her', outfit: 'casual', pose: 'wave' },
+      { height: HER_H },
+    );
+    if (herFace) {
+      herFace.name = 'her-campus-front';
+      seat(herFace, charInfo('her-campus'), HER_H, CLEAR);
+      herFront.add(herFace);
+    }
 
     // Couple and ribbon share a valley angle. Text stays off the centre seam.
     const coupleInfo = charInfo('school-couple');
@@ -449,9 +469,14 @@ export default {
       { t: apart + 0.25, hold: 5.4, at: [-2.0, 0.95, 0.72], size: 2.3, from: 'front' },
       { t: cross + 0.5, hold: 5.6, at: [1.7, 1.25, -0.3], size: 4.2, from: 'right' },
       { t: collegeAt + 0.45, hold: 5.2, at: [1.4, 1.05, 0.15], size: 2.2, from: 'right' },
-      // She stands gutter-side of him. A left-front close keeps both faces and the
-      // bubble (outer side of Brian) in frame; her reaction is the point of the shot.
-      { t: schoolAt + 0.35, hold: 3.6, at: [1.82, 1.38, 0.3], size: 2.6, from: 'left' },
+      // Front two-shot, held through the end of the same-school line.
+      {
+        t: schoolAt + 0.32,
+        hold: Math.max(0.8, (sameLine ? sameLine.end : schoolAt + 3.7) - (schoolAt + 0.32)),
+        at: [(HER_X + HIM_X) * 0.5, 1.22, REVEAL_Z],
+        size: 2.8,
+        from: 'front',
+      },
       // size 4 from the front reads as the whole spread. 2.15 is a two-shot the ribbon still fits.
       { t: fateAt + 0.45, hold: 3.7, at: [0.02, 0.98, 0.48], size: 2.15, from: 'front' },
       { t: fateAt + 4.6, hold: 1.35, at: [0, 1.15, 0], size: 7.5, from: 'front' },
@@ -472,8 +497,9 @@ export default {
         const cinC = popIn(ease, t, movies + 0.32, 0.34);
         const yard = popIn(ease, t, movies + 0.28, 0.4);
         const hall = popIn(ease, t, cross, 0.46);
-        const herShow = smoothstep(collegeAt, collegeAt + 0.32, t) * (1 - smoothstep(fateAt, fateAt + 0.5, t));
-        const himShow = popIn(ease, t, schoolAt, 0.4) * (1 - smoothstep(fateAt, fateAt + 0.5, t));
+        const herShow = smoothstep(collegeAt, collegeAt + 0.32, t) * (1 - smoothstep(schoolAt, schoolAt + 0.22, t));
+        const frontShow = popIn(ease, t, schoolAt, 0.32) * (1 - smoothstep(fateAt, fateAt + 0.32, t));
+        const himShow = popIn(ease, t, schoolAt, 0.32) * (1 - smoothstep(fateAt, fateAt + 0.32, t));
         const coupleShow = popIn(ease, t, fateAt, 0.42);
         const ribbonShow = popIn(ease, t, fateAt + 0.12, 0.4);
         const words = popIn(ease, t, schoolAt, 0.36);
@@ -549,10 +575,11 @@ export default {
         setScale(bubCollege, bub1, 0.86);
         setScale(bubWalmart, bub2, 0.98);
 
+        show(herFront, frontShow);
         const wave = bump(t, schoolAt, 0.45) + 0.55 * bump(t, schoolAt + 2.6, 0.7);
         himHold.rotation.z = Math.sin(t * 2.5) * 0.03 * himShow + wave * 0.07;
         show(himHold, himShow);
-        setScale(himLine, himTalk, 1.05);
+        setScale(himLine, himTalk * risen, 1.22);
 
         show(coupleL, coupleShow);
         show(coupleR, coupleShow);
