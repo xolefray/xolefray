@@ -5,8 +5,9 @@
     • specimens of FONT.display and FONT.hand, and a glyph-coverage self-test of the characters the
       film needs (letters, digits, . , ! ? ' " “ ” ‘ ’ & é – — …): a character that falls back to
       another face is listed and reported with console.error (so tools/snap.mjs fails);
-    • photoPrint() in its three styles with a caption, tilt and tape, for each of the three photos AND
-      for a missing photo (the illustrated fallback), plus washiTape() strips;
+    • photoPrint() in its three styles with a caption, tilt and tape, for each of the eight photos
+      (cover, proposal, dog, oliver, walmart, lunch, deed, tokyo) AND for a missing photo (the
+      illustrated fallback), plus washiTape() strips;
     • the scrapbook palette.
   Query: photos=0 — never load the couple's photos (every print shows the fallback).
   PRIVACY: with the photos present, screenshots of this page show them: keep them out of the repo.
@@ -42,7 +43,7 @@
   </main>
   <script type="module">
     import { FONT, loadFonts } from '../src/fonts.js';
-    import { loadPhotos, photoPrint, photosDisabled, washiTape } from '../src/photos.js';
+    import { PHOTO_ASPECT, loadPhotos, photoPrint, photosDisabled, washiTape } from '../src/photos.js';
     import * as paper from '../src/paper.js';
 
     const report = document.getElementById('report');
@@ -130,12 +131,16 @@
       ['cover', { style: 'polaroid', caption: 'the two of us', tilt: -0.05, seed: 1 }],
       ['proposal', { style: 'print', caption: 'she said yes!', tilt: 0.06, seed: 2 }],
       ['dog', { style: 'polaroid', caption: 'our girl', tilt: 0.04, seed: 3 }],
-      ['cover', { style: 'oval', caption: 'Brian & Marlin', seed: 4 }],
-      ['dog', { style: 'print', tilt: -0.08, seed: 5, shadow: true }],
-      ['proposal', { style: 'polaroid', caption: 'the question', aspect: 1, focus: [0.5, 0.35], seed: 6, shadow: true }],
+      ['oliver', { style: 'print', caption: 'Oliver', tilt: -0.04, seed: 4 }],
+      ['walmart', { style: 'polaroid', caption: 'where we met', tilt: 0.05, seed: 5 }],
+      ['lunch', { style: 'print', caption: 'first lunch', tilt: -0.03, seed: 6 }],
+      ['deed', { style: 'polaroid', caption: 'signing the deed', tilt: 0.04, seed: 7 }],
+      ['tokyo', { style: 'oval', caption: 'Tokyo', seed: 8 }],
     ];
     for (const real of [true, false]) {
-      for (const [name, opts] of variants) prints.appendChild(photoPrint(real ? photos[name] : null, { width: 300, ...opts }));
+      for (const [name, opts] of variants) {
+        prints.appendChild(photoPrint(real ? photos[name] : null, { width: 280, aspect: PHOTO_ASPECT[name], ...opts }));
+      }
     }
 
     // ── tape + palette ──

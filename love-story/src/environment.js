@@ -38,8 +38,8 @@ const LAMP_PENUMBRA = 0.75;
 // The farthest album corner (pop-up ~2.4 at a page corner) is ~0.41 rad off this lamp's axis.
 const SHADOW_HALF_ANGLE = 0.56;
 const LAMP_ON = BEATS.lampOn;
-const LAMP_FULL = BEATS.lampOn + 2.4; // contract: filament fully warm ~2.8 s
-// Contract: fade to ~0 over 147.5–152.5 (the last ~5 s, ending just before the film does).
+const LAMP_FULL = BEATS.lampOn + 2.4; // filament fully warm 2.4 s after lampOn
+// Fade to ~0 across the end card: fadeStart − 3 → end − 0.5 (the last few seconds).
 const FADE_OUT = [END_CARD.fadeStart - 3, END_CARD.end - 0.5];
 const PROPOSAL_LEVEL = 0.85;
 const WEDDING_LEVEL = 1.15;
@@ -81,7 +81,7 @@ const LOOK_COLORS = ['top', 'horizon', 'spill', 'window', 'hemiSky', 'hemiGround
 const LOOK_SCALARS = ['windowAmt', 'hemi', 'fill', 'dawn'];
 
 const LAMP_AMBER = new THREE.Color('#ff8a3c'); // filament still warming
-const LAMP_WARM = new THREE.Color('#ffd3a3'); // warm incandescent, spreads 1–4
+const LAMP_WARM = new THREE.Color('#ffd3a3'); // warm incandescent until the proposal spread
 const LAMP_ROSE = new THREE.Color('#ffb0a2'); // proposal: rosier party light
 const LAMP_YES = new THREE.Color('#ffd2b4'); // the soft swell when she says yes
 const LAMP_GOLD = new THREE.Color('#ffe0a6'); // wedding: bright gold
@@ -212,7 +212,7 @@ export function createEnvironment({ scene, renderer }) {
 }
 
 /**
- * Lamp level 0..1 over the ignition window LAMP_ON–LAMP_FULL (0.4–2.8 s): a first weak flash, a
+ * Lamp level 0..1 over the ignition window LAMP_ON–LAMP_FULL: a first weak flash, a
  * short dip, then the filament warms up with a small decaying flutter. Exactly 0 before and 1 after.
  */
 function lampIgnition(t) {

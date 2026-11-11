@@ -332,8 +332,8 @@ export default {
     }
     const himLine = doodle(paper, THREE, surpriseBubble(FONT, C, L('You go here too?!', '¿Tú también estudias aquí?!')));
     himLine.name = 'you-go-here';
-    // Above his head, a little toward the outer edge so it clears the gutter angle.
-    himLine.position.set(0.10, 1.66, 0.03);
+    // Above his head, on the outer side of the page, so it cannot sit across Marlin's face.
+    himLine.position.set(0.72, 1.72, 0.03);
     himHold.add(himLine);
 
     // Couple and ribbon share a valley angle. Text stays off the centre seam.
@@ -449,9 +449,9 @@ export default {
       { t: apart + 0.25, hold: 5.4, at: [-2.0, 0.95, 0.72], size: 2.3, from: 'front' },
       { t: cross + 0.5, hold: 5.6, at: [1.7, 1.25, -0.3], size: 4.2, from: 'right' },
       { t: collegeAt + 0.45, hold: 5.2, at: [1.4, 1.05, 0.15], size: 2.2, from: 'right' },
-      // size 2.6 from the front still frames most of the book (the rig's front pad).
-      // A right-side close is the tightest shot that keeps both of them and his bubble.
-      { t: schoolAt + 0.35, hold: 3.6, at: [1.66, 1.22, 0.34], size: 1.9, from: 'right' },
+      // She stands gutter-side of him. A left-front close keeps both faces and the
+      // bubble (outer side of Brian) in frame; her reaction is the point of the shot.
+      { t: schoolAt + 0.35, hold: 3.6, at: [1.82, 1.38, 0.3], size: 2.6, from: 'left' },
       // size 4 from the front reads as the whole spread. 2.15 is a two-shot the ribbon still fits.
       { t: fateAt + 0.45, hold: 3.7, at: [0.02, 0.98, 0.48], size: 2.15, from: 'front' },
       { t: fateAt + 4.6, hold: 1.35, at: [0, 1.15, 0], size: 7.5, from: 'front' },
@@ -552,7 +552,7 @@ export default {
         const wave = bump(t, schoolAt, 0.45) + 0.55 * bump(t, schoolAt + 2.6, 0.7);
         himHold.rotation.z = Math.sin(t * 2.5) * 0.03 * himShow + wave * 0.07;
         show(himHold, himShow);
-        setScale(himLine, himTalk, 1.28);
+        setScale(himLine, himTalk, 1.05);
 
         show(coupleL, coupleShow);
         show(coupleR, coupleShow);

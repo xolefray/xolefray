@@ -10,3 +10,6 @@ node_modules/
 
 # Cartoon character art of the couple (made from their photos) is private too.
 characters/
+
+# Recorded voice-overs are private too (a README in audio/ stays tracked).
+audio/narration*

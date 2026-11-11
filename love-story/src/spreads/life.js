@@ -37,13 +37,14 @@ const RIBBON_Z = 0.48;
 const RIBBON_W = 2.05;
 const RIBBON_H = 0.5;
 const RIBBON_LIFT = 1.4;
-const HOUSE_X = 2.05;
-const HOUSE_Z = 0.16;
+const HOUSE_X = 2.3;
+const HOUSE_Z = 0.2;
 const HOUSE_H = 1.22;
-const HOME_X = 1.72;
-const HOME_Z = 0.7;
-const DEED_H = 1.16;
-const KEYS_H = 1.38;
+// Couple stands centre-front of the right page, in front of the house.
+const HOME_X = 1.58;
+const HOME_Z = 0.9;
+const DEED_H = 1.5;
+const KEYS_H = 1.5;
 const TRAVEL_X = 1.7;
 const TRAVEL_Z = 0.55;
 const TRAVEL_H = 1.4;
@@ -112,6 +113,7 @@ export default {
     const castAt = [];
     const castLeave = [];
     const castPhase = [];
+    const castPop = [];
     const photoRigs = [];
     const tagHolds = [];
     const tagAt = [];
@@ -123,11 +125,12 @@ export default {
       showAt.push(at);
       return rig;
     };
-    const addCast = (rig, at, leave, phase) => {
+    const addCast = (rig, at, leave, phase, pop = 0.36) => {
       castRigs.push(rig);
       castAt.push(at);
       castLeave.push(leave);
       castPhase.push(phase);
+      castPop.push(pop);
       return rig;
     };
     const watch = (zone, root) => {
@@ -190,7 +193,7 @@ export default {
       sky.right.add(halves.right);
     }
 
-    // ---------------------------------------------------------------- dotted path
+    // ---------------------------------------------------------------- dashed path
     const path = buildPath();
     const dotsL = makeDots(THREE, paper, path.left.n);
     const dotsR = makeDots(THREE, paper, path.right.n);
@@ -299,7 +302,8 @@ export default {
 
     // ---------------------------------------------------------------- home
     const houseW = Math.max(propW(meta('house'), HOUSE_H, 1.2), 1.7);
-    const house = stand('right', HOUSE_X, HOUSE_Z, houseW, 1.62);
+    // Banner top is the tallest point. Hinge z leaves that top on the page when the flap lies flat.
+    const house = stand('right', HOUSE_X, HOUSE_Z, houseW, 1.6);
     const houseRig = rigOn(house, 'house');
     let sold = null;
     const smokes = [];
@@ -364,15 +368,16 @@ export default {
       who: 'her', outfit: 'casual', pose: 'stand', facing: 'left',
     }));
 
+    // Right of the couple and the SOLD sign, same depth, so the close cue holds all three.
     layPhoto(paper, THREE, popup, track, photoRigs, photos ? photos.deed : null, {
       caption: L('signing the deed', 'firmando las escrituras'),
       aspect: PHOTO_ASPECT.deed,
       seed: 6,
       side: 'right',
-      x: 0.78,
-      z: 0.18,
-      long: 0.76,
-      tilt: 0.04,
+      x: 3.22,
+      z: 0.4,
+      long: 0.74,
+      tilt: -0.04,
       at: home,
       shrink: japan,
     });
@@ -397,7 +402,8 @@ export default {
 
     const selfieW = propW(charInfo('japan-selfie'), SELFIE_H, 1.0);
     const selfieStand = stand('right', SELFIE_X, SELFIE_Z, Math.max(selfieW, 1.82), 2.02);
-    const selfieRig = addCast(rigOn(selfieStand, 'japan-selfie'), japan, null, 1.6);
+    // Pop finishes inside 0.35 s so the close-up sees the card at full colour.
+    const selfieRig = addCast(rigOn(selfieStand, 'japan-selfie'), japan, null, 1.6, 0.3);
     watch(4, mountDrawing(selfieRig, 'char', 'japan-selfie', SELFIE_H, {
       who: 'him', outfit: 'casual', pose: 'wave', facing: 'right',
     }));
@@ -422,6 +428,7 @@ export default {
       tilt: -0.04,
       at: japan,
       shrink: next,
+      pop: 0.3,
     });
 
     const nextTag = layTag(paper, THREE, popup, track, FONT, 'right', 1.45, 1.12, 2.05, 0.48,
@@ -475,15 +482,17 @@ export default {
       [-1.85, 1.45, 0.85],
       [-1.35, 1.5, 0.95],
       [1.55, 1.45, 1.05],
-      [2.05, 1.7, 1.2],
+      [1.15, 2.65, 2.15],
     ];
 
     const cues = [
       { t: spread.open, hold: 0.7, at: [0, 0.9, 0.05], size: 7.5, from: 'front' },
-      { t: round2(building + 0.35), hold: 4.0, at: [-2.28, 1.22, 0.32], size: 4.5, from: 'front' },
+      // Left-front on the couple, the boxes and the ribbon (a front size this wide is the whole book).
+      { t: round2(building + 0.3), hold: 4.3, at: [-2.35, 1.18, 0.42], size: 3.2, from: 'left' },
       { t: round2(first + 0.4), hold: 2.0, at: [-1.85, 1.15, 0.2], size: 3.6, from: 'left' },
       { t: round2(cherry + 1.15), hold: 2.3, at: [-1.4, 0.98, 0.42], size: 2.6, from: 'front' },
-      { t: round2(home + 0.5), hold: 2.6, at: [1.35, 1.05, 0.22], size: 3.6, from: 'front' },
+      // Couple, house with the SOLD sign, and the deed print, as one close group.
+      { t: round2(home + 0.35), hold: 3.1, at: [2.2, 0.9, 0.46], size: 2.8, from: 'right' },
       { t: round2(travelAt + 0.4), hold: 1.2, at: [1.55, 1.0, 0.35], size: 3.6, from: 'front' },
       { t: round2(japan + 0.55), hold: 2.0, at: [2.05, 1.1, 0.4], size: 2.8, from: 'front' },
       { t: round2(next + 0.4), hold: 2.85, at: [0.15, 0.82, 0.02], size: 7.6, from: 'high' },
@@ -542,7 +551,7 @@ export default {
         }
 
         for (let i = 0; i < castRigs.length; i++) {
-          poseCast(castRigs[i], t, castAt[i], castLeave[i], castPhase[i], outBack);
+          poseCast(castRigs[i], t, castAt[i], castLeave[i], castPhase[i], outBack, castPop[i]);
         }
         {
           const walk = smoothstep(building, building + 1.15, t);
@@ -601,7 +610,7 @@ export default {
 
         for (let i = 0; i < photoRigs.length; i++) {
           const p = photoRigs[i];
-          const s = photoK(t, p.at, p.shrink, outBack);
+          const s = photoK(t, p.at, p.shrink, outBack, p.pop);
           p.hold.scale.setScalar(s > 0.001 ? s : 0.001);
         }
         for (let i = 0; i < tagHolds.length; i++) {
@@ -657,7 +666,7 @@ export default {
         glow.position.y = at[1];
         glow.position.z = at[2];
         let key = zone === 0 ? 1.05 : 0.9;
-        if (zone === 4 && !finale) key = 1.65;
+        if (zone === 4 && !finale) key = 0.95;
         if (finale) key = 1.2;
         glow.intensity = risen * key;
         fill.intensity = risen * (zone === 4 || finale ? 0.9 : 0.62);
@@ -696,9 +705,10 @@ function bump(t, at) {
   return Math.sin(u * Math.PI);
 }
 
-function appear(t, at, outBack) {
+function appear(t, at, outBack, dur) {
   if (t < at) return 0;
-  const u = (t - at) / 0.38;
+  const span = dur > 0 ? dur : 0.38;
+  const u = (t - at) / span;
   if (u >= 1) return 1;
   let s = outBack(u);
   if (s < 0) s = 0;
@@ -712,11 +722,12 @@ function houseAmount(t, home, japan, _next, outBack, smoothstep) {
   return up * (1 - down);
 }
 
-function poseCast(rig, t, arrive, leave, phase, outBack) {
+function poseCast(rig, t, arrive, leave, phase, outBack, dur) {
   let s = 0;
   let squash = 0;
+  const span = dur > 0 ? dur : 0.36;
   if (t >= arrive) {
-    const u = (t - arrive) / 0.36;
+    const u = (t - arrive) / span;
     if (u >= 1) s = 1;
     else {
       s = outBack(u);
@@ -741,8 +752,8 @@ function poseCast(rig, t, arrive, leave, phase, outBack) {
   rig.rotation.z = live ? Math.sin(t * 1.2 + phase) * 0.015 : 0;
 }
 
-function photoK(t, arrive, shrink, outBack) {
-  let s = appear(t, arrive, outBack);
+function photoK(t, arrive, shrink, outBack, dur) {
+  let s = appear(t, arrive, outBack, dur);
   if (shrink > 0 && t > shrink) {
     const v = (t - shrink) / 0.45;
     const k = v >= 1 ? 1 : (v <= 0 ? 0 : v * v * (3 - 2 * v));
@@ -769,12 +780,18 @@ function layDots(mesh, pack, progress, pos, quat, scl, mat) {
   const xs = pack.x;
   const zs = pack.z;
   const us = pack.u;
+  const ang = pack.ang;
   for (let i = 0; i < n; i++) {
-    const d = (progress - us[i]) * 22;
-    let s = d <= 0 ? 0 : d >= 1 ? 1 : d;
-    if (us[i] > 0.985) s *= 2.6;
-    pos.set(xs[i], 0.006, zs[i]);
-    scl.set(s * 12, 1, s * 12);
+    const d = (progress - us[i]) * 18;
+    const s = d <= 0 ? 0 : d >= 1 ? 1 : d;
+    // Hand-drawn: each dash is a slightly different length and a hair off the tangent.
+    const len = 0.84 + ((i * 5) % 5) * 0.07;
+    const wob = ((i * 13) % 7 - 3) * 0.045;
+    const half = ((ang ? ang[i] : 0) + wob) * 0.5;
+    pos.set(xs[i], 0.01, zs[i]);
+    // Base plane is tiny (the fold check samples it at the gutter). Scale draws the dash.
+    scl.set(s > 0 ? s * len * 10 : 0.001, 1, 10);
+    quat.set(0, Math.sin(half), 0, Math.cos(half));
     mat.compose(pos, quat, scl);
     mesh.setMatrixAt(i, mat);
   }
@@ -852,7 +869,16 @@ function buildPath() {
       total > 0 ? dist / total : 0,
     ]);
   }
-  for (let i = 0; i < chevron.length; i++) raw.push([chevron[i][0], chevron[i][1], 0.995]);
+  const pathN = raw.length;
+  for (let i = 0; i < pathN; i++) {
+    const a = raw[Math.max(0, i - 1)];
+    const b = raw[Math.min(pathN - 1, i + 1)];
+    raw[i][3] = Math.atan2(-(b[1] - a[1]), (b[0] - a[0]) || 1);
+  }
+  const tip = chevron[1];
+  raw.push([chevron[0][0], chevron[0][1], 0.995, Math.atan2(-(tip[1] - chevron[0][1]), tip[0] - chevron[0][0])]);
+  raw.push([tip[0], tip[1], 0.995, raw[pathN - 1][3]]);
+  raw.push([chevron[2][0], chevron[2][1], 0.995, Math.atan2(-(tip[1] - chevron[2][1]), tip[0] - chevron[2][0])]);
 
   const stopIdx = [0, 10, 16, 22, 28, raw.length - 1];
   const markU = [];
@@ -876,24 +902,28 @@ function takeSide(raw, side) {
   const x = new Float32Array(n);
   const z = new Float32Array(n);
   const u = new Float32Array(n);
+  const ang = new Float32Array(n);
   for (let i = 0; i < keep.length; i++) {
     x[i] = keep[i][0];
     z[i] = keep[i][1];
     u[i] = keep[i][2];
+    ang[i] = keep[i][3] || 0;
   }
-  return { n: keep.length, x, z, u };
+  return { n: keep.length, x, z, u, ang };
 }
 
 function makeDots(THREE, paper, n) {
-  const geo = new THREE.PlaneGeometry(0.018, 0.018);
+  // Unit dash is 0.016 × 0.007; instances scale it to ~0.16 × 0.07 (a third of the old rings).
+  const geo = new THREE.PlaneGeometry(0.016, 0.007);
   geo.rotateX(-Math.PI / 2);
   const mat = new THREE.MeshBasicMaterial({
-    map: paper.texture(dotCanvas(paper)),
+    map: paper.texture(dashCanvas(paper)),
     transparent: true,
+    opacity: 0.65,
     depthWrite: false,
   });
   const mesh = new THREE.InstancedMesh(geo, mat, Math.max(1, n));
-  mesh.name = 'path-dots';
+  mesh.name = 'path-dashes';
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   mesh.count = Math.max(1, n);
@@ -904,15 +934,15 @@ function makeDots(THREE, paper, n) {
   return mesh;
 }
 
-function dotCanvas(paper) {
-  const { canvas, ctx } = paper.makeCanvas(32, 32);
-  ctx.fillStyle = '#5c3a28';
+function dashCanvas(paper) {
+  const { canvas, ctx } = paper.makeCanvas(64, 28);
+  ctx.fillStyle = '#b07848';
   ctx.beginPath();
-  ctx.arc(16, 16, 12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#f6e7c8';
-  ctx.beginPath();
-  ctx.arc(16, 16, 4, 0, Math.PI * 2);
+  ctx.moveTo(7, 9);
+  ctx.quadraticCurveTo(32, 4, 57, 8);
+  ctx.quadraticCurveTo(61, 14, 56, 19);
+  ctx.quadraticCurveTo(32, 24, 8, 19);
+  ctx.quadraticCurveTo(3, 14, 7, 9);
   ctx.fill();
   return canvas;
 }
@@ -1021,7 +1051,7 @@ function layPhoto(paper, THREE, popup, track, photoRigs, photo, opts) {
   mesh.rotation.z = opts.tilt;
   hold.add(mesh);
   stand.mount.add(hold);
-  photoRigs.push({ hold, at: opts.at, shrink: opts.shrink });
+  photoRigs.push({ hold, at: opts.at, shrink: opts.shrink, pop: opts.pop || 0 });
   return hold;
 }
 

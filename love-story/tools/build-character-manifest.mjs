@@ -26,7 +26,7 @@ const OUT = path.join(CHARACTERS, 'manifest.json');
 
 const PNG_SIG = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const WHO = new Set(['him', 'her', 'dog', 'sister', 'familyDog', 'parents', 'prop', 'oliver']);
-const SCENES = new Set(['walmart', 'dates', 'official', 'life', 'proposal', 'wedding', 'any']);
+const SCENES = new Set(['walmart', 'lunch', 'dates', 'fate', 'official', 'life', 'proposal', 'wedding', 'any']);
 
 /** Width and height of a WebP (VP8X, VP8L or VP8 chunk), or null. */
 function readWebpSize(buf) {

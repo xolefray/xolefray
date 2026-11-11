@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
   dev/audio.html — measurement harness for src/audio.js.
-  Renders the film (0–153 s) offline at 22.05 kHz in chunks with renderOffline(), plus short
+  Renders the film (0–DURATION, from timeline.js) offline at 22.05 kHz in chunks with renderOffline(), plus short
   foley-only windows and a ducked music window. Computes per-second and per-chapter peak/RMS
   (dBFS), checks peak ≤ −3 dBFS, audible chapters, turn foley, silence after DURATION − 0.5,
   and the 6 dB narration duck. Exercises the live API. Logs a compact table with console.info,
@@ -334,15 +334,36 @@
       const tail = tailRows.length ? combine(tailRows) : { peak: -120, rms: -120, bad: 0 };
 
       // Duck: music only, over a long narration line and over a gap between lines.
-      const duckFrom = 16.2;
-      const duckTo = 27.2;
+      // Windows come from NARRATION (0.25 s ramps, same as audio.js), not a fixed clock.
+      const RAMP = 0.25;
+      let duckLine = null;
+      let gapA = 0;
+      let gapB = 0;
+      for (let i = 0; i < NARRATION.length - 1; i++) {
+        const prev = NARRATION[i];
+        const next = NARRATION[i + 1];
+        const g0 = prev.end + RAMP;
+        const g1 = next.start;
+        const span = next.end - next.start;
+        if (g1 - g0 >= 0.7 && span >= 5) {
+          duckLine = next;
+          gapA = g0 + 0.08;
+          gapB = g1 - 0.08;
+          break;
+        }
+      }
+      if (!duckLine) duckLine = NARRATION[NARRATION.length - 1];
+      const lineA = duckLine.start + RAMP + 0.2;
+      const lineB = duckLine.end - 0.2;
+      const duckFrom = Math.min(gapA || lineA, lineA) - 0.4;
+      const duckTo = Math.max(gapB || lineB, lineB) + 0.4;
       const dryBuf = await renderOffline(duckFrom, duckTo, SR, { layers: ['music'], duck: false });
       const wetBuf = await renderOffline(duckFrom, duckTo, SR, { layers: ['music'], duck: true });
       const rel = (buf, a, b) => measure(buf, a - duckFrom, b - duckFrom);
-      const lineDry = rel(dryBuf, 20.15, 26.35);
-      const lineWet = rel(wetBuf, 20.15, 26.35);
-      const gapDry = rel(dryBuf, 16.65, 17.35);
-      const gapWet = rel(wetBuf, 16.65, 17.35);
+      const lineDry = rel(dryBuf, lineA, lineB);
+      const lineWet = rel(wetBuf, lineA, lineB);
+      const gapDry = rel(dryBuf, gapA, gapB);
+      const gapWet = rel(wetBuf, gapA, gapB);
       const lineDelta = lineDry.rms - lineWet.rms;
       const gapDelta = gapDry.rms - gapWet.rms;
       const duck = {
@@ -364,7 +385,7 @@
         { name: `lamp ${lamp.peak.toFixed(1)} dBFS`, ok: lamp.peak >= -30 },
         { name: `stamp ${stamp.peak.toFixed(1)} shutter ${shutter.peak.toFixed(1)} pop ${pop.peak.toFixed(1)} dBFS`, ok: stamp.peak >= -28 && shutter.peak >= -28 && pop.peak >= -28 },
         { name: `silence after ${SILENCE_AT}s: peak ${tail.peak.toFixed(1)} dBFS ≤ −60`, ok: tail.peak <= -60 },
-        { name: `duck under n06: ${lineDelta.toFixed(1)} dB (dry ${lineDry.rms.toFixed(1)} → wet ${lineWet.rms.toFixed(1)})`, ok: lineDelta >= 4.2 && lineDelta <= 7.5 },
+        { name: `duck under ${duckLine.id}: ${lineDelta.toFixed(1)} dB (dry ${lineDry.rms.toFixed(1)} → wet ${lineWet.rms.toFixed(1)})`, ok: lineDelta >= 4.2 && lineDelta <= 7.5 },
         { name: `no duck in the gap: Δ ${gapDelta.toFixed(1)} dB`, ok: Math.abs(gapDelta) <= 1.5 },
         { name: `narration file: ${narration} (missing is expected)`, ok: narration === 'absent' || narration === 'ready' },
         { name: `live API: ${live.running ? 'running' : 'no autoplay'} ${live.ok ? 'no errors' : live.errors.join('; ')}`, ok: live.ok },
