@@ -1,0 +1,15 @@
+{
+  "id": "lockers",
+  "file": "lockers.webp",
+  "w": 771,
+  "h": 887,
+  "feet": [
+    534,
+    862
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 1.42
+}

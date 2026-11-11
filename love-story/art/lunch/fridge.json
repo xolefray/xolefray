@@ -1,0 +1,15 @@
+{
+  "id": "fridge",
+  "file": "fridge.webp",
+  "w": 501,
+  "h": 1024,
+  "feet": [
+    315,
+    1000
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 1.38
+}

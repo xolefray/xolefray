@@ -1,0 +1,15 @@
+{
+  "id": "plant",
+  "file": "plant.webp",
+  "w": 607,
+  "h": 1024,
+  "feet": [
+    303,
+    1000
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 0.78
+}

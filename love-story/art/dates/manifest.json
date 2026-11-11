@@ -46,6 +46,21 @@
       "scene": "dates",
       "units": 1.85
     },
+    "moon-stars": {
+      "id": "moon-stars",
+      "file": "moon-stars.webp",
+      "w": 789,
+      "h": 820,
+      "feet": [
+        499.5,
+        795
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 1.3
+    },
     "page-left": {
       "id": "page-left",
       "file": "page-left.webp",
@@ -105,6 +120,21 @@
       ],
       "scene": "dates",
       "units": 2.05
+    },
+    "street-lamp": {
+      "id": "street-lamp",
+      "file": "street-lamp.webp",
+      "w": 212,
+      "h": 1024,
+      "feet": [
+        108.5,
+        1000
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 1.4
     },
     "trees-a": {
       "id": "trees-a",

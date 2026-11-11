@@ -3,7 +3,7 @@
   dev/spread-dates.html — the dates spread (looked up by id), alone in its spread frame.
   ?alpha=  units of π, default 1. "film" = the timeline's α at t.
   ?t=      film seconds (default: the spread's open time).
-  ?view=   front | wide | low | top | parents | walk | chase | rescue | school
+  ?view=   front | wide | low | top | list | parents | walk | sister | night | chase | rescue | ribbon
   ?play=1  advance t.  ?free=1 orbit.  ?ui=0 hide the HUD.
   ?check=1 fold self-test (α from π to 0, and every 0.1 s of the open window).
            Prints "dates fold check: PASS" or FAIL. Sets window.__ready.
@@ -100,11 +100,14 @@
       wide: [[0.4, 4.6, 8.4], [0, 0.55, 0]],
       low: [[0.2, 0.7, 4.8], [0, 0.65, 0.15]],
       top: [[0, 8.5, 0.4], [0, 0, 0]],
+      list: [[1.7, 1.55, 3.1], [1.85, 0.85, 1.0]],
       parents: [[-1.55, 1.55, 2.2], [-1.65, 0.95, -0.85]],
-      walk: [[-2.15, 1.45, 3.3], [-2.4, 0.7, 0.45]],
-      chase: [[1.9, 1.35, 3.5], [2.05, 0.65, 0.35]],
-      rescue: [[1.7, 1.25, 2.9], [2.15, 0.85, 0.55]],
-      school: [[2.15, 1.45, 2.8], [2.25, 0.95, -0.15]],
+      walk: [[-1.35, 1.15, 2.9], [-1.45, 0.65, 0.5]],
+      sister: [[-2.5, 1.25, 3.0], [-2.6, 0.7, 0.7]],
+      night: [[1.5, 1.7, 4.2], [1.2, 0.85, -0.15]],
+      chase: [[2.1, 1.35, 3.6], [2.2, 0.65, 0.15]],
+      rescue: [[1.55, 1.25, 2.8], [1.65, 0.85, 0.4]],
+      ribbon: [[-0.2, 1.15, 3.3], [-0.15, 0.5, 0.9]],
     };
     const target = new THREE.Vector3();
     let controls = null;
@@ -173,14 +176,20 @@
         });
       };
       const mid = (spread.open + spread.close) / 2;
-      const chasing = timeline.BEATS.uberChaseStart + 1.2;
-      const after = timeline.BEATS.sameSchool + 1.2;
+      const ideas = timeline.BEATS.creativeDates + 1.2;
+      const walking = timeline.BEATS.dogWalk + 2;
+      const night = timeline.BEATS.lateNights + 0.8;
+      const chasing = timeline.BEATS.uberChaseStart + 1.1;
+      const remembered = timeline.BEATS.memories + 0.9;
       const angles = [PI, 0.6 * PI, 0.3 * PI, 0.1 * PI, 0];
       for (let i = 0; i <= 18; i++) angles.push(PI * (1 - i / 18));
       for (const al of angles) {
-        sample(al, mid);
+        sample(al, ideas);
+        sample(al, walking);
+        sample(al, night);
         sample(al, chasing);
-        sample(al, after);
+        sample(al, remembered);
+        sample(al, mid);
       }
       for (let t = spread.open; t <= spread.close + 1e-6; t += 0.1) sample(PI, t);
       if (problems.length) {

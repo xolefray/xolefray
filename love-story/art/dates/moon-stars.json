@@ -1,0 +1,10 @@
+{
+  "id": "moon-stars",
+  "file": "moon-stars.webp",
+  "w": 789,
+  "h": 820,
+  "feet": [499.5, 795],
+  "who": ["prop"],
+  "scene": "dates",
+  "units": 1.3
+}

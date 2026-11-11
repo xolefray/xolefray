@@ -1,31 +1,39 @@
-// Spread 1 — "How we met". Coworkers on the shop floor, then the lunch-break table.
-// Pop-up picture book. Times come from timeline.BEATS / SPREADS / NARRATION (never as literals).
-// Drawings: characters/poses him-vest, her-vest, cycle "lunch"; set pieces in art/walmart/.
+// Spread 1 — "Where it all began". The whole floor is the shop.
+// Coworkers, then they pass in the aisle, then shy / kind / curious, then the two of them talking.
+// Times come from timeline.BEATS / SPREADS. Lettering goes through L().
+// Drawings: him-vest, her-vest, him-cart, her-walkby, her-shy, him-kind, vest-chat.
+// Lunch, the receipt, the clock and the vending machine live on the lunch spread now.
 // update() allocates nothing. One shared mountain gamma so the store and the shelves nest.
 
+import { L } from '../i18n.js';
+import { photoPrint, PHOTO_ASPECT } from '../photos.js';
+
 const GAMMA = 1.78;
-const OPEN = 0.985; // α/π above which rising hearts may leave the card plane
 const STORE_H = 2.16;
 const SHELF_H = 1.4;
+const SHELF_ART_H = 1.16;
 const SHELF_W = 5.4;
-const LUNCH_H = 1.55;
-const HIM_H = 1.62;
-const HER_H = 1.46;
 
-function bump(t, at) {
-  const u = (t - at) / 0.34;
+const HIM_H = 1.56;
+const HER_H = 1.4;
+const CART_H = 1.34;
+const WALK_H = 1.22;
+const SHY_H = 1.66;
+const KIND_H = 1.68;
+const CHAT_H = 1.6;
+
+const PASS1 = 2.15;
+const PASS_GAP = 0.26;
+const PASS2 = 1.5;
+
+function bump(t, at, dur = 0.34) {
+  const u = (t - at) / dur;
   if (u <= 0 || u >= 1) return 0;
   return Math.sin(u * Math.PI);
 }
 
 function clamp(x, a, b) {
   return x < a ? a : x > b ? b : x;
-}
-
-function cloneCanvas(paper, src) {
-  const { canvas, ctx } = paper.makeCanvas(src.width, src.height);
-  ctx.drawImage(src, 0, 0);
-  return { canvas, ctx };
 }
 
 function fitSize(ctx, text, font, px, maxW) {
@@ -36,19 +44,24 @@ function fitSize(ctx, text, font, px, maxW) {
   return size;
 }
 
-/** Bottom of the canvas sits on yBottom; the group's origin stays the feet. */
-function plant(card, info, height, x, yBottom, z) {
-  const s = height / info.h;
-  card.position.set(x, yBottom + (info.h - info.feet[1]) * s, z);
-  return s;
+function cloneCanvas(paper, src) {
+  const { canvas, ctx } = paper.makeCanvas(src.width, src.height);
+  ctx.drawImage(src, 0, 0);
+  return { canvas, ctx };
+}
+
+/** Feet of a characterCard group sit on the hinge; the canvas bottom does not dip below it. */
+function seat(group, info, height) {
+  if (!group || !info) return;
+  group.position.y = (info.h - info.feet[1]) * (height / info.h);
 }
 
 export default {
   id: 'walmart',
-  title: 'How we met',
+  title: 'Where it all began',
   build(ctx) {
-    const { THREE, paper, popup, rng, figures, FONT, timeline, characters, characterArt, art } = ctx;
-    const { BEATS, SPREADS, NARRATION, smoothstep, ease } = timeline;
+    const { THREE, paper, popup, rng, figures, FONT, timeline, characters, characterArt, art, photos } = ctx;
+    const { BEATS, SPREADS, smoothstep, ease } = timeline;
     const spread = SPREADS.find((s) => s.id === 'walmart');
     const C = paper.PALETTES.scrapbook;
     const group = new THREE.Group();
@@ -56,30 +69,29 @@ export default {
 
     const has = (id) => !!(art && art.has && art.has(id));
     const info = (id) => (has(id) ? art.info(id) : null);
-    const nYes = NARRATION.find((n) => n.id === 'n04');
-    const yesAt = nYes ? nYes.start : BEATS.coworkers;
+    const hasCh = (id) => !!(characters && characters.has && characters.has(id));
 
     // ---------------------------------------------------------------- pages
     let leftArt;
     let rightArt;
     if (has('page-left') && has('page-right')) {
-      const L = cloneCanvas(paper, art.canvas('page-left'));
-      const R = cloneCanvas(paper, art.canvas('page-right'));
-      paintLeftPage(L.ctx, L.canvas.width, L.canvas.height, FONT, C, rng);
-      paintRightPage(R.ctx, R.canvas.width, R.canvas.height, FONT, C);
-      leftArt = L.canvas;
-      rightArt = R.canvas;
+      const Lpage = cloneCanvas(paper, art.canvas('page-left'));
+      const Rpage = cloneCanvas(paper, art.canvas('page-right'));
+      paintLeftPage(Lpage.ctx, Lpage.canvas.width, Lpage.canvas.height, FONT, C, rng);
+      paintRightPage(Rpage.ctx, Rpage.canvas.width, Rpage.canvas.height, FONT, C);
+      leftArt = Lpage.canvas;
+      rightArt = Rpage.canvas;
     } else {
       leftArt = paper.page((ctx, w, h) => {
-        ctx.fillStyle = '#e7e1d4';
+        ctx.fillStyle = '#e4e0d4';
         ctx.fillRect(0, 0, w, h);
         paintLeftPage(ctx, w, h, FONT, C, rng);
-      }, { seed: 11, tint: '#e7e1d4' });
+      }, { seed: 11, tint: '#e4e0d4' });
       rightArt = paper.page((ctx, w, h) => {
-        ctx.fillStyle = '#f3e2d2';
+        ctx.fillStyle = '#e4e0d4';
         ctx.fillRect(0, 0, w, h);
         paintRightPage(ctx, w, h, FONT, C);
-      }, { seed: 12, tint: '#f3e2d2' });
+      }, { seed: 12, tint: '#e4e0d4' });
     }
 
     const mechanisms = [];
@@ -89,11 +101,20 @@ export default {
       return m;
     };
 
-    // ---------------------------------------------------------------- back: store front (mountain vFold)
+    const addProp = (mount, id, height) => {
+      if (!has(id)) return null;
+      const card = characterArt.characterCard(paper, art, id, { height });
+      if (!card) return null;
+      seat(card, art.info(id), height);
+      card.name = id;
+      mount.add(card);
+      return card;
+    };
+
+    // ---------------------------------------------------------------- back: store front
     const storeInfo = info('store-front');
     const storeW = storeInfo ? STORE_H * (storeInfo.w / storeInfo.h) : 5.68;
-    const storeZ = -0.78;
-    const store = track(popup.vFold({ z0: storeZ, gamma: GAMMA, width: storeW, height: STORE_H }));
+    const store = track(popup.vFold({ z0: -0.78, gamma: GAMMA, width: storeW, height: STORE_H }));
     if (storeInfo) {
       const painted = cloneCanvas(paper, art.canvas('store-front'));
       paintWalmart(painted.ctx, painted.canvas.width, painted.canvas.height, FONT, C, rng);
@@ -107,8 +128,6 @@ export default {
       const flat = paper.paint(1024, 390, (ctx, w, h) => {
         ctx.fillStyle = '#7eb0d8';
         ctx.fillRect(24, 36, w - 48, h * 0.28);
-        ctx.fillStyle = '#f3e6cf';
-        ctx.fillRect(w * 0.22, h * 0.16, w * 0.56, h * 0.22);
         ctx.fillStyle = '#f6edd9';
         ctx.fillRect(24, h * 0.42, w - 48, h * 0.46);
         paintWalmart(ctx, w, h, FONT, C, rng);
@@ -118,369 +137,508 @@ export default {
       store.right.add(halves.right);
     }
 
-    // ---------------------------------------------------------------- mid: shelves, same gamma, in front of the store
+    // ---------------------------------------------------------------- mid: shelves, same gamma
     const shelves = track(popup.vFold({ z0: 0.02, gamma: GAMMA, width: SHELF_W, height: SHELF_H }));
-    const shelfArtH = 1.16;
-    let shelfLeft = null;
-    let shelfRight = null;
     if (has('shelves-left')) {
-      shelfLeft = characterArt.characterCard(paper, art, 'shelves-left', { height: shelfArtH });
-      // Inner edge stays off the crease: card thickness at the gutter fails the fold angle.
-      plant(shelfLeft, art.info('shelves-left'), shelfArtH, -1.62, 0, 0);
-      shelfLeft.name = 'shelves-left';
-      shelves.left.add(shelfLeft);
+      const shelfLeft = addProp(shelves.left, 'shelves-left', SHELF_ART_H);
+      if (shelfLeft) {
+        const meta = art.info('shelves-left');
+        const s = SHELF_ART_H / meta.h;
+        shelfLeft.position.x = -1.62;
+        shelfLeft.position.y = (meta.h - meta.feet[1]) * s;
+        const sale = makeSale(THREE, paper, FONT, C);
+        sale.position.set(0.42, 1.02, 0.02);
+        shelfLeft.add(sale);
+      }
     }
     if (has('shelves-right')) {
-      shelfRight = characterArt.characterCard(paper, art, 'shelves-right', { height: shelfArtH });
-      plant(shelfRight, art.info('shelves-right'), shelfArtH, 1.55, 0, 0);
-      shelfRight.name = 'shelves-right';
-      shelves.right.add(shelfRight);
-    }
-    const sale = makeSale(paper, FONT, C);
-    if (shelfLeft) {
-      sale.position.set(0.35, 1.02, 0.008);
-      shelfLeft.add(sale);
+      const shelfRight = addProp(shelves.right, 'shelves-right', SHELF_ART_H);
+      if (shelfRight) {
+        const meta = art.info('shelves-right');
+        shelfRight.position.x = 1.55;
+        shelfRight.position.y = (meta.h - meta.feet[1]) * (SHELF_ART_H / meta.h);
+      }
     }
 
-    // ---------------------------------------------------------------- left page: the two in vests, boxes, carts, checkout
-    const him = track(popup.standUp({
-      side: 'left', x: 2.05, z: 0.62, fold: 'back', width: 0.52, height: HIM_H,
+    // ---------------------------------------------------------------- set dressing (real folds, always up)
+    const boxes = track(popup.standUp({
+      side: 'left', x: 1.42, z: 1.08, fold: 'back', width: 0.48, height: 0.52,
     }));
-    const her = track(popup.standUp({
-      side: 'left', x: 1.15, z: 0.8, fold: 'back', width: 0.58, height: HER_H,
+    const boxesRig = new THREE.Group();
+    boxesRig.name = 'boxes';
+    boxes.mount.add(boxesRig);
+    addProp(boxesRig, 'boxes', 0.52);
+
+    const rackH = 0.7;
+    const rackW = has('shirt-rack') ? rackH * (art.info('shirt-rack').w / art.info('shirt-rack').h) : 1.26;
+    const shirts = track(popup.standUp({
+      side: 'left', x: 2.85, z: 0.28, fold: 'back', width: rackW, height: rackH,
+    }));
+    addProp(shirts.mount, 'shirt-rack', rackH);
+
+    const endH = 1.12;
+    const endW = has('end-cap') ? endH * (art.info('end-cap').w / art.info('end-cap').h) : 0.85;
+    const endCap = track(popup.standUp({
+      side: 'right', x: 1.62, z: 0.12, fold: 'back', width: endW, height: endH,
+    }));
+    addProp(endCap.mount, 'end-cap', endH);
+
+    const deskH = 0.86;
+    const deskW = has('checkout') ? deskH * (art.info('checkout').w / art.info('checkout').h) : 0.87;
+    const checkout = track(popup.standUp({
+      side: 'right', x: 2.72, z: 0.22, fold: 'back', width: deskW, height: deskH,
+    }));
+    addProp(checkout.mount, 'checkout', deskH);
+
+    const cartH = 0.38;
+    const cartW = has('carts') ? cartH * (art.info('carts').w / art.info('carts').h) : 1.1;
+    const cartX = 2.05;
+    const carts = track(popup.standUp({
+      side: 'right', x: cartX, z: 1.02, fold: 'back', width: cartW, height: cartH,
+    }));
+    const cartsRig = new THREE.Group();
+    cartsRig.name = 'carts';
+    carts.mount.add(cartsRig);
+    addProp(cartsRig, 'carts', cartH);
+
+    const wetH = 0.52;
+    const wetW = has('wet-floor') ? wetH * (art.info('wet-floor').w / art.info('wet-floor').h) : 0.48;
+    const wet = track(popup.standUp({
+      side: 'right', x: 1.32, z: 0.58, fold: 'back', width: wetW, height: wetH,
+    }));
+    addProp(wet.mount, 'wet-floor', wetH);
+
+    // ---------------------------------------------------------------- coworkers
+    const him = track(popup.standUp({
+      side: 'left', x: 2.05, z: 0.52, fold: 'back', width: 0.55, height: HIM_H,
     }));
     const himRig = new THREE.Group();
     himRig.name = 'him-vest';
     him.mount.add(himRig);
+    const himCard = characterArt.actor(paper, characters, figures, 'him-vest', {
+      who: 'him', outfit: 'vest', pose: 'stand', facing: 'right',
+    }, { height: HIM_H });
+    if (himCard) {
+      if (hasCh('him-vest')) seat(himCard, characters.info('him-vest'), HIM_H);
+      himCard.name = 'him-vest';
+      himRig.add(himCard);
+    }
+    const brianBadge = decal(THREE, paper, badgeCanvas(paper, FONT, 'Brian'), 0.46, 0.16);
+    brianBadge.name = 'brian-badge';
+    brianBadge.position.set(-0.02, HIM_H + 0.02, 0.03);
+    himRig.add(brianBadge);
+
+    const her = track(popup.standUp({
+      side: 'right', x: 2.28, z: 0.68, fold: 'back', width: 0.58, height: HER_H,
+    }));
     const herRig = new THREE.Group();
     herRig.name = 'her-vest';
     her.mount.add(herRig);
-
-    const himCard = characterArt.actor(paper, characters, figures, 'him-vest', {
-      who: 'him', outfit: 'vest', pose: 'stand', facing: 'left',
-    }, { height: HIM_H });
     const herCard = characterArt.actor(paper, characters, figures, 'her-vest', {
-      who: 'her', outfit: 'vest', pose: 'stand', facing: 'right',
+      who: 'her', outfit: 'vest', pose: 'stand', facing: 'left',
     }, { height: HER_H });
-    if (himCard && characters && characters.has && characters.has('him-vest')) {
-      plant(himCard, characters.info('him-vest'), HIM_H, 0, 0, 0);
+    if (herCard) {
+      if (hasCh('her-vest')) seat(herCard, characters.info('her-vest'), HER_H);
+      herCard.name = 'her-vest';
+      herRig.add(herCard);
     }
-    if (herCard && characters && characters.has && characters.has('her-vest')) {
-      plant(herCard, characters.info('her-vest'), HER_H, 0, 0, 0);
-    }
-    if (himCard) himRig.add(himCard);
-    if (herCard) herRig.add(herCard);
+    const marlinBadge = decal(THREE, paper, badgeCanvas(paper, FONT, 'Marlin'), 0.52, 0.16);
+    marlinBadge.name = 'marlin-badge';
+    marlinBadge.position.set(0.04, HER_H + 0.02, 0.03);
+    herRig.add(marlinBadge);
 
-    const hi = makeBubble(paper, FONT, 'hi', 280, 180, 3, 0.5);
-    const hiCard = paper.card({ canvas: hi, width: 0.34, height: 0.22, anchor: 'center' });
-    hiCard.name = 'hi';
-    // Pivot sits on her head. Scaling the pivot collapses the bubble there while folded;
-    // open, the card itself floats above her hair with the tail clear of her face.
-    // −X is toward him.
-    const hiPivot = new THREE.Group();
-    hiPivot.name = 'hi-pivot';
-    hiPivot.position.set(-0.02, 1.18, 0);
-    hiCard.position.set(0, 0.62, 0.02);
-    hiPivot.add(hiCard);
-    herRig.add(hiPivot);
+    const spark = decal(THREE, paper, sparkCanvas(paper, C), 0.28, 0.28);
+    spark.name = 'scan';
+    spark.position.set(0.22, 0.95, 0.04);
+    himRig.add(spark);
 
-    // Knee-high, in the x-gap between her (outer ≈ 1.37) and him (gutter edge ≈ 1.82),
-    // and in front of the "How we met" lettering so the whole heading stays readable.
-    // The drawing hangs toward local −X, which is the outer side of the left page.
-    const boxes = track(popup.standUp({
-      side: 'left', x: 1.34, z: 1.24, fold: 'back', width: 0.46, height: 0.48,
+    // ---------------------------------------------------------------- the taped print (right page, front, in the coworkers view)
+    const shot = photoPrint(photos ? photos.walmart : null, {
+      width: 680,
+      style: 'polaroid',
+      caption: L('Walmart days', 'Los días de Walmart'),
+      tilt: -0.07,
+      tape: true,
+      aspect: PHOTO_ASPECT.walmart,
+      seed: 7,
+    });
+    const shotRatio = shot.width / shot.height;
+    // Outer front corner, so the print stays in the coworkers view and off vest-chat.
+    let photoH = 1.16;
+    let photoW = photoH * shotRatio;
+    const photoHalf = photoW / 2;
+    let photoX = 3.48 - photoHalf;
+    const photoMin = photoH + photoHalf + 0.06;
+    if (photoX < photoMin) photoX = photoMin;
+    const photoZ = 1.22;
+    const photo = track(popup.standUp({
+      side: 'right', x: photoX, z: photoZ, fold: 'back', width: photoW, height: photoH,
     }));
-    if (has('boxes')) {
-      const card = characterArt.characterCard(paper, art, 'boxes', { height: 0.48 });
-      plant(card, art.info('boxes'), 0.48, 0, 0, 0);
-      card.name = 'boxes';
-      boxes.mount.add(card);
-    }
+    const photoPivot = new THREE.Group();
+    photoPivot.name = 'walmart-photo';
+    const photoCard = paper.card({
+      canvas: paper.dieCut(shot, { margin: 6 }),
+      width: photoW,
+      height: photoH,
+      anchor: 'bottom-center',
+    });
+    photoCard.name = 'walmart-photo';
+    photoPivot.add(photoCard);
+    photo.mount.add(photoPivot);
 
-    const carts = track(popup.standUp({
-      side: 'left', x: 3.02, z: 1.18, fold: 'back', width: 1.16, height: 0.4,
+    // ---------------------------------------------------------------- passing, along the front aisle, crossing the gutter
+    const pathHim = [[1.55, 0.4], [0.04, 0.48], [-1.55, 0.38]];
+    const pathHer = [[-1.42, 0.74], [-0.04, 0.66], [1.42, 0.72]];
+    const himSlide = popup.slider({ side: 'spread', path: pathHim, lift: 0.012, smooth: false });
+    const herSlide = popup.slider({ side: 'spread', path: pathHer, lift: 0.014, smooth: false });
+    group.add(himSlide.object, herSlide.object);
+
+    const himAlign = new THREE.Group();
+    himAlign.name = 'him-cart-align';
+    himSlide.mount.add(himAlign);
+    const himPass = new THREE.Group();
+    himPass.name = 'him-cart';
+    himAlign.add(himPass);
+    const himCart = characterArt.actor(paper, characters, figures, 'him-cart', {
+      who: 'him', outfit: 'vest', pose: 'walk', facing: 'right',
+    }, { height: CART_H });
+    if (himCart) {
+      if (hasCh('him-cart')) seat(himCart, characters.info('him-cart'), CART_H);
+      himCart.name = 'him-cart';
+      himPass.add(himCart);
+    }
+    const herAlign = new THREE.Group();
+    herAlign.name = 'her-walk-align';
+    herSlide.mount.add(herAlign);
+    const herPass = new THREE.Group();
+    herPass.name = 'her-walkby';
+    herAlign.add(herPass);
+    const herWalk = characterArt.actor(paper, characters, figures, 'her-walkby', {
+      who: 'her', outfit: 'vest', pose: 'walk', facing: 'right',
+    }, { height: WALK_H });
+    if (herWalk) {
+      if (hasCh('her-walkby')) seat(herWalk, characters.info('her-walkby'), WALK_H);
+      herWalk.name = 'her-walkby';
+      herPass.add(herWalk);
+    }
+    const hiHim = decal(THREE, paper, bubbleCanvas(paper, FONT, L('hi', 'hola'), 280, 180, 0.5), 0.32, 0.2);
+    hiHim.name = 'hi-him';
+    hiHim.position.set(0.16, CART_H + 0.14, 0.05);
+    himPass.add(hiHim);
+    const hiHer = decal(THREE, paper, bubbleCanvas(paper, FONT, L('hi', 'hola'), 280, 180, 0.42), 0.32, 0.2);
+    hiHer.name = 'hi-her';
+    hiHer.position.set(-0.12, WALK_H * 0.9, 0.05);
+    herPass.add(hiHer);
+
+    // ---------------------------------------------------------------- shy / kind
+    const shy = track(popup.standUp({
+      side: 'right', x: 1.38, z: 0.7, fold: 'back', width: 0.62, height: SHY_H,
     }));
-    if (has('carts')) {
-      const card = characterArt.characterCard(paper, art, 'carts', { height: 0.4 });
-      plant(card, art.info('carts'), 0.4, 0, 0, 0);
-      card.name = 'carts';
-      carts.mount.add(card);
+    const shyRig = new THREE.Group();
+    shyRig.name = 'her-shy';
+    shy.mount.add(shyRig);
+    const shyCard = characterArt.actor(paper, characters, figures, 'her-shy', {
+      who: 'her', outfit: 'vest', pose: 'stand', facing: 'left',
+    }, { height: SHY_H });
+    if (shyCard) {
+      if (hasCh('her-shy')) seat(shyCard, characters.info('her-shy'), SHY_H);
+      shyCard.name = 'her-shy';
+      shyRig.add(shyCard);
     }
+    const blush = decal(THREE, paper, blushCanvas(paper), 0.16, 0.1);
+    blush.name = 'blush';
+    blush.position.set(-0.07, SHY_H * 0.78, 0.04);
+    shyRig.add(blush);
+    const shyDots = decal(THREE, paper, bubbleCanvas(paper, FONT, '…', 240, 180, 0.5), 0.28, 0.21);
+    shyDots.name = 'shy-dots';
+    shyDots.position.set(0.16, SHY_H + 0.02, 0.04);
+    shyRig.add(shyDots);
+    const shyTag = decal(THREE, paper, tagCanvas(paper, FONT, L('a little shy', 'un poco tímida')), 0.92, 0.24);
+    shyTag.name = 'shy-tag';
+    shyTag.position.set(0.64, SHY_H * 0.58, 0.03);
+    shyRig.add(shyTag);
 
-    const checkout = track(popup.standUp({
-      side: 'left', x: 3.08, z: -0.52, fold: 'front', width: 0.9, height: 0.88,
+    const kind = track(popup.standUp({
+      side: 'left', x: 1.48, z: 0.68, fold: 'back', width: 0.64, height: KIND_H,
     }));
-    if (has('checkout')) {
-      const card = characterArt.characterCard(paper, art, 'checkout', { height: 0.88 });
-      plant(card, art.info('checkout'), 0.88, 0, 0, 0);
-      card.name = 'checkout';
-      checkout.mount.add(card);
+    const kindRig = new THREE.Group();
+    kindRig.name = 'him-kind';
+    kind.mount.add(kindRig);
+    const kindCard = characterArt.actor(paper, characters, figures, 'him-kind', {
+      who: 'him', outfit: 'vest', pose: 'wave', facing: 'right',
+    }, { height: KIND_H });
+    if (kindCard) {
+      if (hasCh('him-kind')) seat(kindCard, characters.info('him-kind'), KIND_H);
+      kindCard.name = 'him-kind';
+      kindRig.add(kindCard);
     }
+    const kindBubble = decal(
+      THREE, paper,
+      bubbleCanvas(paper, FONT, L('Hi! Need a hand?', '¡Hola! ¿Te ayudo?'), 920, 300, 0.34),
+      1.18, 0.38,
+    );
+    kindBubble.name = 'kind-bubble';
+    kindBubble.position.set(-0.12, KIND_H + 0.06, 0.04);
+    kindRig.add(kindBubble);
+    const kindTag = decal(THREE, paper, tagCanvas(paper, FONT, L('easy to talk to', 'muy fácil de tratar')), 1.12, 0.26);
+    kindTag.name = 'kind-tag';
+    kindTag.position.set(-0.58, KIND_H * 0.62, 0.03);
+    kindRig.add(kindTag);
 
-    // "yes, really →" lies on the floor and pops in on that line.
-    const yesNote = track(popup.onPage({ side: 'left', x: 0.58, z: 1.28, lift: 0.008 }));
-    const yesCanvas = paper.paint(560, 200, (ctx, w, h) => {
-      const font = (size) => `700 ${size}px ${FONT.hand}`;
-      const size = fitSize(ctx, 'yes, really →', font, Math.round(h * 0.42), w * 0.86);
-      ctx.font = font(size);
-      ctx.fillStyle = '#9d3a3a';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('yes, really →', w / 2, h * 0.48);
-    }, { dieCut: 12, seed: 4, grain: 0.04 });
-    const yesCard = paper.card({ canvas: yesCanvas, width: 0.72, height: 0.26, anchor: 'bottom-center' });
-    yesCard.rotation.x = -Math.PI / 2;
-    yesCard.name = 'yes-really';
-    const yesPivot = new THREE.Group();
-    yesPivot.add(yesCard);
-    yesNote.mount.add(yesPivot);
-
-    // ---------------------------------------------------------------- right page: lunch table (hero), vending, clock
-    const lunch = track(popup.standUp({
-      side: 'right', x: 1.95, z: 0.42, fold: 'back', width: 1.68, height: LUNCH_H,
-    }));
-    const lunchRig = new THREE.Group();
-    lunchRig.name = 'lunch';
-    lunch.mount.add(lunchRig);
-
-    const cycle = characters && characters.cycle ? characters.cycle('lunch') : [];
-    const flip = cycle.length
-      ? characterArt.characterFlip(paper, characters, cycle, { height: LUNCH_H })
-      : null;
-    if (flip) {
-      const ref = characters.info(cycle[0]);
-      plant(flip.group, ref, LUNCH_H, 0, 0, 0);
-      lunchRig.add(flip.group);
-    } else {
-      const sit = (who, x, facing) => {
-        let card = null;
-        try {
-          card = figures.figureCard(paper, who, { outfit: 'vest', pose: 'sit', facing, scale: who === 'him' ? 0.9 : 0.82 });
-        } catch {
-          card = null;
-        }
-        if (!card) return;
-        if (card.userData && card.userData.baseline) card.position.y = -card.userData.baseline;
-        card.position.x = x;
-        card.name = `${who}-sit`;
-        lunchRig.add(card);
-      };
-      sit('her', -0.38, 'right');
-      sit('him', 0.38, 'left');
-    }
-
-    const bubbles = {
-      ha: placeBubble(paper, FONT, lunchRig, 'ha!', 300, 180, -0.52, 1.26, 5),
-      dots: placeBubble(paper, FONT, lunchRig, '…', 240, 170, 0.22, 1.28, 6),
-      heart: placeBubble(paper, FONT, lunchRig, '♥', 180, 160, -0.12, 1.34, 7),
-      // Above each speaker, separated, tail pointing down at the head — not over the eyes.
-      payHer: placeBubble(paper, FONT, lunchRig, "I'll pay!", 420, 190, -0.58, 1.68, 8, 0.5),
-      payHim: placeBubble(paper, FONT, lunchRig, "No, I'LL pay!", 460, 190, 0.32, 1.76, 9, 0.42),
-      paid: placeStamp(paper, FONT, lunchRig, 0.2, 1.72),
-    };
-
-    const steamTex = steamTexture(paper);
-    const steams = [];
-    const steamGeo = new THREE.PlaneGeometry(0.09, 0.16);
-    for (let i = 0; i < 2; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        map: steamTex, transparent: true, depthWrite: false, toneMapped: false,
+    // ---------------------------------------------------------------- question marks that become hearts, between them
+    const marks = new THREE.Group();
+    marks.name = 'marks';
+    marks.position.set(0, 0, 0.66);
+    group.add(marks);
+    const qMap = paper.texture(questionCanvas(paper, FONT));
+    const hMap = paper.texture(heartCanvas(paper));
+    const markGeo = new THREE.PlaneGeometry(0.24, 0.26);
+    const MARKS = [
+      { x: -0.22, delay: 0.1 },
+      { x: 0.04, delay: 0.72 },
+      { x: 0.26, delay: 1.34 },
+      { x: -0.02, delay: 1.96 },
+    ];
+    const markMeshes = [];
+    for (let i = 0; i < MARKS.length; i++) {
+      const qMat = new THREE.MeshBasicMaterial({
+        map: qMap, transparent: true, depthWrite: false, toneMapped: false,
       });
-      const mesh = new THREE.Mesh(steamGeo, mat);
-      mesh.name = 'steam';
-      mesh.castShadow = false;
-      mesh.position.set(i === 0 ? -0.26 : 0.1, 0.86, 0.02);
-      if (flip) flip.group.add(mesh);
-      else lunchRig.add(mesh);
-      steams.push(mesh);
-    }
-
-    const bits = new THREE.Group();
-    bits.name = 'hearts';
-    lunchRig.add(bits);
-    const hearts = [];
-    const heartMap = heartTex(paper);
-    const hGeo = new THREE.PlaneGeometry(0.11, 0.1);
-    for (let i = 0; i < 6; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        map: heartMap,
-        color: i % 2 ? C.blush : C.tomato,
-        transparent: true,
-        depthWrite: false,
-        toneMapped: false,
+      const hMat = new THREE.MeshBasicMaterial({
+        map: hMap, color: i % 2 ? C.blush : C.tomato, transparent: true, depthWrite: false, toneMapped: false,
       });
-      const mesh = new THREE.Mesh(hGeo, mat);
-      mesh.name = 'heart';
-      mesh.castShadow = false;
-      bits.add(mesh);
-      hearts.push({
-        mesh,
-        x0: -0.42 + rng.next() * 0.7,
-        z0: 0.02 + rng.next() * 0.03,
-        phase: rng.next() * 6,
-        delay: rng.next() * 0.55,
-      });
+      const qMesh = new THREE.Mesh(markGeo, qMat);
+      const hMesh = new THREE.Mesh(markGeo, hMat);
+      qMesh.name = 'question';
+      hMesh.name = 'mark-heart';
+      qMesh.castShadow = false;
+      hMesh.castShadow = false;
+      qMesh.renderOrder = 3;
+      hMesh.renderOrder = 3;
+      marks.add(qMesh, hMesh);
+      markMeshes.push({ q: qMesh, h: hMesh, x: MARKS[i].x, delay: MARKS[i].delay, phase: i * 1.3 });
     }
 
-    const vending = track(popup.standUp({
-      side: 'right', x: 3.12, z: -0.62, fold: 'front', width: 0.62, height: 1.16,
+    // ---------------------------------------------------------------- vest-chat, the hero
+    const chatW = hasCh('vest-chat') ? CHAT_H * (characters.info('vest-chat').w / characters.info('vest-chat').h) : 1.08;
+    // Far enough from the gutter that a 1.6 card still obeys the loose stand-up limit.
+    const chatX = Math.max(1.46, CHAT_H / 2 + chatW / 2 + 0.08);
+    const chat = track(popup.standUp({
+      side: 'right', x: chatX, z: 0.96, fold: 'back', width: chatW, height: CHAT_H,
     }));
-    if (has('vending')) {
-      const card = characterArt.characterCard(paper, art, 'vending', { height: 1.16 });
-      plant(card, art.info('vending'), 1.16, 0, 0, 0);
-      card.name = 'vending';
-      vending.mount.add(card);
+    const chatRig = new THREE.Group();
+    chatRig.name = 'vest-chat';
+    chat.mount.add(chatRig);
+    const chatCard = characterArt.actor(paper, characters, figures, 'vest-chat', {
+      who: 'him', outfit: 'vest', pose: 'stand', facing: 'right',
+    }, { height: CHAT_H });
+    if (chatCard) {
+      if (hasCh('vest-chat')) seat(chatCard, characters.info('vest-chat'), CHAT_H);
+      chatCard.name = 'vest-chat';
+      chatRig.add(chatCard);
     }
+    const chatBubbles = [
+      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, L('ha ha!', '¡ja ja!'), 420, 200, 0.38), 0.52, 0.25, -0.48, CHAT_H + 0.02),
+      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, '…', 240, 180, 0.55), 0.26, 0.2, 0.46, CHAT_H * 0.92),
+      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, '♥', 200, 180, 0.48), 0.24, 0.22, 0.08, CHAT_H + 0.22),
+      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, L('ha ha!', '¡ja ja!'), 380, 190, 0.62), 0.46, 0.23, -0.16, CHAT_H + 0.32),
+    ];
 
-    // In front of the vending machine and clear of the lunch card's outer edge (≈ 2.62).
-    const clock = track(popup.standUp({
-      side: 'right', x: 3.05, z: 1.16, fold: 'back', width: 0.56, height: 0.55,
-    }));
-    const clockRig = new THREE.Group();
-    clockRig.name = 'clock';
-    clock.mount.add(clockRig);
-    let clockCard = null;
-    if (has('clock')) {
-      clockCard = characterArt.characterCard(paper, art, 'clock', { height: 0.55 });
-      plant(clockCard, art.info('clock'), 0.55, 0, 0, 0);
-      clockCard.name = 'clock-face';
-      clockRig.add(clockCard);
-    } else {
-      const face = paper.paint(256, 256, (ctx, w, h) => {
-        ctx.fillStyle = '#f6edd9';
-        ctx.beginPath();
-        ctx.arc(w / 2, h / 2, w * 0.42, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#6b4630';
-        ctx.lineWidth = 8;
-        ctx.stroke();
-      }, { dieCut: 8, seed: 3 });
-      const card = paper.card({ canvas: face, width: 0.5, height: 0.5, anchor: 'bottom-center' });
-      clockCard = card;
-      clockRig.add(card);
-    }
-    const handGeo = new THREE.PlaneGeometry(0.016, 0.16);
-    handGeo.translate(0, 0.07, 0);
-    const hourGeo = new THREE.PlaneGeometry(0.02, 0.1);
-    hourGeo.translate(0, 0.04, 0);
-    const handMat = new THREE.MeshBasicMaterial({ color: '#3a2f2a', side: THREE.DoubleSide });
-    const minute = new THREE.Mesh(handGeo, handMat);
-    const hour = new THREE.Mesh(hourGeo, handMat);
-    minute.name = 'minute-hand';
-    hour.name = 'hour-hand';
-    minute.castShadow = false;
-    hour.castShadow = false;
-    // Hub in feet-space: 730×740 face, feet (365, 715), height 0.55 → centre ≈ (0, 0.256).
-    // Parent is the planted card, so this is already above the hinge.
-    const hubY = clockCard && clockCard !== clockRig ? 0.256 : 0.27;
-    minute.position.set(0, hubY, 0.012);
-    hour.position.set(0, hubY, 0.014);
-    (clockCard || clockRig).add(minute, hour);
-
-    const glow = new THREE.PointLight('#ffd0a4', 0, 7, 2);
+    const glow = new THREE.PointLight('#ffb27a', 0, 6, 1.15);
     glow.name = 'warm-lights';
     glow.castShadow = false;
-    glow.position.set(0.4, 1.45, 0.35);
+    glow.position.set(1.15, 2.05, -0.1);
     group.add(glow);
 
-    const state = { frame: 0 };
-    const lunchBeat = BEATS.lunch;
-    const pay = BEATS.payArgument;
-    const wins = BEATS.heWins;
-    const food = BEATS.foodUntouched;
-    const sparks = BEATS.sparks;
+    const co = BEATS.coworkers;
+    const pass = BEATS.passingBy;
+    const shyAt = BEATS.shy;
+    const kindAt = BEATS.kind;
+    const curiousAt = BEATS.curious;
+    const moreAt = BEATS.somethingMore;
 
-    const signT = spread.open + 0.5;
-    const lunchCue = lunchBeat + 0.2;
+    const signT = spread.open + 0.45;
+    const coT = co + 0.4;
+    const passT = pass + PASS1 * 0.5;
+    const shyT = shyAt + 0.3;
+    const kindT = kindAt + 0.28;
+    const curT = curiousAt + 0.4;
+    const moreT = moreAt + 0.4;
+    const endCue = spread.close - 0.55;
 
     return {
       group,
       leftArt,
       rightArt,
       cues: [
-        { t: spread.open, hold: 0.45, at: [0, 0.7, 0], size: 7.5, from: 'front' },
-        { t: signT, hold: 2.3, at: [0, 1.55, -0.5], size: 4, from: 'front' },
-        { t: BEATS.coworkers, hold: 2.1, at: [-1.6, 0.85, 0.7], size: 2.2, from: 'front' },
-        { t: lunchCue, hold: (wins + 1) - lunchCue, at: [1.9, 0.82, 0.4], size: 2.4, from: 'front' },
-        { t: sparks, hold: (spread.close - 0.7) - sparks, at: [1.85, 0.95, 0.4], size: 1.8, from: 'front' },
+        { t: spread.open, hold: signT - spread.open, at: [0, 0.7, 0], size: 7.5, from: 'front' },
+        { t: signT, hold: coT - signT, at: [0, 1.55, -0.5], size: 4.1, from: 'front' },
+        { t: coT, hold: passT - coT, at: [0.4, 0.82, 0.4], size: 6.6, from: 'front' },
+        { t: passT, hold: shyT - passT, at: [0, 0.95, 0.52], size: 3.6, from: 'front' },
+        { t: shyT, hold: kindT - shyT, at: [1.38, 1.05, 0.7], size: 2.3, from: 'front' },
+        { t: kindT, hold: curT - kindT, at: [-1.4, 1.32, 0.62], size: 2.6, from: 'front' },
+        { t: curT, hold: moreT - curT, at: [0.05, 1.1, 0.66], size: 3.5, from: 'front' },
+        {
+          t: moreT,
+          hold: Math.max(0.6, endCue - moreT),
+          at: [chatX * 0.85, 1.32, 0.9],
+          size: 2.6,
+          from: 'front',
+        },
       ],
       update(alpha, t) {
         const n = mechanisms.length;
         for (let i = 0; i < n; i++) mechanisms[i].update(alpha);
-        const open = alpha > OPEN * Math.PI ? 1 : 0;
+        const posed = smoothstep(0.93 * Math.PI, Math.PI, alpha);
         const risen = popup.rise(alpha);
 
-        const turn = smoothstep(BEATS.coworkers, BEATS.coworkers + 0.5, t);
-        // Yaw swings the card out of its plane. That only stays inside the page
-        // wedge near fully open, so the turn eases in with α.
-        const posed = smoothstep(0.9 * Math.PI, 0.99 * Math.PI, alpha);
-        const hop = bump(t, BEATS.coworkers) * posed;
-        const bobH = (Math.sin(t * 1.8) * 0.5 + 0.5) * 0.012 * posed + hop * 0.04;
-        const bobS = (Math.sin(t * 1.8 + 1.2) * 0.5 + 0.5) * 0.012 * posed + hop * 0.035;
-        himRig.position.y = bobH;
-        herRig.position.y = bobS;
-        const breathe = 1 + Math.sin(t * 1.6) * 0.012 * posed;
-        himRig.scale.set(breathe, breathe + hop * 0.05, 1);
-        herRig.scale.set(breathe, breathe + hop * 0.04, 1);
-        // Open left page: mount +X is world +X, toward the gutter. He (outer) looks +X; she looks −X.
-        himRig.rotation.y = 0.7 * turn * posed;
-        herRig.rotation.y = -0.62 * turn * posed;
+        const vestShow = smoothstep(co, co + 0.32, t) * (1 - smoothstep(pass - 0.28, pass + 0.12, t));
+        const passPack = passPose(t, pass, shyAt, smoothstep);
+        const shyShow = smoothstep(shyAt, shyAt + 0.32, t) * (1 - smoothstep(moreAt - 0.28, moreAt + 0.12, t));
+        const kindShow = smoothstep(kindAt, kindAt + 0.32, t) * (1 - smoothstep(moreAt - 0.28, moreAt + 0.12, t));
+        const chatShow = smoothstep(moreAt, moreAt + 0.36, t);
+        const curiousShow = smoothstep(curiousAt, curiousAt + 0.3, t) * (1 - smoothstep(moreAt - 0.2, moreAt + 0.15, t));
+        const lean = smoothstep(curiousAt, curiousAt + 0.55, t) * curiousShow;
 
-        const hiIn = smoothstep(BEATS.coworkers, BEATS.coworkers + 0.28, t);
-        const hiOut = 1 - smoothstep(lunchBeat - 0.2, lunchBeat + 0.2, t);
-        hiPivot.scale.setScalar(clamp(ease.outBack(hiIn), 0, 1.1) * hiOut * posed);
+        const hopBoxes = bump(t, co + 3.2, 0.4);
+        boxesRig.position.y = hopBoxes * 0.07;
+        boxesRig.rotation.z = Math.sin(t * 1.4) * 0.02 * (t > co ? 1 : 0);
+        cartsRig.rotation.z = Math.sin(t * 1.7) * 0.03;
+        spark.scale.setScalar(bump(t, co + 3.15, 0.45) * vestShow);
 
-        let frame = 0;
-        if (t >= wins) frame = 2;
-        else if (t >= pay) frame = 1;
-        if (flip && frame !== state.frame) {
-          flip.show(frame);
-          state.frame = frame;
+        const breathe = 1 + Math.sin(t * 1.7) * 0.012;
+        const hopH = bump(t, co) * 0.9;
+        const hopS = bump(t, co + 5.4, 0.4);
+        poseRig(himRig, posed * vestShow, breathe, hopH, Math.sin(t * 1.6) * 0.012 * vestShow);
+        poseRig(herRig, posed * vestShow, breathe, hopS, Math.sin(t * 1.5 + 1) * 0.012 * vestShow);
+
+        let photoIn = ease.outBack(smoothstep(co + 0.65, co + 1.25, t));
+        if (photoIn < 0) photoIn = 0;
+        else if (photoIn > 1.05) photoIn = 1.05;
+        photoPivot.scale.setScalar(photoIn);
+        photoPivot.position.y = (1 - Math.min(1, photoIn)) * 0.08;
+
+        himSlide.update(alpha, passPack.uHim);
+        herSlide.update(alpha, passPack.uHer);
+        himAlign.quaternion.copy(himSlide.mount.quaternion).invert();
+        herAlign.quaternion.copy(herSlide.mount.quaternion).invert();
+        const gHim = Math.sin(passPack.uHim * Math.PI);
+        const gHer = Math.sin(passPack.uHer * Math.PI);
+        const passMag = posed * passPack.show;
+        himPass.scale.set(passPack.flipHim * passMag, passMag * (1 + bump(t, pass, 0.3) * 0.04), passMag > 0 ? 1 : 0);
+        herPass.scale.set(passPack.flipHer * passMag, passMag * (1 + bump(t, pass + 0.1, 0.3) * 0.04), passMag > 0 ? 1 : 0);
+        himPass.position.y = Math.sin(t * 2.4) * 0.01 * passPack.show;
+        herPass.position.y = Math.sin(t * 2.4 + 1) * 0.01 * passPack.show;
+        // Glance toward each other as they cross. flip already mirrors the drawing.
+        himPass.rotation.y = gHim * 0.28 * passPack.flipHim;
+        herPass.rotation.y = -gHer * 0.28 * passPack.flipHer;
+        himPass.rotation.z = gHim * 0.05;
+        herPass.rotation.z = -gHer * 0.05;
+        const hi = gHim > 0.86 ? (gHim - 0.86) / 0.14 : 0;
+        const hi2 = (gHer > 0.86 ? (gHer - 0.86) / 0.14 : 0) * passPack.show;
+        const hi1 = hi * passPack.show;
+        // Parent scale.x is the facing flip. A second flip here keeps the letters readable.
+        hiHim.scale.set(passPack.flipHim * hi1, hi1, hi1 > 0 ? 1 : 0);
+        hiHer.scale.set(passPack.flipHer * hi2, hi2, hi2 > 0 ? 1 : 0);
+
+        const shyPop = bump(t, shyAt, 0.36);
+        poseRig(shyRig, posed * shyShow, breathe, shyPop, -lean * 0.045);
+        shyDots.scale.setScalar(clamp(ease.outBack(smoothstep(shyAt + 0.12, shyAt + 0.42, t)), 0, 1.06) * (shyShow > 0.2 ? 1 : 0));
+        shyTag.scale.setScalar(clamp(ease.outBack(smoothstep(shyAt + 0.2, shyAt + 0.55, t)), 0, 1.04) * (shyShow > 0.2 ? 1 : 0));
+        blush.scale.setScalar((0.75 + 0.25 * Math.sin(t * 3.2)) * (shyShow > 0.4 ? 1 : 0));
+
+        const kindPop = bump(t, kindAt, 0.36);
+        const wave = Math.sin(t * 3.1) * 0.016 * kindShow;
+        poseRig(kindRig, posed * kindShow, breathe, kindPop, lean * 0.045 + wave);
+        kindBubble.scale.setScalar(clamp(ease.outBack(smoothstep(kindAt + 0.1, kindAt + 0.45, t)), 0, 1.06) * (kindShow > 0.2 ? 1 : 0));
+        kindTag.scale.setScalar(clamp(ease.outBack(smoothstep(kindAt + 0.22, kindAt + 0.58, t)), 0, 1.04) * (kindShow > 0.2 ? 1 : 0));
+
+        const markShow = posed * curiousShow;
+        marks.scale.setScalar(markShow);
+        for (let i = 0; i < markMeshes.length; i++) {
+          const m = markMeshes[i];
+          const age = t - curiousAt - m.delay;
+          const up = age > 0 ? Math.min(1, age / 1.15) : 0;
+          const y = 0.92 + up * 0.42;
+          const turn = smoothstep(curiousAt + m.delay + 0.15, curiousAt + m.delay + 0.7, t);
+          const x = m.x + Math.sin(t * 1.3 + m.phase) * 0.03;
+          m.q.position.set(x, y, 0);
+          m.h.position.set(x, y, 0.001);
+          m.q.material.opacity = (1 - turn) * (age > 0 ? 1 : 0);
+          m.h.material.opacity = turn * (age > 0 ? 1 : 0);
+          m.q.rotation.z = Math.sin(t * 1.4 + m.phase) * 0.2;
+          m.h.rotation.z = Math.sin(t * 1.2 + m.phase) * 0.25;
+          const s = 0.85 + up * 0.35;
+          m.q.scale.setScalar(s);
+          m.h.scale.setScalar(s * (0.7 + 0.3 * turn));
         }
-        const pop = bump(t, lunchBeat) * 0.7 + bump(t, pay) + bump(t, wins) + bump(t, sparks) * 0.55;
-        const lb = 1 + Math.sin(t * 1.55) * 0.012;
-        lunchRig.scale.set(lb * (1 - 0.055 * pop), lb * (1 + 0.09 * pop), 1);
 
-        const chat = smoothstep(lunchBeat, lunchBeat + 0.3, t) * (1 - smoothstep(pay - 0.25, pay + 0.15, t));
-        bubbles.ha.scale.setScalar(clamp(ease.outBack(smoothstep(lunchBeat, lunchBeat + 0.35, t)), 0, 1.08) * (chat > 0 ? 1 : 0));
-        bubbles.dots.scale.setScalar(clamp(ease.outBack(smoothstep(lunchBeat + 0.45, lunchBeat + 0.8, t)), 0, 1.08) * (chat > 0 ? 1 : 0));
-        bubbles.heart.scale.setScalar(clamp(ease.outBack(smoothstep(lunchBeat + 0.7, lunchBeat + 1.05, t)), 0, 1.08) * chat);
-
-        const argue = smoothstep(pay, pay + 0.28, t) * (1 - smoothstep(wins - 0.2, wins + 0.12, t));
-        bubbles.payHer.scale.setScalar(clamp(ease.outBack(smoothstep(pay, pay + 0.32, t)), 0, 1.08) * (argue > 0 ? 1 : 0));
-        bubbles.payHim.scale.setScalar(clamp(ease.outBack(smoothstep(pay + 0.35, pay + 0.7, t)), 0, 1.08) * (argue > 0 ? 1 : 0));
-        const won = smoothstep(wins, wins + 0.3, t);
-        bubbles.paid.scale.setScalar(clamp(ease.outBack(won), 0, 1.08));
-
-        const fadeSteam = 1 - smoothstep(food, food + 1.3, t);
-        for (let i = 0; i < steams.length; i++) {
-          const wob = 0.85 + 0.15 * Math.sin(t * (3.2 + i) + i);
-          steams[i].material.opacity = fadeSteam * wob * (0.35 + 0.65 * smoothstep(lunchBeat, lunchBeat + 0.4, t));
-          steams[i].position.y = 0.84 + Math.sin(t * 2.4 + i * 2) * 0.02;
-          steams[i].scale.y = 0.85 + 0.2 * Math.sin(t * 4 + i);
+        const chatPop = bump(t, moreAt, 0.4);
+        poseRig(chatRig, posed * chatShow, breathe, chatPop, Math.sin(t * 1.8) * 0.015 * chatShow);
+        for (let i = 0; i < chatBubbles.length; i++) {
+          const pop = clamp(ease.outBack(smoothstep(moreAt + 0.12 + i * 0.42, moreAt + 0.48 + i * 0.42, t)), 0, 1.06);
+          chatBubbles[i].scale.setScalar(pop * (chatShow > 0.2 ? 1 : 0));
         }
 
-        // Hands rest at about ten past twelve, then the minute hand sweeps once the food is forgotten.
-        const sweep = smoothstep(food, food + 2.6, t);
-        minute.rotation.z = -0.55 + sweep * 5.4 + Math.sin(t * 0.6) * 0.02;
-        hour.rotation.z = -1.15 + sweep * 0.55;
-
-        bits.scale.setScalar(open && t >= sparks ? 1 : 0);
-        poseHearts(hearts, t, sparks);
-
-        let ys = ease.outBack(smoothstep(yesAt, yesAt + 0.45, t));
-        if (ys < 0) ys = 0;
-        else if (ys > 1.06) ys = 1.06;
-        yesPivot.scale.setScalar(ys);
-
-        glow.intensity = risen * smoothstep(sparks, sparks + 0.8, t) * 2.4;
+        glow.intensity = risen * smoothstep(moreAt, moreAt + 0.9, t) * 3.4;
       },
     };
   },
 };
 
+function poseRig(rig, show, breathe, pop, tilt) {
+  const sy = breathe * (1 + 0.06 * pop) * show;
+  const sx = breathe * (1 - 0.04 * pop) * show;
+  rig.scale.set(sx, sy, show > 0 ? 1 : 0);
+  // Pad keeps a tilted card's lower corner above the page (fold check allows y ≥ −0.03).
+  rig.position.y = (show > 0 ? 0.012 : 0) + pop * 0.03 * (show > 0 ? 1 : 0);
+  rig.rotation.z = tilt;
+}
+
+function passPose(t, pass, shyAt, smoothstep) {
+  const a = pass;
+  const b = pass + PASS1;
+  const c = b + PASS_GAP;
+  const d = c + PASS2;
+  // Path u 0 is the right end for him and the left end for her.
+  let uHim = 0;
+  let uHer = 0;
+  let flipHim = -1;
+  let flipHer = 1;
+  let show = 0;
+  if (t >= a && t < b) {
+    const u = smoothstep(a, b, t);
+    uHim = u;
+    uHer = u;
+    flipHim = -1;
+    flipHer = 1;
+    show = smoothstep(a, a + 0.26, t);
+  } else if (t >= b && t < c) {
+    uHim = 1;
+    uHer = 1;
+    flipHim = 1;
+    flipHer = -1;
+    show = 1;
+  } else if (t >= c && t < d) {
+    const u = smoothstep(c, d, t);
+    uHim = 1 - u;
+    uHer = 1 - u;
+    flipHim = 1;
+    flipHer = -1;
+    show = 1;
+  } else if (t >= d) {
+    uHim = 0;
+    uHer = 0;
+    flipHim = -1;
+    flipHer = 1;
+    show = 1 - smoothstep(d, d + 0.32, t);
+  }
+  show *= 1 - smoothstep(shyAt - 0.35, shyAt + 0.05, t);
+  if (show < 0) show = 0;
+  return { uHim, uHer, flipHim, flipHer, show };
+}
+
 function paintWalmart(ctx, w, h, FONT, C, rng) {
-  // Blank sign panel measured on store-front.webp: x 0.16–0.84, y 0.17–0.39.
   const font = (size) => `${size}px ${FONT.display}`;
   const size = fitSize(ctx, 'WALMART', font, Math.round(h * 0.16), w * 0.6);
   const colors = [C.tomato, C.mustard, C.teal, C.sky, C.leaf, C.blush, C.cream];
@@ -517,169 +675,202 @@ function cutWord(ctx, text, cx, cy, px, FONT, colors, rng) {
 }
 
 function paintLeftPage(ctx, w, h, FONT, C, rng) {
-  // Gutter is the right edge; keep the inner 6% empty. Title sits near the reader, outer side.
+  const title = L('Where it all began', 'Donde todo comenzó');
   const font = (size) => `${size}px ${FONT.display}`;
-  const size = fitSize(ctx, 'How we met', font, Math.round(h * 0.075), w * 0.46);
+  // Front outer half. 0.82 leaves room for the per-letter gap and the ink stroke.
+  const size = fitSize(ctx, title, font, Math.round(h * 0.046), w * 0.5) * 0.82;
   const colors = [C.tomato, C.mustard, C.teal, C.sky, C.leaf, C.blush];
-  // Outer front floor, clear of the box stack (that stack sits nearer the gutter).
-  cutWord(ctx, 'How we met', w * 0.30, h * 0.74, size, FONT, colors, rng);
-
-  // A blank price-tag doodle, far and away from the gutter.
-  ctx.save();
-  ctx.translate(w * 0.18, h * 0.22);
-  ctx.rotate(-0.18);
-  ctx.fillStyle = C.mustard;
-  ctx.strokeStyle = '#3a2f2a';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(0, -28);
-  ctx.lineTo(46, -16);
-  ctx.lineTo(40, 22);
-  ctx.lineTo(-8, 18);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(8, -8, 3.5, 0, Math.PI * 2);
-  ctx.fillStyle = '#f6edd9';
-  ctx.fill();
-  ctx.restore();
+  cutWord(ctx, title, w * 0.32, h * 0.9, size, FONT, colors, rng);
 }
 
 function paintRightPage(ctx, w, h, FONT, C) {
-  // Gutter is the left edge. Note and receipt sit on the outer half.
+  // The art's arrow sits under the checkout. Paint a second one on the open front floor.
   ctx.save();
-  ctx.translate(w * 0.70, h * 0.58);
-  ctx.rotate(0.06);
-  ctx.fillStyle = 'rgba(232, 210, 150, 0.9)';
-  ctx.fillRect(-26, -108, 52, 18);
-  ctx.fillStyle = '#f7f3e8';
-  ctx.strokeStyle = '#c9bfae';
-  ctx.lineWidth = 2;
-  ctx.fillRect(-62, -96, 124, 168);
-  ctx.strokeRect(-62, -96, 124, 168);
-  ctx.strokeStyle = '#e0d6c6';
-  for (let i = 0; i < 6; i++) {
-    ctx.beginPath();
-    ctx.moveTo(-46, -64 + i * 22);
-    ctx.lineTo(46, -60 + i * 22);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  ctx.save();
-  ctx.translate(w * 0.40, h * 0.70);
-  ctx.rotate(-0.04);
-  const font = (size) => `700 ${size}px ${FONT.hand}`;
-  const size = fitSize(ctx, 'lunch break!', font, Math.round(h * 0.07), w * 0.4);
-  ctx.font = font(size);
-  ctx.fillStyle = '#9d3a3a';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('lunch break!', 0, 0);
-  ctx.restore();
-
-  // Tiny doodled clock, far outer corner (the sweeping clock is a pop-up).
-  ctx.save();
-  ctx.translate(w * 0.86, h * 0.16);
-  ctx.strokeStyle = '#6b4630';
-  ctx.fillStyle = '#f6edd9';
-  ctx.lineWidth = 3;
+  ctx.translate(w * 0.46, h * 0.9);
+  ctx.fillStyle = C.mustard;
   ctx.beginPath();
-  ctx.arc(0, 0, 28, 0, Math.PI * 2);
+  const ax = w * 0.055;
+  const ay = h * 0.022;
+  ctx.moveTo(-ax, -ay * 0.7);
+  ctx.lineTo(ax * 0.15, -ay * 0.7);
+  ctx.lineTo(ax * 0.15, -ay * 1.7);
+  ctx.lineTo(ax, 0);
+  ctx.lineTo(ax * 0.15, ay * 1.7);
+  ctx.lineTo(ax * 0.15, ay * 0.7);
+  ctx.lineTo(-ax, ay * 0.7);
+  ctx.closePath();
   ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(0, 6);
-  ctx.lineTo(0, -14);
-  ctx.moveTo(0, 0);
-  ctx.lineTo(10, 4);
-  ctx.stroke();
   ctx.restore();
+  // Outer front corner. The gutter is the left edge.
+  ctx.save();
+  ctx.translate(w * 0.86, h * 0.78);
+  ctx.rotate(-0.2);
+  ctx.fillStyle = C.blush;
+  ctx.beginPath();
+  ctx.moveTo(0, 10);
+  ctx.bezierCurveTo(-16, -4, -10, -16, 0, -6);
+  ctx.bezierCurveTo(10, -16, 16, -4, 0, 10);
+  ctx.fill();
+  ctx.restore();
+  void FONT;
 }
 
-function makeBubble(paper, FONT, text, w, h, seed, tail) {
-  const tip = tail == null ? 0.36 : tail;
+function decal(THREE, paper, canvas, width, height) {
+  const geo = new THREE.PlaneGeometry(width, height);
+  const mat = new THREE.MeshBasicMaterial({
+    map: paper.texture(canvas),
+    transparent: true,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = false;
+  mesh.renderOrder = 2;
+  return mesh;
+}
+
+function placeDecal(THREE, paper, parent, canvas, width, height, x, y) {
+  const mesh = decal(THREE, paper, canvas, width, height);
+  mesh.position.set(x, y, 0.04);
+  mesh.scale.setScalar(0);
+  parent.add(mesh);
+  return mesh;
+}
+
+function bubbleCanvas(paper, FONT, text, w, h, tail) {
+  const tip = tail == null ? 0.4 : tail;
   return paper.paint(w, h, (ctx, W, H) => {
     const font = (size) => `700 ${size}px ${FONT.hand}`;
-    const size = fitSize(ctx, text, font, Math.round(H * 0.34), W * 0.78);
+    const size = fitSize(ctx, text, font, Math.round(H * 0.32), W * 0.84);
     ctx.fillStyle = '#fffdf8';
     ctx.strokeStyle = '#3a2f2a';
-    ctx.lineWidth = Math.max(4, H * 0.04);
+    ctx.lineWidth = Math.max(4, H * 0.035);
     ctx.beginPath();
-    ctx.roundRect(W * 0.08, H * 0.06, W * 0.84, H * 0.66, H * 0.22);
+    ctx.roundRect(W * 0.06, H * 0.06, W * 0.88, H * 0.62, H * 0.2);
     ctx.fill();
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(W * (tip - 0.1), H * 0.70);
+    ctx.moveTo(W * (tip - 0.08), H * 0.66);
     ctx.lineTo(W * tip, H * 0.96);
-    ctx.lineTo(W * (tip + 0.12), H * 0.70);
+    ctx.lineTo(W * (tip + 0.1), H * 0.66);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    ctx.font = font(size);
-    ctx.fillStyle = '#3a2f2a';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, W * 0.5, H * 0.38);
-  }, { dieCut: 8, seed, grain: 0.04 });
+    if (text === '♥') {
+      const cx = W * 0.5;
+      const cy = H * 0.34;
+      const s = Math.min(W, H) * 0.16;
+      ctx.fillStyle = '#e2574c';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + s * 0.85);
+      ctx.bezierCurveTo(cx - s * 1.15, cy + s * 0.15, cx - s, cy - s * 0.85, cx - s * 0.4, cy - s * 0.85);
+      ctx.bezierCurveTo(cx - s * 0.08, cy - s * 0.85, cx, cy - s * 0.35, cx, cy - s * 0.35);
+      ctx.bezierCurveTo(cx, cy - s * 0.35, cx + s * 0.08, cy - s * 0.85, cx + s * 0.4, cy - s * 0.85);
+      ctx.bezierCurveTo(cx + s, cy - s * 0.85, cx + s * 1.15, cy + s * 0.15, cx, cy + s * 0.85);
+      ctx.fill();
+    } else {
+      ctx.font = font(size);
+      ctx.fillStyle = '#3a2f2a';
+      ctx.fillText(text, W * 0.5, H * 0.36);
+    }
+  }, { dieCut: 8, seed: text.length + 3, grain: 0.04 });
 }
 
-function placeBubble(paper, FONT, parent, text, w, h, x, y, seed, tail) {
-  const canvas = makeBubble(paper, FONT, text, w, h, seed, tail);
-  const card = paper.card({
-    canvas,
-    width: 0.34 * (w / 300),
-    height: 0.2 * (h / 180),
-    anchor: 'center',
-  });
-  card.name = text;
-  card.position.set(x, y, 0.025);
-  card.scale.setScalar(0);
-  parent.add(card);
-  return card;
-}
-
-function placeStamp(paper, FONT, parent, x, y) {
-  const canvas = paper.paint(280, 220, (ctx, w, h) => {
-    ctx.fillStyle = '#e9b23e';
+function badgeCanvas(paper, FONT, name) {
+  return paper.paint(420, 160, (ctx, w, h) => {
+    ctx.fillStyle = '#f4c531';
     ctx.strokeStyle = '#3a2f2a';
     ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.arc(w * 0.5, h * 0.46, h * 0.34, 0, Math.PI * 2);
+    ctx.roundRect(w * 0.08, h * 0.18, w * 0.84, h * 0.64, h * 0.28);
     ctx.fill();
     ctx.stroke();
-    ctx.beginPath();
-    ctx.lineWidth = 7;
-    ctx.lineCap = 'round';
-    ctx.moveTo(w * 0.38, h * 0.46);
-    ctx.lineTo(w * 0.47, h * 0.56);
-    ctx.lineTo(w * 0.64, h * 0.34);
-    ctx.stroke();
     const font = (size) => `700 ${size}px ${FONT.hand}`;
-    const size = fitSize(ctx, 'paid', font, Math.round(h * 0.2), w * 0.5);
+    const size = fitSize(ctx, name, font, Math.round(h * 0.42), w * 0.7);
     ctx.font = font(size);
     ctx.fillStyle = '#3a2f2a';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('paid', w * 0.5, h * 0.7);
-  }, { dieCut: 8, seed: 10, grain: 0.04 });
-  const card = paper.card({ canvas, width: 0.32, height: 0.25, anchor: 'center' });
-  card.name = 'paid';
-  card.position.set(x, y, 0.03);
-  card.scale.setScalar(0);
-  parent.add(card);
-  return card;
+    ctx.fillText(name, w * 0.5, h * 0.5);
+  }, { dieCut: 6, seed: name.length + 4, grain: 0.04 });
 }
 
-function makeSale(paper, FONT, C) {
-  const canvas = paper.paint(220, 200, (ctx, w, h) => {
+function tagCanvas(paper, FONT, text) {
+  return paper.paint(860, 220, (ctx, w, h) => {
+    ctx.fillStyle = '#fffdf8';
+    ctx.strokeStyle = '#9d3a3a';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.roundRect(w * 0.04, h * 0.16, w * 0.92, h * 0.68, h * 0.22);
+    ctx.fill();
+    ctx.stroke();
+    const font = (size) => `700 ${size}px ${FONT.hand}`;
+    const size = fitSize(ctx, text, font, Math.round(h * 0.4), w * 0.84);
+    ctx.font = font(size);
+    ctx.fillStyle = '#9d3a3a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, w * 0.5, h * 0.5);
+  }, { dieCut: 6, seed: text.length + 8, grain: 0.04 });
+}
+
+function blushCanvas(paper) {
+  return paper.paint(128, 80, (ctx, w, h) => {
+    ctx.fillStyle = '#f0a3a0';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.5, w * 0.32, h * 0.28, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }, { dieCut: 4, seed: 9, grain: 0.02 });
+}
+
+function sparkCanvas(paper, C) {
+  return paper.paint(160, 160, (ctx, w, h) => {
+    ctx.translate(w / 2, h / 2);
+    ctx.fillStyle = C.mustard;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const r = i % 2 === 0 ? h * 0.42 : h * 0.16;
+      ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }, { dieCut: 4, seed: 15, grain: 0.03 });
+}
+
+function questionCanvas(paper, FONT) {
+  const { canvas, ctx } = paper.makeCanvas(128, 128);
+  ctx.fillStyle = '#3a2f2a';
+  ctx.font = `700 96px ${FONT.hand}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('?', 64, 68);
+  return canvas;
+}
+
+function heartCanvas(paper) {
+  const { canvas, ctx } = paper.makeCanvas(128, 128);
+  ctx.fillStyle = '#e2574c';
+  ctx.beginPath();
+  ctx.moveTo(64, 108);
+  ctx.bezierCurveTo(8, 72, 12, 28, 44, 28);
+  ctx.bezierCurveTo(60, 28, 64, 44, 64, 44);
+  ctx.bezierCurveTo(64, 44, 68, 28, 84, 28);
+  ctx.bezierCurveTo(116, 28, 120, 72, 64, 108);
+  ctx.fill();
+  return canvas;
+}
+
+function makeSale(THREE, paper, FONT, C) {
+  const canvas = paper.paint(240, 220, (ctx, w, h) => {
     ctx.fillStyle = C.mustard;
     ctx.strokeStyle = '#3a2f2a';
     ctx.lineWidth = 5;
     ctx.beginPath();
     const cx = w / 2;
-    const cy = h * 0.46;
+    const cy = h * 0.48;
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
       const r = i % 2 === 0 ? h * 0.4 : h * 0.22;
@@ -688,52 +879,14 @@ function makeSale(paper, FONT, C) {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+    const label = L('sale!', '¡oferta!');
     const font = (size) => `700 ${size}px ${FONT.hand}`;
-    const size = fitSize(ctx, 'sale!', font, Math.round(h * 0.24), w * 0.62);
+    const size = fitSize(ctx, label, font, Math.round(h * 0.2), w * 0.62);
     ctx.font = font(size);
     ctx.fillStyle = '#3a2f2a';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('sale!', cx, cy);
+    ctx.fillText(label, cx, cy);
   }, { dieCut: 6, seed: 14, grain: 0.04 });
-  const card = paper.card({ canvas, width: 0.32, height: 0.29, anchor: 'center' });
-  card.name = 'sale';
-  return card;
-}
-
-function steamTexture(paper) {
-  const { canvas, ctx } = paper.makeCanvas(32, 64);
-  const g = ctx.createLinearGradient(0, 64, 0, 0);
-  g.addColorStop(0, 'rgba(255,255,255,0)');
-  g.addColorStop(0.4, 'rgba(255,255,255,0.55)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.ellipse(16, 34, 8, 20, 0, 0, Math.PI * 2);
-  ctx.fill();
-  return paper.texture(canvas);
-}
-
-function heartTex(paper) {
-  const { canvas, ctx } = paper.makeCanvas(64, 64);
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.moveTo(32, 54);
-  ctx.bezierCurveTo(4, 36, 6, 14, 22, 14);
-  ctx.bezierCurveTo(30, 14, 32, 22, 32, 22);
-  ctx.bezierCurveTo(32, 22, 34, 14, 42, 14);
-  ctx.bezierCurveTo(58, 14, 60, 36, 32, 54);
-  ctx.fill();
-  return paper.texture(canvas);
-}
-
-function poseHearts(hearts, t, at) {
-  for (let i = 0; i < hearts.length; i++) {
-    const p = hearts[i];
-    const age = t - at - p.delay;
-    const y = age > 0 ? 0.7 + Math.min(0.85, age * 0.32) : 0.7;
-    p.mesh.position.set(p.x0 + Math.sin(t * 1.3 + p.phase) * 0.06, y, p.z0);
-    p.mesh.material.opacity = age <= 0 ? 0 : Math.max(0, 1 - (y - 0.7) / 1.0);
-    p.mesh.rotation.z = Math.sin(t * 1.15 + p.phase) * 0.25;
-  }
+  return decal(THREE, paper, canvas, 0.5, 0.46);
 }

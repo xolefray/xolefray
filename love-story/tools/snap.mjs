@@ -64,7 +64,7 @@ function parseArgs(argv) {
 const CHROMIUM_ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 
 /** Files the film can run without (see the header). */
-const OPTIONAL = /\/(photos\/[^/?#]+\.(jpe?g|png|webp)|audio\/narration\.[a-z0-9]+|characters\/[^?#]+\.(json|png|webp)|art\/[a-z]+\/manifest\.json)([?#]|$)/i;
+const OPTIONAL = /\/(photos\/[^/?#]+\.(jpe?g|png|webp)|audio\/narration(\.[a-z]{2})?\.[a-z0-9]+|characters\/[^?#]+\.(json|png|webp)|art\/[a-z]+\/manifest\.json)([?#]|$)/i;
 const isOptional = (url) => typeof url === 'string' && OPTIONAL.test(url);
 
 /** The enclosing git work tree of the film folder (the folder itself if there is none). */

@@ -61,6 +61,21 @@
       "scene": "walmart",
       "units": 0.55
     },
+    "end-cap": {
+      "id": "end-cap",
+      "file": "end-cap.webp",
+      "w": 688,
+      "h": 910,
+      "feet": [
+        343,
+        885
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 1.28
+    },
     "page-left": {
       "id": "page-left",
       "file": "page-left.webp",
@@ -121,6 +136,21 @@
       "scene": "walmart",
       "units": 1.18
     },
+    "shirt-rack": {
+      "id": "shirt-rack",
+      "file": "shirt-rack.webp",
+      "w": 859,
+      "h": 477,
+      "feet": [
+        429,
+        452
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 1.05
+    },
     "store-front": {
       "id": "store-front",
       "file": "store-front.webp",
@@ -150,6 +180,21 @@
       ],
       "scene": "walmart",
       "units": 1.16
+    },
+    "wet-floor": {
+      "id": "wet-floor",
+      "file": "wet-floor.webp",
+      "w": 644,
+      "h": 693,
+      "feet": [
+        321.5,
+        668
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 0.62
     }
   },
   "cycles": {}

@@ -44,7 +44,7 @@ const CHROMIUM_ARGS = [
   '--ignore-gpu-blocklist',
   '--disable-dev-shm-usage',
 ];
-const OPTIONAL_ASSET = /\/(photos\/[^/?#]+\.(jpe?g|png|webp)|audio\/narration\.[a-z0-9]+)([?#]|$)/i;
+const OPTIONAL_ASSET = /\/(photos\/[^/?#]+\.(jpe?g|png|webp)|audio\/narration(\.[a-z]{2})?\.[a-z0-9]+)([?#]|$)/i;
 
 const USAGE = `usage: node love-story/tools/render-video.mjs [--out film-<lang>.mp4] [--lang en|es]
        [--size 1920x1080] [--fps 30] [--from 0] [--to DURATION] [--jobs 3] [--query "k=v"]
