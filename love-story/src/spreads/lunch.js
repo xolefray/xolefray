@@ -6,7 +6,7 @@ import { PHOTO_ASPECT, photoPrint } from '../photos.js';
 
 const GAMMA = Math.PI / 2 + 0.09;
 const WALL_Z = -1.22;
-const WALL_W = 5.55;
+const WALL_W = 5.25;
 const HERO_H = 1.6;
 const POSES = ['lunch-0', 'lunch-laugh', 'lunch-lean'];
 const DAYS = [
@@ -16,8 +16,6 @@ const DAYS = [
   ['THU', 'JUE'],
   ['FRI', 'VIE'],
 ];
-// Blank sheet on notice-board.webp, image fractions (v from the top).
-const SHEET = { u0: 0.24, v0: 0.28, u1: 0.75, v1: 0.78 };
 // Window hole on back-wall.webp.
 const WINDOW = { u0: 0.575, v0: 0.15, u1: 0.905, v1: 0.675 };
 
@@ -236,76 +234,146 @@ export default {
       wall.right.add(halves.right);
     }
 
-    // ---------------------------------------------------------------- notice board + schedule written in code
-    let boardShift = { x: -1.55, y: 0.9 };
-    const schedule = { mesh: null, maps: [], phase: -1 };
+    // ---------------------------------------------------------------- notice board + a much larger schedule sheet
+    // The drawn blank on the board is small. A code-painted sheet covers most of the cork
+    // so the title, both rows, the circle and the side note read in a size-2.4 frame.
+    const BOARD_H = 1.70;
+    // Sheet stays tall so the rows stay large. It sits left of centre on the cork
+    // so a note fits on the gutter side of the circle, still inside the board.
+    const SHEET_W = 1.26;
+    const SHEET_H = 1.48;
+    let boardCenter = [-1.35, 1.05, WALL_Z];
+    const schedule = { mesh: null, textures: [], phase: -1 };
     const notePivot = new THREE.Group();
     notePivot.name = 'same-break';
     let circle = null;
     if (info('notice-board')) {
-      const bh = 1.12;
       const meta = info('notice-board');
-      const m = metrics(meta, bh);
-      const board = characterArt.characterCard(paper, art, 'notice-board', { height: bh });
+      const m = metrics(meta, BOARD_H);
+      const board = characterArt.characterCard(paper, art, 'notice-board', { height: BOARD_H });
       board.name = 'notice-board';
-      board.position.set(-1.55, m.drop + 0.88, 0.004);
-      boardShift = { x: -1.55, y: 0.88 };
+      // Image bottom sits just above the wall's base. Feet are the card origin.
+      const boardX = -1.58;
+      const boardFoot = m.drop + 0.04;
+      board.position.set(boardX, boardFoot, 0.008);
       wall.left.add(board);
 
-      const s = m.s;
-      const x0 = (SHEET.u0 * meta.w - meta.feet[0]) * s;
-      const x1 = (SHEET.u1 * meta.w - meta.feet[0]) * s;
-      const yTop = (meta.feet[1] - SHEET.v0 * meta.h) * s;
-      const yBot = (meta.feet[1] - SHEET.v1 * meta.h) * s;
-      const sw = x1 - x0;
-      const sh = yTop - yBot;
+      const sheetX = -0.36;
+      const sheetY = (meta.feet[1] - meta.h * 0.5) * m.s;
       const title = L('BREAK SCHEDULE', 'HORARIO DE DESCANSOS');
       const maps = [0, 1, 2, 3].map((n) => scheduleMap(paper, FONT, title, n));
-      const mesh = plane(THREE, paper, maps[0], sw * 0.96, sh * 0.96, 'center');
-      mesh.material.alphaTest = 0.06;
-      mesh.position.set((x0 + x1) / 2, (yTop + yBot) / 2, 0.004);
+      const mesh = plane(THREE, paper, maps[0], SHEET_W, SHEET_H, 'center');
+      mesh.material.alphaTest = 0.04;
+      mesh.position.set(sheetX, sheetY, 0.012);
       mesh.name = 'schedule';
       mesh.scale.setScalar(0);
       board.add(mesh);
       schedule.mesh = mesh;
-      schedule.textures = [mesh.material.map];
+      schedule.textures = [paper.texture(maps[0])];
+      mesh.material.map = schedule.textures[0];
       for (let i = 1; i < maps.length; i++) schedule.textures.push(paper.texture(maps[i]));
 
-      circle = ellipseStroke(THREE, 0, -sh * 0.09, sw * 0.42, sh * 0.2, 0.011);
-      circle.mesh.position.z = 0.002;
+      // Circle the two name rows (lower half of the sheet), inside the paper.
+      circle = ellipseStroke(THREE, 0, -SHEET_H * 0.145, SHEET_W * 0.44, SHEET_H * 0.20, 0.016);
+      circle.mesh.position.z = 0.003;
       circle.mesh.name = 'schedule-circle';
       mesh.add(circle.mesh);
 
       const noteText = L('same break!', '¡mismo descanso!');
-      const noteCanvas = paper.paint(560, 200, (ctx, w, h) => {
+      const noteW = 0.42;
+      const noteH = 0.38;
+      const noteCanvas = paper.paint(700, 420, (ctx, w, h) => {
         ctx.fillStyle = '#fff6df';
         ctx.strokeStyle = ink;
         ctx.lineWidth = 8;
-        roundRect(ctx, 16, 18, w - 32, h - 40, 28);
+        roundRect(ctx, 28, 16, w - 44, h - 32, 26);
         ctx.fill();
         ctx.stroke();
+        // Arrow on the left edge, pointing at the circled names.
         ctx.strokeStyle = C.tomato;
-        ctx.lineWidth = 7;
+        ctx.lineWidth = 8;
         ctx.beginPath();
-        ctx.moveTo(36, h * 0.55);
-        ctx.lineTo(8, h * 0.72);
-        ctx.moveTo(36, h * 0.55);
-        ctx.lineTo(28, h * 0.86);
+        ctx.moveTo(40, h * 0.52);
+        ctx.lineTo(10, h * 0.38);
+        ctx.moveTo(40, h * 0.52);
+        ctx.lineTo(24, h * 0.78);
         ctx.stroke();
-        const size = fitSize(ctx, noteText, hand, Math.round(h * 0.34), w * 0.78);
-        ctx.font = hand(size);
+        const handNote = (size) => `700 ${size}px ${FONT.hand}`;
+        const words = noteText.split(' ');
+        const one = fitSize(ctx, noteText, handNote, Math.round(h * 0.34), w * 0.62);
         ctx.fillStyle = ink;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(noteText, w * 0.54, h * 0.46);
+        if (words.length > 1 && one < h * 0.22) {
+          const a = words.slice(0, -1).join(' ');
+          const b = words[words.length - 1];
+          const size = Math.min(
+            fitSize(ctx, a, handNote, Math.round(h * 0.30), w * 0.64),
+            fitSize(ctx, b, handNote, Math.round(h * 0.30), w * 0.64),
+          );
+          ctx.font = handNote(size);
+          ctx.fillText(a, w * 0.58, h * 0.36);
+          ctx.fillText(b, w * 0.58, h * 0.66);
+        } else {
+          ctx.font = handNote(one);
+          ctx.fillText(noteText, w * 0.58, h * 0.50);
+        }
       }, { dieCut: 8, seed: 9, grain: 0.04 });
-      const note = paper.card({ canvas: noteCanvas, width: 0.62, height: 0.22, anchor: 'center' });
+      const note = paper.card({ canvas: noteCanvas, width: noteW, height: noteH, anchor: 'center' });
       note.name = 'same-break-card';
-      notePivot.position.set(x1 + 0.34, (yTop + yBot) * 0.4, 0.006);
-      notePivot.rotation.z = -0.08;
+      // Gutter side of the sheet, level with the circled rows. Stays on the cork,
+      // clear of the lockers and of the gutter bisector.
+      const noteX = sheetX + SHEET_W / 2 + noteW / 2 + 0.03;
+      notePivot.position.set(noteX, sheetY - SHEET_H * 0.145, 0.008);
+      notePivot.rotation.z = 0;
       notePivot.scale.setScalar(0);
       notePivot.add(note);
       board.add(notePivot);
+
+      boardCenter = [boardX + (sheetX + noteX) * 0.5, boardFoot + sheetY, WALL_Z + 0.02];
+    }
+
+    // Painted sign above the board, and two posters under the window, so the wall is not bare.
+    {
+      const signText = L('BREAK ROOM', 'SALA DE DESCANSO');
+      const signCanvas = paper.paint(1100, 220, (ctx, w, h) => {
+        ctx.fillStyle = '#c9843a';
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = 10;
+        roundRect(ctx, 8, 14, w - 16, h - 28, 18);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#e7b15a';
+        roundRect(ctx, 22, 28, w - 44, h - 58, 12);
+        ctx.fill();
+        const font = (size) => `400 ${size}px ${FONT.display}`;
+        const size = fitSize(ctx, signText, font, Math.round(h * 0.46), w * 0.86);
+        ctx.font = font(size);
+        ctx.fillStyle = '#fff8ee';
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = Math.max(4, size * 0.08);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.strokeText(signText, w / 2, h * 0.52);
+        ctx.fillText(signText, w / 2, h * 0.52);
+      }, { dieCut: 6, seed: 31, grain: 0.05 });
+      const sign = plane(THREE, paper, signCanvas, 2.05, 0.26, 'center');
+      sign.name = 'break-room-sign';
+      sign.position.set(-1.45, wallH - 0.18, 0.01);
+      wall.left.add(sign);
+
+      const posters = [
+        { text: L('today\'s soup', 'sopa del día'), tint: '#f4e2c4', accent: C.tomato, x: 0.48, kind: 'bowl' },
+        { text: L('be kind', 'sé amable'), tint: '#fde8ea', accent: C.blush, x: 1.72, kind: 'heart' },
+      ];
+      for (let i = 0; i < posters.length; i++) {
+        const spec = posters[i];
+        const canvas = posterCanvas(paper, FONT, spec.text, spec.tint, spec.accent, spec.kind, ink);
+        const card = plane(THREE, paper, canvas, 0.46, 0.58, 'bottom');
+        card.name = `poster-${i}`;
+        card.position.set(spec.x, 0.12, 0.014);
+        wall.right.add(card);
+      }
     }
 
     // ---------------------------------------------------------------- clock on the wall, hands painted in code
@@ -329,8 +397,9 @@ export default {
       card.name = 'clock-face';
       card.position.y = m.drop;
       clockRig.add(card);
-      clockRig.position.set(-0.42, 1.62, 0.004);
-      wall.left.add(clockRig);
+      // Under the window, between the posters. Tags sit beside the face so they stay on the wall.
+      clockRig.position.set(1.08, 0.20, 0.016);
+      wall.right.add(clockRig);
       const hubY = (meta.feet[1] - meta.h * 0.5) * m.s;
       const handGeo = new THREE.PlaneGeometry(0.018, 0.17);
       handGeo.translate(0, 0.08, 0);
@@ -362,7 +431,7 @@ export default {
       }, { dieCut: 6, seed: 11, grain: 0.04 });
       const tag = paper.card({ canvas: tagCanvas, width: 0.36, height: 0.16, anchor: 'center' });
       tag.name = 'tag-30';
-      tagPivot.position.set(0.12, -0.14, 0.004);
+      tagPivot.position.set(0.40, 0.30, 0.004);
       tagPivot.scale.setScalar(0);
       tagPivot.add(tag);
       strike.position.set(0, 0, 0.003);
@@ -386,7 +455,7 @@ export default {
       }, { dieCut: 6, seed: 12, grain: 0.04 });
       const later = paper.card({ canvas: laterCanvas, width: 0.62, height: 0.17, anchor: 'center' });
       later.name = 'tag-later';
-      laterPivot.position.set(-0.06, -0.36, 0.004);
+      laterPivot.position.set(-0.46, 0.16, 0.004);
       laterPivot.scale.setScalar(0);
       laterPivot.add(later);
       clockRig.add(laterPivot);
@@ -415,11 +484,15 @@ export default {
     const plant = prop('plant', 'left', 3.22, 1.08, 'back', 0.66);
     prop('fridge', 'right', 3.22, -1.08, 'front', 1.18);
     prop('counter', 'right', 2.22, -0.72, 'back', 0.74);
-    prop('vending', 'right', 3.12, 1.1, 'back', 0.9);
+    // Back corner, clear of the lunch print that stands beside the table.
+    prop('vending', 'right', 2.95, -0.18, 'back', 0.82);
 
     // ---------------------------------------------------------------- hero: the lunch table, centre front of the right page
+    // Centre-front of the right page, up as soon as the spread opens (not parked at the lip).
+    const heroX = 1.80;
+    const heroZ = 0.78;
     const hero = track(popup.standUp({
-      side: 'right', x: 1.84, z: 1.02, fold: 'back', width: 1.86, height: 1.7,
+      side: 'right', x: heroX, z: heroZ, fold: 'back', width: 1.78, height: 1.68,
     }));
     const heroRig = new THREE.Group();
     heroRig.name = 'lunch-table';
@@ -561,24 +634,26 @@ export default {
       calPages.push({ pivot, i });
     }
 
-    // ---------------------------------------------------------------- photo print, left page, tapes on at ourThing
+    // ---------------------------------------------------------------- photo print beside the table, same page, not over the two
     const shot = photoPrint(photos ? photos.lunch : null, {
       aspect: PHOTO_ASPECT.lunch,
-      tilt: -0.07,
+      tilt: -0.05,
       tape: true,
       caption: L('our first lunch date', 'nuestra primera cita de almuerzo'),
       seed: 4,
     });
     const shotRatio = shot.height / shot.width;
-    let photoH = shotRatio >= 1 ? 1.26 : 1.26 * shotRatio;
+    let photoH = shotRatio >= 1 ? 1.12 : 1.12 * shotRatio;
     let photoW = photoH / shotRatio;
-    const photoLim = popup.standUpLimits({ x: 1.88, z: 1.14, width: photoW, fold: 'back' });
-    if (photoH > photoLim.maxHeight) {
-      photoH = photoLim.maxHeight * 0.96;
+    const photoX = 3.14;
+    const photoZ = 0.96;
+    const photoLim = popup.standUpLimits({ x: photoX, z: photoZ, width: photoW, fold: 'back' });
+    if (photoH > photoLim.maxHeightLoose) {
+      photoH = photoLim.maxHeightLoose * 0.96;
       photoW = photoH / shotRatio;
     }
     const photo = track(popup.standUp({
-      side: 'left', x: 1.88, z: 1.14, fold: 'back', width: photoW, height: photoH,
+      side: 'right', x: photoX, z: photoZ, fold: 'back', width: photoW, height: photoH,
     }));
     const photoMesh = plane(THREE, paper, shot, photoW, photoH, 'bottom');
     photoMesh.name = 'photo-lunch';
@@ -602,30 +677,38 @@ export default {
     const HOUR_1230 = HOUR_1150 - (40 / 60) * (Math.PI / 6);
 
     // Cue anchors in the open spread. Wall local x ≈ world x (gamma is near a right angle).
-    const boardAt = [-1.55, 1.4, -1.2];
-    const clockAt = [0.15, 1.7, -1.18];
+    const clockAt = [1.08, 0.52, WALL_Z];
+    const tableAt = [heroX, 1.02, heroZ];
+    // Table centre and the print, plus the little calendar on the table's near corner.
+    // Tight on the pair and the print together, so the foreground floor is not the subject.
+    const ourAtPoint = [2.32, 1.08, (heroZ + photoZ) * 0.5];
 
     return {
       group,
       leftArt,
       rightArt,
       cues: [
-        { t: spread.open, hold: 0.7, at: [0, 0.8, 0], size: 7.5, from: 'front' },
-        { t: lunchAt + 0.35, hold: 2.1, at: boardAt, size: 2.3, from: 'front' },
-        { t: lunchAt + 2.5, hold: 3.4, at: [1.84, 0.95, 0.85], size: 2.5, from: 'front' },
-        { t: quickAt, hold: 2.3, at: clockAt, size: 3.4, from: 'front' },
-        { t: hoursAt, hold: 3.5, at: [1.84, 1.1, 0.8], size: 2.15, from: 'front' },
-        { t: ourAt + 1.2, hold: 2.8, at: [-1.72, 0.9, 0.62], size: 2.45, from: 'front' },
-        { t: sparksAt, hold: 3.2, at: [1.84, 1.15, 0.78], size: 2.0, from: 'front' },
+        { t: spread.open, hold: 0.55, at: [0.35, 0.8, 0.15], size: 7.5, from: 'front' },
+        // Schedule is the star through the circle and the side note. Hold past t=52.
+        { t: lunchAt + 0.15, hold: 3.15, at: boardCenter, size: 2.4, from: 'front' },
+        // Table is already standing; the camera reaches it during the first line.
+        { t: lunchAt + 3.45, hold: quickAt - lunchAt - 3.7, at: tableAt, size: 2.55, from: 'front' },
+        { t: quickAt + 0.2, hold: 2.15, at: clockAt, size: 1.9, from: 'front' },
+        { t: hoursAt + 0.25, hold: ourAt - hoursAt - 0.55, at: [heroX, 1.12, heroZ], size: 2.2, from: 'front' },
+        { t: ourAt + 0.4, hold: sparksAt - ourAt - 0.7, at: ourAtPoint, size: 2.7, from: 'front' },
+        // Last rest is the two of them, held until the page-turn wide takes over.
+        { t: sparksAt + 0.2, hold: Math.max(1.2, spread.close - sparksAt - 0.85), at: [heroX, 1.15, heroZ], size: 2.15, from: 'front' },
       ],
       update(alpha, t) {
         for (let i = 0; i < folds.length; i++) folds[i].update(alpha);
         const risen = popup.rise(alpha);
         const posed = smoothstep(0.9 * Math.PI, Math.PI, alpha);
 
-        const showTitle = smoothstep(lunchAt + 0.15, lunchAt + 0.55, t);
-        const row1 = smoothstep(lunchAt + 0.85, lunchAt + 1.15, t);
-        const row2 = smoothstep(lunchAt + 1.55, lunchAt + 1.85, t);
+        // Writing starts as the page finishes opening, so t≈50.5 already shows the rows.
+        const write0 = lunchAt - 0.9;
+        const showTitle = smoothstep(write0, write0 + 0.26, t);
+        const row1 = smoothstep(write0 + 0.32, write0 + 0.55, t);
+        const row2 = smoothstep(write0 + 0.62, write0 + 0.86, t);
         let phase = 0;
         if (row2 > 0.5) phase = 3;
         else if (row1 > 0.5) phase = 2;
@@ -636,19 +719,18 @@ export default {
             schedule.mesh.material.needsUpdate = false;
             schedule.phase = phase;
           }
-          let pop = showTitle;
-          if (pop < 0) pop = 0;
-          schedule.mesh.scale.setScalar(phase === 0 ? 0 : Math.min(1, ease.outBack(showTitle)));
+          const sheetIn = smoothstep(spread.open - 0.05, spread.open + 0.28, t);
+          schedule.mesh.scale.setScalar(sheetIn);
         }
         if (circle) {
-          const draw = smoothstep(lunchAt + 2.15, lunchAt + 3.45, t);
+          const draw = smoothstep(write0 + 0.95, write0 + 1.5, t);
           circle.mesh.geometry.setDrawRange(0, Math.floor(draw * circle.tris) * 3);
         }
-        let note = ease.outBack(smoothstep(lunchAt + 3.55, lunchAt + 4.0, t));
+        let note = ease.outBack(smoothstep(write0 + 1.55, write0 + 1.92, t));
         if (note < 0) note = 0;
         else if (note > 1.06) note = 1.06;
         notePivot.scale.setScalar(note);
-        notePivot.rotation.z = -0.08 + Math.sin(t * 2.2) * 0.03 * note;
+        notePivot.rotation.z = 0;
 
         const toLunch = smoothstep(quickAt, quickAt + 0.75, t);
         const spin = smoothstep(hoursAt, hoursAt + 3.3, t);
@@ -713,7 +795,7 @@ export default {
 
         let photoIn = 0;
         if (photoPivot) {
-          photoIn = ease.outBack(smoothstep(ourAt + 0.75, ourAt + 1.25, t));
+          photoIn = ease.outBack(smoothstep(ourAt + 0.12, ourAt + 0.5, t));
           if (photoIn < 0) photoIn = 0;
           else if (photoIn > 1.05) photoIn = 1.05;
           photoPivot.scale.setScalar(photoIn);
@@ -761,38 +843,121 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 function scheduleMap(paper, FONT, title, phase) {
-  const { canvas, ctx } = paper.makeCanvas(640, 520);
-  ctx.clearRect(0, 0, 640, 520);
+  const W = 820;
+  const H = 980;
+  const { canvas, ctx } = paper.makeCanvas(W, H);
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#fff6e4';
+  ctx.strokeStyle = '#3a2f2a';
+  ctx.lineWidth = 8;
+  roundRect(ctx, 10, 10, W - 20, H - 20, 28);
+  ctx.fill();
+  ctx.stroke();
+  // Ruled lines, so a blank sheet still reads as a schedule before the names write.
+  ctx.strokeStyle = 'rgba(157, 58, 58, 0.18)';
+  ctx.lineWidth = 3;
+  for (let y = 300; y < H - 40; y += 86) {
+    ctx.beginPath();
+    ctx.moveTo(48, y);
+    ctx.lineTo(W - 48, y);
+    ctx.stroke();
+  }
   if (phase < 1) return canvas;
   const ink = '#3a2f2a';
   const hand = (size) => `700 ${size}px ${FONT.hand}`;
-  const write = (text, y, px, maxW, color) => {
-    const size = fitSize(ctx, text, hand, px, maxW);
-    ctx.font = hand(size);
-    ctx.fillStyle = color;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.strokeText(text, 320, y);
-    ctx.fillText(text, 320, y);
-  };
-  write(title, 78, 54, 560, '#9d3a3a');
-  if (phase < 2) return canvas;
-  ctx.textAlign = 'left';
+  const lines = titleLines(ctx, title, hand, 112, W - 120);
+  const titleSize = lines.size;
+  ctx.font = hand(titleSize);
+  ctx.fillStyle = '#9d3a3a';
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  const top = lines.rows.length === 1 ? 150 : 118;
+  const gap = titleSize * 1.15;
+  for (let i = 0; i < lines.rows.length; i++) {
+    ctx.fillText(lines.rows[i], W / 2, top + i * gap);
+  }
+  if (phase < 2) return canvas;
   const row = (name, y) => {
-    const size = fitSize(ctx, name, hand, 58, 300);
+    const size = fitSize(ctx, `${name}  12:30`, hand, 132, W - 150);
     ctx.font = hand(size);
     ctx.fillStyle = ink;
     ctx.textAlign = 'left';
-    ctx.fillText(name, 70, y);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, 78, y);
     ctx.textAlign = 'right';
-    ctx.fillText('12:30', 560, y);
+    ctx.fillText('12:30', W - 78, y);
   };
-  row('Brian', 250);
-  if (phase >= 3) row('Marlin', 360);
+  row('Brian', 520);
+  if (phase >= 3) row('Marlin', 740);
   return canvas;
+}
+
+function titleLines(ctx, title, font, px, maxW) {
+  const words = title.split(' ');
+  const widthOf = (text, size) => {
+    ctx.font = font(size);
+    return ctx.measureText(text).width;
+  };
+  if (words.length < 2 || widthOf(title, px) <= maxW) {
+    const size = fitSize(ctx, title, font, px, maxW);
+    return { rows: [title], size };
+  }
+  let split = 1;
+  let best = Infinity;
+  for (let i = 1; i < words.length; i++) {
+    const a = words.slice(0, i).join(' ');
+    const b = words.slice(i).join(' ');
+    const w = Math.max(widthOf(a, px), widthOf(b, px));
+    if (w < best) { best = w; split = i; }
+  }
+  const rows = [words.slice(0, split).join(' '), words.slice(split).join(' ')];
+  let size = px;
+  const widest = Math.max(widthOf(rows[0], size), widthOf(rows[1], size));
+  if (widest > maxW && widest > 0) size *= maxW / widest;
+  return { rows, size };
+}
+
+function posterCanvas(paper, FONT, text, tint, accent, kind, ink) {
+  return paper.paint(420, 540, (ctx, w, h) => {
+    ctx.fillStyle = tint;
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 8;
+    roundRect(ctx, 12, 12, w - 24, h - 24, 22);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fffdf8';
+    ctx.beginPath();
+    ctx.arc(w * 0.5, 36, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    if (kind === 'bowl') {
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.ellipse(w * 0.5, h * 0.42, 78, 28, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.fillStyle = '#f6d27a';
+      ctx.beginPath();
+      ctx.ellipse(w * 0.5, h * 0.36, 62, 22, 0, Math.PI, 0);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.5, h * 0.5);
+      ctx.bezierCurveTo(w * 0.18, h * 0.28, w * 0.22, h * 0.12, w * 0.5, h * 0.24);
+      ctx.bezierCurveTo(w * 0.78, h * 0.12, w * 0.82, h * 0.28, w * 0.5, h * 0.5);
+      ctx.fill();
+    }
+    const font = (size) => `700 ${size}px ${FONT.hand}`;
+    const size = fitSize(ctx, text, font, 54, w * 0.78);
+    ctx.font = font(size);
+    ctx.fillStyle = ink;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, w / 2, h * 0.78);
+  }, { dieCut: 8, seed: text.length + 4, grain: 0.05 });
 }
 
 function speechCanvas(paper, FONT, text, burst) {

@@ -14,13 +14,13 @@ const SHELF_H = 1.4;
 const SHELF_ART_H = 1.16;
 const SHELF_W = 5.4;
 
-const HIM_H = 1.56;
-const HER_H = 1.4;
+const HIM_H = 1.58;
+const HER_H = 1.52;
 const CART_H = 1.34;
 const WALK_H = 1.22;
 const SHY_H = 1.66;
 const KIND_H = 1.68;
-const CHAT_H = 1.6;
+const CHAT_H = 1.68;
 
 const PASS1 = 2.15;
 const PASS_GAP = 0.26;
@@ -161,8 +161,9 @@ export default {
     }
 
     // ---------------------------------------------------------------- set dressing (real folds, always up)
+    // His station: the stack sits just behind him, nearer the gutter than the rack.
     const boxes = track(popup.standUp({
-      side: 'left', x: 1.42, z: 1.08, fold: 'back', width: 0.48, height: 0.52,
+      side: 'left', x: 1.92, z: 0.36, fold: 'back', width: 0.48, height: 0.52,
     }));
     const boxesRig = new THREE.Group();
     boxesRig.name = 'boxes';
@@ -192,9 +193,9 @@ export default {
 
     const cartH = 0.38;
     const cartW = has('carts') ? cartH * (art.info('carts').w / art.info('carts').h) : 1.1;
-    const cartX = 2.05;
+    const cartX = 2.48;
     const carts = track(popup.standUp({
-      side: 'right', x: cartX, z: 1.02, fold: 'back', width: cartW, height: cartH,
+      side: 'right', x: cartX, z: 0.28, fold: 'back', width: cartW, height: cartH,
     }));
     const cartsRig = new THREE.Group();
     cartsRig.name = 'carts';
@@ -204,13 +205,14 @@ export default {
     const wetH = 0.52;
     const wetW = has('wet-floor') ? wetH * (art.info('wet-floor').w / art.info('wet-floor').h) : 0.48;
     const wet = track(popup.standUp({
-      side: 'right', x: 1.32, z: 0.58, fold: 'back', width: wetW, height: wetH,
+      side: 'right', x: 1.95, z: 0.16, fold: 'back', width: wetW, height: wetH,
     }));
     addProp(wet.mount, 'wet-floor', wetH);
 
     // ---------------------------------------------------------------- coworkers
+    // Near the gutter and the reader, still at the box station. Loose stand-up: h ≤ 2·(x − w/2).
     const him = track(popup.standUp({
-      side: 'left', x: 2.05, z: 0.52, fold: 'back', width: 0.55, height: HIM_H,
+      side: 'left', x: 1.12, z: 1.10, fold: 'back', width: 0.52, height: HIM_H,
     }));
     const himRig = new THREE.Group();
     himRig.name = 'him-vest';
@@ -228,8 +230,9 @@ export default {
     brianBadge.position.set(-0.02, HIM_H + 0.02, 0.03);
     himRig.add(brianBadge);
 
+    // Her cart station, mirroring him across the gutter.
     const her = track(popup.standUp({
-      side: 'right', x: 2.28, z: 0.68, fold: 'back', width: 0.58, height: HER_H,
+      side: 'right', x: 1.22, z: 1.14, fold: 'back', width: 0.62, height: HER_H,
     }));
     const herRig = new THREE.Group();
     herRig.name = 'her-vest';
@@ -263,14 +266,17 @@ export default {
       seed: 7,
     });
     const shotRatio = shot.width / shot.height;
-    // Outer front corner, so the print stays in the coworkers view and off vest-chat.
-    let photoH = 1.16;
+    // Beside her, in the same front band as the two vests, so a size-4 cue holds all three.
+    // It scales away when they start passing, which keeps it off vest-chat.
+    let photoH = 1.02;
     let photoW = photoH * shotRatio;
-    const photoHalf = photoW / 2;
-    let photoX = 3.48 - photoHalf;
-    const photoMin = photoH + photoHalf + 0.06;
-    if (photoX < photoMin) photoX = photoMin;
-    const photoZ = 1.22;
+    const photoX = 2.12;
+    const photoZ = 1.18;
+    const photoLim = popup.standUpLimits({ x: photoX, z: photoZ, width: photoW, fold: 'back' });
+    if (photoH > photoLim.maxHeightLoose) {
+      photoH = photoLim.maxHeightLoose * 0.96;
+      photoW = photoH * shotRatio;
+    }
     const photo = track(popup.standUp({
       side: 'right', x: photoX, z: photoZ, fold: 'back', width: photoW, height: photoH,
     }));
@@ -420,11 +426,11 @@ export default {
     }
 
     // ---------------------------------------------------------------- vest-chat, the hero
-    const chatW = hasCh('vest-chat') ? CHAT_H * (characters.info('vest-chat').w / characters.info('vest-chat').h) : 1.08;
-    // Far enough from the gutter that a 1.6 card still obeys the loose stand-up limit.
-    const chatX = Math.max(1.46, CHAT_H / 2 + chatW / 2 + 0.08);
+    const chatW = hasCh('vest-chat') ? CHAT_H * (characters.info('vest-chat').w / characters.info('vest-chat').h) : 1.12;
+    // As close to centre as the loose stand-up limit allows, and forward toward the reader.
+    const chatX = Math.max(1.50, CHAT_H / 2 + chatW / 2 + 0.08);
     const chat = track(popup.standUp({
-      side: 'right', x: chatX, z: 0.96, fold: 'back', width: chatW, height: CHAT_H,
+      side: 'right', x: chatX, z: 1.16, fold: 'back', width: chatW, height: CHAT_H,
     }));
     const chatRig = new THREE.Group();
     chatRig.name = 'vest-chat';
@@ -437,11 +443,12 @@ export default {
       chatCard.name = 'vest-chat';
       chatRig.add(chatCard);
     }
+    // All four sit above the hair. Plane origin is the centre, so the bottom clears CHAT_H.
     const chatBubbles = [
-      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, L('ha ha!', '¡ja ja!'), 420, 200, 0.38), 0.52, 0.25, -0.48, CHAT_H + 0.02),
-      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, '…', 240, 180, 0.55), 0.26, 0.2, 0.46, CHAT_H * 0.92),
-      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, '♥', 200, 180, 0.48), 0.24, 0.22, 0.08, CHAT_H + 0.22),
-      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, L('ha ha!', '¡ja ja!'), 380, 190, 0.62), 0.46, 0.23, -0.16, CHAT_H + 0.32),
+      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, L('ha ha!', '¡ja ja!'), 420, 200, 0.38), 0.50, 0.24, -0.34, CHAT_H + 0.22),
+      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, '…', 240, 180, 0.55), 0.26, 0.20, 0.36, CHAT_H + 0.20),
+      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, '♥', 200, 180, 0.48), 0.22, 0.20, 0.02, CHAT_H + 0.42),
+      placeDecal(THREE, paper, chatRig, bubbleCanvas(paper, FONT, L('ha ha!', '¡ja ja!'), 380, 190, 0.62), 0.44, 0.22, -0.06, CHAT_H + 0.54),
     ];
 
     const glow = new THREE.PointLight('#ffb27a', 0, 6, 1.15);
@@ -473,7 +480,7 @@ export default {
       cues: [
         { t: spread.open, hold: signT - spread.open, at: [0, 0.7, 0], size: 7.5, from: 'front' },
         { t: signT, hold: coT - signT, at: [0, 1.55, -0.5], size: 4.1, from: 'front' },
-        { t: coT, hold: passT - coT, at: [0.4, 0.82, 0.4], size: 6.6, from: 'front' },
+        { t: coT, hold: passT - coT, at: [0.52, 0.96, 1.02], size: 4.0, from: 'front' },
         { t: passT, hold: shyT - passT, at: [0, 0.95, 0.52], size: 3.6, from: 'front' },
         { t: shyT, hold: kindT - shyT, at: [1.38, 1.05, 0.7], size: 2.3, from: 'front' },
         { t: kindT, hold: curT - kindT, at: [-1.4, 1.32, 0.62], size: 2.6, from: 'front' },
@@ -481,8 +488,8 @@ export default {
         {
           t: moreT,
           hold: Math.max(0.6, endCue - moreT),
-          at: [chatX * 0.85, 1.32, 0.9],
-          size: 2.6,
+          at: [chatX, 1.22, 1.02],
+          size: 2.0,
           from: 'front',
         },
       ],
@@ -512,7 +519,9 @@ export default {
         poseRig(himRig, posed * vestShow, breathe, hopH, Math.sin(t * 1.6) * 0.012 * vestShow);
         poseRig(herRig, posed * vestShow, breathe, hopS, Math.sin(t * 1.5 + 1) * 0.012 * vestShow);
 
-        let photoIn = ease.outBack(smoothstep(co + 0.65, co + 1.25, t));
+        let photoIn = ease.outBack(smoothstep(co + 0.35, co + 0.95, t));
+        const photoOut = smoothstep(pass - 0.25, pass + 0.2, t);
+        photoIn *= (1 - photoOut);
         if (photoIn < 0) photoIn = 0;
         else if (photoIn > 1.05) photoIn = 1.05;
         photoPivot.scale.setScalar(photoIn);
