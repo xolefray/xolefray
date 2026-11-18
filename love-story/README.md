@@ -1,8 +1,8 @@
 # Our Love Story
 
-*A 275-second pop-up scrapbook film, about 4 minutes 35 seconds. It renders live in the browser with three.js, in English or Spanish.*
+*A 308-second pop-up scrapbook film, 5 minutes 8 seconds. It renders live in the browser with three.js, in English or Spanish.*
 
-A hand-made scrapbook lies on a walnut desk under a warm lamp. The cover opens, eight paper
+A hand-made scrapbook lies on a walnut desk under a warm lamp. The cover opens, nine paper
 worlds rise one after another, and the pages tell how Brian and Marlin met, built a life, and
 got engaged, in their own voice ("we"). Hand-drawn cartoon cut-outs of them act out each
 moment, storybook captions carry the narration, and a small score plays along. The whole film
@@ -32,14 +32,15 @@ the language you are watching.
 | 1:12.6 | Creative dates | 72.6–113.3 s (open 75.6–110.3 s). Strict parents, so they walk Oliver. Marlin's little sister tags along. Late nights, and a chase after an Uber to rescue a forgotten phone. |
 | 1:50.3 | A little bit of fate | 110.3–151.8 s (open 113.3–148.8 s). A first movie date, one seat apart. Then the same college, which feels a little like fate. |
 | 2:28.8 | February 7, 2024 | 148.8–176.4 s (open 151.8–173.4 s). They make it official. Brian still says they were already dating. School and work together, and a first kiss on Valentine's Day. |
-| 2:53.4 | Building our life | 173.4–204.6 s (open 176.4–201.6 s). A first place, their chihuahua Cherry, a home with both their names, and Japan for the two-year anniversary. |
-| 3:21.6 | On her birthday | 201.6–222.9 s (open 204.6–219.9 s). Brian kneels and asks. A photo of the moment. She says yes. |
-| 3:39.9 | February 6, 2027 | From 219.9 s, fully open at 222.9 s, and it never closes. Three years together, "I do", the Sunday joke, then five milestones from coworkers to husband and wife. |
-| 4:26.1 | See you there | The end card (266.1–275 s) shows Brian & Marlin, a small heart, and February 6, 2027 (6 de febrero de 2027 in Spanish). The picture fades to black from 271.6 s to 275 s. |
+| 2:53.4 | Building our life | 173.4–197.7 s (open 176.4–194.7 s). A first place, their chihuahua Cherry, a home with both their names, then a packed suitcase and a paper plane taking off. |
+| 3:14.7 | Our Japan adventure | 194.7–238.1 s (open 197.7–235.1 s). The two-year anniversary. They fly to Tokyo, walk from the great red lantern at Asakusa to neon streets, eat, get a little lost, and leave for the next chapter. |
+| 3:55.1 | On her birthday | 235.1–256.4 s (open 238.1–253.4 s). Brian kneels and asks. A photo of the moment. She says yes. |
+| 4:13.4 | February 6, 2027 | From 253.4 s, fully open at 256.4 s, and it never closes. Three years together, "I do", the Sunday joke, then five milestones from coworkers to husband and wife. |
+| 4:59.6 | See you there | The end card (299.6–308 s) shows Brian & Marlin, a small heart, and February 6, 2027 (6 de febrero de 2027 in Spanish). The picture fades to black from 305.1 s to 308 s. |
 
 Spanish chapter names are Donde todo comenzó, La hora del almuerzo, Citas creativas, Un poquito
-de destino, 7 de febrero de 2024, Construyendo nuestra vida, En su cumpleaños, 6 de febrero de
-2027. The end card's chapter is Nos vemos ahí. The words of every line are in
+de destino, 7 de febrero de 2024, Construyendo nuestra vida, Nuestra aventura en Japón, En su
+cumpleaños, 6 de febrero de 2027. The end card's chapter is Nos vemos ahí. The words of every line are in
 [`docs/SCRIPT.md`](docs/SCRIPT.md).
 
 ## Watch it
@@ -144,10 +145,10 @@ of the other five.
 | `photos/walmart.jpg` | spread 1, the two of them at work, popping in once they are coworkers |
 | `photos/lunch.jpg` | spread 2, their first lunch date, taped in when lunch becomes their thing |
 | `photos/oliver.jpg` | spread 3, Oliver, taped on the page beside the dog walk |
-| `photos/proposal.jpg` | spread 7, the real proposal, swinging up after he asks |
+| `photos/proposal.jpg` | spread 8, the real proposal, swinging up after he asks |
 | `photos/dog.jpg` | spread 6, Cherry, when they welcome her |
 | `photos/deed.jpg` | spread 6, signing the papers on their home |
-| `photos/tokyo.jpg` | spread 6, a Tokyo selfie on the two-year trip |
+| `photos/tokyo.jpg` | spread 7, the Japan spread, a Tokyo selfie at Asakusa |
 
 `.gitignore` ignores `photos/*` and keeps only `photos/README.md` and `photos/.gitignore`.
 `?photos=0` fetches nothing. Use it for any screenshot or recording that leaves your machine.
@@ -173,11 +174,12 @@ node tools/build-character-manifest.mjs
 It reads `characters/poses/*.json`, checks each sidecar against its image header, and writes
 `characters/manifest.json`. No poses yet writes an empty manifest and exits 0. An invalid
 sidecar exits 1 and leaves an existing manifest in place. `who` may include `oliver`. The
-tool's scene list is still `walmart`, `dates`, `official`, `life`, `proposal`, `wedding`, and
-`any`. The lunch and fate scenery sidecars use `any` so that tool will accept them.
+tool's scene list is `walmart`, `lunch`, `dates`, `fate`, `official`, `life`, `japan`,
+`proposal`, `wedding`, and `any`. The lunch and fate scenery sidecars still say `any`. Japan
+sidecars say `japan`.
 
 The scenery is different. `art/walmart/`, `art/lunch/`, `art/dates/`, `art/fate/`,
-`art/official/`, `art/life/`, `art/proposal/`, and `art/wedding/` are committed. Each piece's
+`art/official/`, `art/life/`, `art/japan/`, `art/proposal/`, and `art/wedding/` are committed. Each piece's
 sidecar says `who: ["prop"]`: pages, furniture, stores, trees, banners, cakes. The people, and
 the drawings of the dogs, are the private character drawings, or the paper dolls when those
 drawings are absent.
@@ -218,7 +220,7 @@ words on screen and the default file name.
 node tools/render-video.mjs --lang en --narration audio/narration.en.mp3
 node tools/render-video.mjs --lang es --narration audio/narration.es.mp3
 node tools/render-video.mjs --out our-love-story-en.mp4 --lang en --size 1280x720 --query "photos=0"
-node tools/render-video.mjs --out proposal.mp4 --lang en --from 201.6 --to 222.9 --narration take.wav
+node tools/render-video.mjs --out proposal.mp4 --lang en --from 235.1 --to 256.4 --narration take.wav
 ```
 
 The first two write `film-en.mp4` and `film-es.mp4`. If you omit `--lang`, the language is
@@ -229,8 +231,8 @@ taken from an existing `lang=` in `--query`, or English.
 | `--out` | `film-<lang>.mp4` | MP4 path |
 | `--lang` | `en`, or `lang=` in `--query` | `en` or `es`. Appended to the page query |
 | `--size` | `1920x1080` | even width and height (yuv420p) |
-| `--fps` | `30` | frames per film second. 275 s at 30 fps is 8250 frames |
-| `--from` / `--to` | `0` / the film duration (275) | film-time range, `--to` exclusive. The duration is read from `timeline.js` |
+| `--fps` | `30` | frames per film second. 308 s at 30 fps is 9240 frames |
+| `--from` / `--to` | `0` / the film duration (308) | film-time range, `--to` exclusive. The duration is read from `timeline.js` |
 | `--jobs` | `3` | parallel Chromium jobs (integer ≥ 1) |
 | `--query` | empty | extra URL parameters (`photos=0`, `chars=0`, `captions=0`, …) |
 | `--crf` | `18` | libx264 quality, 0–51 |
@@ -251,11 +253,11 @@ by itself.
 
 ### The book
 
-[`book.js`](src/book.js) builds nine leaves: the front cover, seven scrapbook cards, and a
+[`book.js`](src/book.js) builds ten leaves: the front cover, eight scrapbook cards, and a
 back cover that never turns. They are a **hinge chain**. Each leaf turns about its own gutter
 edge, and that edge rides on its neighbour, so both printed surfaces of a spread leave the
 same line at every angle, including mid-turn. The chain is then lifted until its lowest corner
-rests on the desk. An open spread is flat, so the thinner pile hovers by `|2k − 9|` board
+rests on the desk. An open spread is flat, so the thinner pile hovers by `|2k − 10|` board
 thicknesses; a dark plinth and a contact shadow hide the gap. Page size is the landscape album
 in [`dims.js`](src/dims.js): 3.6 by 3.0 world units (1 unit ≈ 10 cm). The cover title follows
 the language. The names under the photo stay Brian & Marlin.
@@ -276,7 +278,7 @@ the language. The names under the photo stay Brian & Marlin.
   sliders, the dates spread rides the walk and the Uber chase, and fate walks Marlin onto the
   campus.
 - **Floating layer.** A platform on two parallelogram walls, parallel to the pages, with a
-  frame you can nest other mechanisms on. The engine has it; these eight spreads do not use it.
+  frame you can nest other mechanisms on. The engine has it; these nine spreads do not use it.
 - **onPage.** Flat on a page, for notes, confetti and small scatter.
 
 Three **folding rules** keep the book able to close. **R1:** at α = 0 every footprint lies
@@ -314,11 +316,13 @@ wedding date in handwriting, and a heart. A black veil finishes the film.
 The score is one love theme in F, in 3/4, restated for each chapter: bells while the lamp
 warms, a playful waltz in the store, a slower warmer lunch, a walk that turns to night and a
 short chase, a cinema organ at the movies and at the school, a plain statement when they make
-it official, a traveling tune and then koto plucks in Japan, a hush and then the fullest
-statement on "yes", and a broad wedding that marks the five milestones and fades under the end
-card. Paper foley marks the lamp, every page turn, a shutter when a photo print appears, the
-official stamp, a pen on the deed, a clock through the long lunch, a projector, a school bell,
-the "yes" pop, and a pop on each milestone. The event list is in film seconds, so a seek
+it official, a traveling tune that lifts off with the paper plane, then Japan's own section
+(a pulse and take-off, a koto stroll, a neon night, a tender solo, and a question left
+hanging), a hush and then the fullest statement on "yes", and a broad wedding that marks the
+five milestones and fades under the end card. Paper foley marks the lamp, every page turn, a
+shutter when a photo print appears (including the Asakusa selfie), the official stamp, a
+passport stamp on arrival, a pen on the deed, a clock through the long lunch, a projector, a
+school bell, a whoosh for the plane and the flight, the "yes" pop, and a pop on each milestone. The event list is in film seconds, so a seek
 restarts in the right place. With a narration file, the music ducks under each line.
 
 All of that is driven by [`timeline.js`](src/timeline.js): duration, leaf turns, spreads,
@@ -331,9 +335,9 @@ contract, the manifests, the rules — is in [`docs/ARCHITECTURE.md`](docs/ARCHI
 | File | Responsibility | Lines |
 |---|---|---|
 | [`index.html`](index.html) · [`styles.css`](styles.css) | page shell, intro card, control-bar styling | 77 · 850 |
-| [`src/main.js`](src/main.js) | boot, warm-up, frame loop, light proxies, URL parameters, test hooks | 622 |
+| [`src/main.js`](src/main.js) | boot, warm-up, frame loop, light proxies, URL parameters, test hooks | 624 |
 | [`src/ui.js`](src/ui.js) | control bar, language switch, scrubber, keyboard and pointer input, auto-hide | 453 |
-| [`src/timeline.js`](src/timeline.js) | master schedule, easing, leaf angles, wall-clock `Player` | 641 |
+| [`src/timeline.js`](src/timeline.js) | master schedule, easing, leaf angles, wall-clock `Player` | 702 |
 | [`src/i18n.js`](src/i18n.js) | `LANG`, `L`, narration and title pickers, shared UI strings | 154 |
 | [`src/dims.js`](src/dims.js) | page size, leaf count, page-art pixel size | 14 |
 | [`src/util/rng.js`](src/util/rng.js) | seeded random numbers (mulberry32) | 29 |
@@ -346,26 +350,27 @@ contract, the manifests, the rules — is in [`docs/ARCHITECTURE.md`](docs/ARCHI
 | [`src/popup.js`](src/popup.js) | pop-up mechanisms and folding rules | 564 |
 | [`src/book.js`](src/book.js) | hinged scrapbook, cover, page art, spread anchors | 2100 |
 | [`src/environment.js`](src/environment.js) | desk, room, lamp schedule, dust motes | 607 |
-| [`src/camera.js`](src/camera.js) | cue-driven camera rig | 605 |
-| [`src/titles.js`](src/titles.js) | captions, washi page titles, end card, fade | 396 |
-| [`src/audio.js`](src/audio.js) | procedural score, foley, per-language narration | 1795 |
-| [`src/spreads/walmart.js`](src/spreads/walmart.js) | Where it all began | 892 |
-| [`src/spreads/lunch.js`](src/spreads/lunch.js) | Lunch breaks | 924 |
+| [`src/camera.js`](src/camera.js) | cue-driven camera rig | 607 |
+| [`src/titles.js`](src/titles.js) | captions, washi page titles, end card, fade | 509 |
+| [`src/audio.js`](src/audio.js) | procedural score, foley, per-language narration | 2086 |
+| [`src/spreads/walmart.js`](src/spreads/walmart.js) | Where it all began | 901 |
+| [`src/spreads/lunch.js`](src/spreads/lunch.js) | Lunch breaks | 1089 |
 | [`src/spreads/dates.js`](src/spreads/dates.js) | Creative dates | 951 |
-| [`src/spreads/fate.js`](src/spreads/fate.js) | A little bit of fate | 972 |
-| [`src/spreads/official.js`](src/spreads/official.js) | February 7, 2024 | 1063 |
-| [`src/spreads/life.js`](src/spreads/life.js) | Building our life | 1244 |
+| [`src/spreads/fate.js`](src/spreads/fate.js) | A little bit of fate | 1107 |
+| [`src/spreads/official.js`](src/spreads/official.js) | February 7, 2024 | 1080 |
+| [`src/spreads/life.js`](src/spreads/life.js) | Building our life | 1481 |
+| [`src/spreads/japan.js`](src/spreads/japan.js) | Our Japan adventure | 1521 |
 | [`src/spreads/proposal.js`](src/spreads/proposal.js) | On her birthday | 1179 |
-| [`src/spreads/wedding.js`](src/spreads/wedding.js) | February 6, 2027 | 1329 |
-| [`src/spreads/index.js`](src/spreads/index.js) | the eight spreads in film order | 14 |
+| [`src/spreads/wedding.js`](src/spreads/wedding.js) | February 6, 2027 | 1425 |
+| [`src/spreads/index.js`](src/spreads/index.js) | the nine spreads in film order | 15 |
 | [`src/spreads/_stub.js`](src/spreads/_stub.js) | unused placeholder spread (not mounted) | 245 |
 
-That is 20,783 lines under `src/`, plus the page shell. The dev harnesses add 3,960 lines.
+That is 23,433 lines under `src/`, plus the page shell. The dev harnesses add 4,241 lines.
 
 ## Dev harness pages
 
 Every module has a standalone page in [`dev/`](dev/). Serve the folder and open, for example,
-`http://127.0.0.1:8080/dev/spread-proposal.html?view=yes&t=216&lang=es`.
+`http://127.0.0.1:8080/dev/spread-proposal.html?view=yes&t=249.6&lang=es`.
 Any page that loads `i18n.js` follows `?lang=`.
 
 | Page | Shows | Parameters |
@@ -384,9 +389,10 @@ Any page that loads `i18n.js` follows `?lang=`.
 | `dev/spread-dates.html` | spread 3 alone | same, `view=front\|wide\|low\|top\|list\|parents\|walk\|sister\|night\|chase\|rescue\|ribbon` |
 | `dev/spread-fate.html` | spread 4 alone | same, `view=front\|wide\|low\|top\|cinema\|seats\|campus\|her\|steps\|ribbon` |
 | `dev/spread-official.html` | spread 5 alone | same, `view=front\|wide\|low\|top\|calendar\|couple\|bubbles\|vignettes\|kiss` |
-| `dev/spread-life.html` | spread 6 alone | same, `view=front\|wide\|low\|top\|building\|first\|cherry\|dog\|home\|japan\|next` |
-| `dev/spread-proposal.html` | spread 7 alone | same, `view=front\|wide\|low\|top\|party\|couple\|ring\|photo\|yes` |
-| `dev/spread-wedding.html` | spread 8 alone | same, `view=front\|wide\|low\|top\|couple\|calendar\|ribbon\|ribbonMid\|vows\|celebrate\|date` |
+| `dev/spread-life.html` | spread 6 alone | same, `view=front\|wide\|low\|top\|building\|first\|cherry\|dog\|home\|takeoff` |
+| `dev/spread-japan.html` | spread 7 alone | same, `view=front\|wide\|low\|top\|suitcase\|flight\|arrive\|walk\|gate\|neon\|ramen\|lost\|lanterns\|hug\|memories\|goodbye` |
+| `dev/spread-proposal.html` | spread 8 alone | same, `view=front\|wide\|low\|top\|party\|couple\|ring\|photo\|yes` |
+| `dev/spread-wedding.html` | spread 9 alone | same, `view=front\|wide\|low\|top\|couple\|calendar\|ribbon\|ribbonMid\|vows\|celebrate\|date` |
 | `dev/smoke.html` | a spinning cube that proves the screenshot tool can open a page | none |
 
 `?check=1` on a spread page samples the fold and prints `PASS` or `FAIL`. `dev/book.html?check=1`
@@ -422,10 +428,11 @@ An orchestrating agent planned the architecture, wrote the task briefs, and revi
 result by reading the code and looking at rendered frames. It edited no project files itself.
 
 Worker agents wrote the code and drew the art, in parallel batches. Each worker had its own
-files and worked in a sandboxed copy of the project. Version 2 lengthened the film to eight
-spreads, put the narration in the couple's voice in English and Spanish, and added the five
-extra photographs. The scene art, the spreads, the book, the camera, the score and these docs
-were written that way and then read back against the running film.
+files and worked in a sandboxed copy of the project. Version 2 put the narration in the
+couple's voice in English and Spanish and added five photographs. Version 3 gives the Japan
+trip its own spread, so the book has ten leaves and the film runs 5:08. The scene art, the
+spreads, the book, the camera, the score and these docs were written that way and then read
+back against the running film.
 
 ## Credits
 

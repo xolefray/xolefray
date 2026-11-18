@@ -1,8 +1,8 @@
 # Voice-over script
 
-Record this once in English and once in Spanish. The words below are copied from `NARRATION` in [`src/timeline.js`](../src/timeline.js) (`text` is English, `es` is Spanish). Say them as written, including the pauses the clock already leaves between lines. Names stay as they are: Brian, Marlin, Oliver, Cherry, Walmart.
+Record this once in English and once in Spanish. The words below are copied from `NARRATION` in [`src/timeline.js`](../src/timeline.js) (`text` is English, `es` is Spanish). Say them as written, including the pauses the clock already leaves between lines. Names stay as they are (Brian, Marlin, Oliver, Cherry, Walmart).
 
-Each table is one chapter. **Time** is film time, start–end, as m:ss.s. The line should begin at the start and be finished by the end. Sample 0 of the file is film time 0:00.
+Each table is one chapter. **Time** is film time, start–end, as m:ss.s. The line should begin at the start and be finished by the end. Sample 0 of the file is film time 0:00. The film runs 5:08.
 
 ## Cover
 
@@ -78,7 +78,18 @@ Spread `life`.
 | `h1` | 2:57.4–3:01.5 | As time went on, we kept building our life together. | Con el tiempo, seguimos construyendo nuestra vida juntos. |
 | `h2` | 3:02.3–3:08.1 | We moved in together, and welcomed our first dog together: Cherry. | Nos fuimos a vivir juntos y le dimos la bienvenida a nuestra primera perrita: Cherry. |
 | `h3` | 3:08.9–3:12.1 | Later, we bought a home of our own. | Más adelante, compramos nuestra propia casa. |
-| `h4` | 3:13.0–3:20.0 | And for our two-year anniversary, we traveled to Japan, where another unforgettable chapter began. | Y para nuestro segundo aniversario, viajamos a Japón, donde comenzó otro capítulo inolvidable. |
+
+## Our Japan adventure · Nuestra aventura en Japón
+
+Spread `japan`.
+
+| Line | Time | English | Spanish |
+|---|---|---|---|
+| `j1` | 3:18.7–3:24.8 | For our two-year anniversary, we packed our bags and flew across the world to Japan. | Para nuestro segundo aniversario, hicimos las maletas y cruzamos el mundo hasta Japón. |
+| `j2` | 3:25.6–3:32.7 | We wandered Tokyo side by side, from the great red lantern at Asakusa to streets glowing with neon. | Recorrimos Tokio lado a lado, desde el gran farol rojo de Asakusa hasta calles llenas de luces de neón. |
+| `j3` | 3:33.7–3:38.6 | We tried everything, got a little lost, and laughed the whole way. | Probamos de todo, nos perdimos un poquito y nos reímos todo el camino. |
+| `j4` | 3:39.4–3:46.2 | Celebrating two years together on the other side of the world is something we’ll never forget. | Celebrar dos años juntos al otro lado del mundo es algo que nunca olvidaremos. |
+| `j5` | 3:47.4–3:52.9 | It was more than a trip. It was the start of another unforgettable chapter. | Fue más que un viaje. Fue el comienzo de otro capítulo inolvidable. |
 
 ## On her birthday · En su cumpleaños
 
@@ -86,8 +97,8 @@ Spread `proposal`.
 
 | Line | Time | English | Spanish |
 |---|---|---|---|
-| `p1` | 3:25.6–3:29.4 | On Marlin’s birthday, Brian got down on one knee… | En el cumpleaños de Marlin, Brian se arrodilló… |
-| `p2` | 3:30.1–3:33.3 | …and asked her to spend forever with him. | …y le pidió pasar toda la vida juntos. |
+| `p1` | 3:59.1–4:02.9 | On Marlin’s birthday, Brian got down on one knee… | En el cumpleaños de Marlin, Brian se arrodilló… |
+| `p2` | 4:03.6–4:06.8 | …and asked her to spend forever with him. | …y le pidió pasar toda la vida juntos. |
 
 ## February 6, 2027 · 6 de febrero de 2027
 
@@ -95,12 +106,12 @@ Spread `wedding`.
 
 | Line | Time | English | Spanish |
 |---|---|---|---|
-| `x1` | 3:43.9–3:50.7 | And now, after three years together, we’re finally making it official in a whole new way! | Y ahora, después de tres años juntos, ¡por fin lo haremos oficial de una manera completamente nueva! |
-| `x2` | 3:51.5–3:54.9 | On February 6, 2027, we’ll be saying “I do.” | El 6 de febrero de 2027 diremos «Sí, acepto». |
-| `x3` | 3:55.9–4:04.0 | We wanted February 7, our anniversary… but apparently a Sunday wasn’t everyone’s idea of a good party! | Queríamos el 7 de febrero, nuestro aniversario… ¡pero al parecer un domingo no era la idea de una buena fiesta para todos! |
-| `x4` | 4:05.0–4:11.9 | From Walmart coworkers to college classmates, dog parents, homeowners, and now husband and wife… | De compañeros en Walmart a compañeros de universidad, papás perrunos, dueños de casa y, ahora, esposos… |
-| `x5` | 4:12.5–4:18.4 | …our story has been full of unexpected turns, laughter, and a little bit of fate. | …nuestra historia ha estado llena de giros inesperados, risas y un poquito de destino. |
-| `x6` | 4:19.3–4:23.9 | We can’t wait to celebrate the next chapter with you! | ¡No podemos esperar para celebrar el próximo capítulo con ustedes! |
+| `x1` | 4:17.4–4:24.2 | And now, after three years together, we’re finally making it official in a whole new way! | Y ahora, después de tres años juntos, ¡por fin lo haremos oficial de una manera completamente nueva! |
+| `x2` | 4:25.0–4:28.4 | On February 6, 2027, we’ll be saying “I do.” | El 6 de febrero de 2027 diremos «Sí, acepto». |
+| `x3` | 4:29.4–4:37.5 | We wanted February 7, our anniversary… but apparently a Sunday wasn’t everyone’s idea of a good party! | Queríamos el 7 de febrero, nuestro aniversario… ¡pero al parecer un domingo no era la idea de una buena fiesta para todos! |
+| `x4` | 4:38.5–4:45.4 | From Walmart coworkers to college classmates, dog parents, homeowners, and now husband and wife… | De compañeros en Walmart a compañeros de universidad, papás perrunos, dueños de casa y, ahora, esposos… |
+| `x5` | 4:46.0–4:51.9 | …our story has been full of unexpected turns, laughter, and a little bit of fate. | …nuestra historia ha estado llena de giros inesperados, risas y un poquito de destino. |
+| `x6` | 4:52.8–4:57.4 | We can’t wait to celebrate the next chapter with you! | ¡No podemos esperar para celebrar el próximo capítulo con ustedes! |
 
 ## Recording tips
 

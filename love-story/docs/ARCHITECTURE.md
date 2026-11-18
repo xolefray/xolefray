@@ -34,7 +34,7 @@ index.html ── #stage (WebGL canvas) · #overlay (titles) · #ui (controls) �
                    ├─ i18n.js         LANG, L(), titles, chrome          (fixed at module load)
                    ├─ timeline.js     schedule, leafAngles(t, out), Player
                    ├─ environment.js  desk, room, lamp, dust                 ← update(t)
-                   ├─ book.js         9 hinged leaves, cover, 8 anchors      ← setLeafAngles(φ), update(t)
+                   ├─ book.js         10 hinged leaves, cover, 9 anchors     ← setLeafAngles(φ), update(t)
                    │    └─ anchor k ─ spreads/<id>.js group                   ← update(α, t, local)
                    ├─ camera.js       rig from spread cues                    ← update(t)
                    ├─ titles.js       DOM captions                            ← update(t)
@@ -60,16 +60,16 @@ index.html ── #stage (WebGL canvas) · #overlay (titles) · #ui (controls) �
 5. Every `PointLight` inside a spread group is adopted ([§11](#11-lights-and-proxies)).
 6. Cues are baked to world space at each spread's full-open pose (`collectCues`).
 7. Titles, audio, camera. `free=1` then swaps in `OrbitControls` and the rig is not ticked.
-8. A **warm-up** renders 18 moments at 320 × 180 behind the card: t = 0.5, the midpoint of
-   each of the eight leaf turns, the midpoint from each turn's end to the next turn's start
-   (or to `DURATION` after the last turn), and t = `DURATION − 1` (274). Skipped for a still
+8. A **warm-up** renders 20 moments at 320 × 180 behind the card: t = 0.5, the midpoint of
+   each of the nine leaf turns, the midpoint from each turn's end to the next turn's start
+   (or to `DURATION` after the last turn), and t = `DURATION − 1` (307). Skipped for a still
    frame (`ui=0` plus `t`, without `play`).
 
 **Each frame:**
 
 ```
 t = player.time
-leafAngles(t, φ)                        → book.setLeafAngles(φ)     (φ is one reused 9-element array)
+leafAngles(t, φ)                        → book.setLeafAngles(φ)     (φ is one reused 10-element array)
 for each spread:  α = φ[k−1] − φ[k]
                   group.visible = α > 0.002
                   if visible: spread.update(α, t, t − start)
@@ -115,31 +115,32 @@ becomes true after the intro has settled and two frames have been drawn.
   |---|---|---|
   | `PAGE_W` | 3.6 | gutter → outer edge, world X, per page |
   | `PAGE_D` | 3.0 | page depth, world Z. Page z is in [−1.5, +1.5] |
-  | `LEAVES` | 9 | 0 = front cover, 1..7 inner boards, 8 = back cover (never turns) |
+  | `LEAVES` | 10 | 0 = front cover, 1..8 inner boards, 9 = back cover (never turns) |
   | `ART_W`, `ART_H` | 1024, 853 | page-art canvas, aspect `PAGE_W : PAGE_D` |
 
-  Nine leaves give eight spreads, k = 1..8.
+  Ten leaves give nine spreads, k = 1..9.
 
 - `BOOK` in `book.js` re-exports `PAGE_W`, `PAGE_D`, `LEAVES`, and sets `BOARD_T = 0.022`.
   Cover boards are 0.05 thick (`COVER_T`). Inner cards are `BOARD_T`. Covers overhang the
   cards by 0.08 in X and 0.06 on each Z edge. `popup.PAGE` is `{ w: 3.6, d: 3.0, z: 0 }`.
 - Leaf angle φ ∈ [0, π] is a rotation about +Z. At φ = 0 the leaf lies on the right
   (x ∈ [0, 3.6]). At φ = π it has turned over to the left. The closed book sits on the right.
-  φ₈, the back cover, is always 0.
-- Spread k (1..8) lies between leaf k−1 (its **left** page is that leaf's back face) and
+  φ₉, the back cover, is always 0.
+- Spread k (1..9) lies between leaf k−1 (its **left** page is that leaf's back face) and
   leaf k (its **right** page is that leaf's front face). Opening angle
   αₖ = φₖ₋₁ − φₖ ∈ [0, π]. 0 is closed, π is flat open.
 - An open spread is flat, so the two piles cannot both sit on the desk. The thinner pile
-  hovers by |2k − 9| · `BOARD_T`: 0.154, 0.110, 0.066, 0.022 for spreads 1–4, and the same
-  amounts again for spreads 8, 7, 6, 5. Cover boards do not count in that gap; only the
-  inner cards do. The hinge chain then lifts the book so its lowest corner sits on y = 0.
+  hovers by |2k − LEAVES| · `BOARD_T`, which is |2k − 10| · 0.022: 0.176, 0.132, 0.088,
+  0.044, 0 for spreads 1–5, and the same amounts again for spreads 9, 8, 7, 6. Cover boards
+  do not count in that gap; only the inner cards do. The hinge chain then lifts the book so
+  its lowest corner sits on y = 0.
 - The printed-surface height of an open spread is `openPageY(k)` in `camera.js`:
 
   `COVER_T + max(k − 1, LEAVES − 1 − k) · BOARD_T`
 
-  For k = 1..8 that is 0.204, 0.182, 0.160, 0.138, 0.138, 0.160, 0.182, 0.204. The closed
-  cover's outer face is `COVER_TOP = 2·COVER_T + (LEAVES − 2)·BOARD_T` = 0.254. There is no
-  `PAGE_Y` table. Change a thickness and both formulas follow, because they read `BOOK`.
+  For k = 1..9 that is 0.226, 0.204, 0.182, 0.160, 0.138, 0.160, 0.182, 0.204, 0.226. The
+  closed cover's outer face is `COVER_TOP = 2·COVER_T + (LEAVES − 2)·BOARD_T` = 0.276. There
+  is no `PAGE_Y` table. Change a thickness and both formulas follow, because they read `BOOK`.
 
 ## 3. The spread frame
 
@@ -174,11 +175,11 @@ becomes true after the intro has settled and two frames have been drawn.
 - Board thickness is ignored inside the frame. The hinge chain puts both printed surfaces on
   the same gutter line at every angle. Leaf i's back-face gutter edge sits on Q[i+1], and its
   front-face gutter edge is Q[i] = Q[i+1] + tᵢ · n(φᵢ), with n(φ) = (−sin φ, cos φ) and
-  Q[9] the back cover's outer gutter edge. Anchor k sits on Q[k], rotated by φₖ. The whole
+  Q[10] the back cover's outer gutter edge. Anchor k sits on Q[k], rotated by φₖ. The whole
   chain is then lifted so its lowest corner touches y = 0.
 
 `createBook({ photos, fonts, title, names })` returns
-`{ group, setLeafAngles(φ[9]), getSpreadAnchor(k), setPageArt(k, {left, right}), update(t, lampLevel?) }`.
+`{ group, setLeafAngles(φ[10]), getSpreadAnchor(k), setPageArt(k, {left, right}), update(t, lampLevel?) }`.
 `update` with no `lampLevel` measures the spot and hemisphere light actually falling on the
 book and drives the brass reflections from that. `main.js` calls it that way, so the brass
 follows the environment schedule without a second copy of the times. Cover relief (frame,
@@ -213,11 +214,11 @@ If `art.has('page-left')` and `art.has('page-right')`, the spread draws those ca
 
 ## 5. Master schedule
 
-[`timeline.js`](../src/timeline.js) is the source of structural time. `DURATION = 275`
-(4:35). `COUPLE` is Brian and Marlin, with `names`, `weddingDate` / `weddingDateEs`
+[`timeline.js`](../src/timeline.js) is the source of structural time. `DURATION = 308`
+(5:08). `COUPLE` is Brian and Marlin, with `names`, `weddingDate` / `weddingDateEs`
 (February 6, 2027 / 6 de febrero de 2027) and `officialDate` / `officialDateEs`
 (February 7, 2024 / 7 de febrero de 2024). Each leaf turns φ from 0 to π with
-`ease.inOutCubic` over exactly 3 seconds. Leaf 8 never turns.
+`ease.inOutCubic` over exactly 3 seconds. Leaf 9 never turns.
 
 | Film time | Leaf / spread | Light (`environment.js`) | Text (`titles.js`) |
 |---|---|---|---|
@@ -233,26 +234,28 @@ If `art.has('page-left')` and `art.has('page-right')`, the spread draws those ca
 | 148.8–151.8 | **leaf 4** | warm | "February 7, 2024" from 149.2 |
 | 151.8–173.4 | spread 5 **official** open | warm | `o1`–`o4` |
 | 173.4–176.4 | **leaf 5** | warm | "Building our life" from 173.8 |
-| 176.4–201.6 | spread 6 **life** open | warm | `h1`–`h4` |
-| 201.6–204.6 | **leaf 6** | eases toward the proposal look across this turn | "On her birthday" from 202.0 |
-| 204.6–219.9 | spread 7 **proposal** open | lamp 0.85, rosier, keyed by spread id `proposal`, plus +0.18 at `BEATS.yes` (216.1) | `p1`, `p2` |
-| 219.9–222.9 | **leaf 7** | eases toward wedding gold across this turn | "February 6, 2027" from 220.3 |
-| 222.9–266.1 | spread 8 **wedding** open; it never closes | lamp 1.15, bright gold, keyed by id `wedding` | `x1`–`x6` |
-| 266.1–275 | end card | room fades 268.6–274.5 (`fadeStart − 3` to `end − 0.5`) | names + date fade in over 1.2 s; veil 271.6–275 |
+| 176.4–194.7 | spread 6 **life** open | warm | `h1`–`h3` |
+| 194.7–197.7 | **leaf 6** | warm | "Our Japan adventure" from 195.1 |
+| 197.7–235.1 | spread 7 **japan** open | warm room; the spread's own neon and lantern lights | `j1`–`j5` |
+| 235.1–238.1 | **leaf 7** | eases toward the proposal look across this turn | "On her birthday" from 235.5 |
+| 238.1–253.4 | spread 8 **proposal** open | lamp 0.85, rosier, keyed by spread id `proposal`, plus +0.18 at `BEATS.yes` (249.6) | `p1`, `p2` |
+| 253.4–256.4 | **leaf 8** | eases toward wedding gold across this turn | "February 6, 2027" from 253.8 |
+| 256.4–299.6 | spread 9 **wedding** open; it never closes | lamp 1.15, bright gold, keyed by id `wedding` | `x1`–`x6` |
+| 299.6–308 | end card | room fades 302.1–307.5 (`fadeStart − 3` to `end − 0.5`) | names + date fade in over 1.2 s; veil 305.1–308 |
 
 Washi titles use `spreadTitle` ([§6](#6-language)), so the Spanish column above is the
 English title. The Spanish titles are on `SPREADS[].titleEs`. Page titles run from
-`LEAF_TURNS[i].start + 0.4` through that turn's `end`. There are eight tapes.
+`LEAF_TURNS[i].start + 0.4` through that turn's `end`. There are nine tapes, one per spread.
 
-`END_CARD = { start: 266.1, end: 275, fadeStart: 271.6 }`.
+`END_CARD = { start: 299.6, end: 308, fadeStart: 305.1 }`.
 
 `CHAPTERS` is derived at import: `{ t: 0, label: tr('chapterCover') }` (Cover / Portada),
 then one entry per spread at `s.start` using `L(s.title, s.titleEs)`, then
-`{ t: 266.1, label: tr('chapterEnd') }` (See you there / Nos vemos ahí).
+`{ t: 299.6, label: tr('chapterEnd') }` (See you there / Nos vemos ahí).
 
 `BEATS` (film seconds). Spreads, lights, foley and the score animate to these names.
-`photoReveal` and `yes` are proposal times; the object in the source lists those two keys
-after `celebrate`.
+`photoReveal` and `yes` are proposal times, and `takeoff` and `japan` belong to life and
+Japan. The object in the source lists those four keys after `celebrate`.
 
 | Group | Names |
 |---|---|
@@ -262,22 +265,23 @@ after `celebrate`.
 | Dates | `creativeDates` 76.6, `strictParents` 82.9, `dogWalk` 85.6, `sisterTagsAlong` 91, `lateNights` 100.2, `uberChaseStart` 101.9, `phoneRescued` 105.4, `memories` 106.8 |
 | Fate | `movies` 114.3, `apartSeats` 119.4, `itsAStart` 122.2, `crossPaths` 125.1, `college` 131.7, `leavingWalmart` 134.9, `sameSchool` 137.8, `fate` 142.3 |
 | Official | `calendar` 152.8, `official` 155.3, `alreadyDating` 158.5, `schoolTogether` 163.7, `workTogether` 165.6, `firstKiss` 168.6 |
-| Life | `buildingLife` 177.4, `firstPlace` 182.3, `cherry` 185.2, `home` 188.9, `japan` 195.1, `nextChapter` 197.9 |
-| Proposal | `birthday` 205.6, `kneel` 207.5, `question` 210.1, `photoReveal` 214.2, `yes` 216.1 |
-| Wedding and end | `threeYears` 223.9, `weddingDate` 231.5, `iDo` 233.5, `anniversaryWish` 235.9, `notSunday` 239.5, `coworkersMilestone` 245.4, `classmatesMilestone` 246.9, `dogParentsMilestone` 248.2, `homeownersMilestone` 249.3, `husbandAndWife` 250.5, `fullOfFate` 252.5, `celebrate` 259.3, `endCard` 266.1, `fadeOut` 271.6 |
+| Life | `buildingLife` 177.4, `firstPlace` 182.3, `cherry` 185.2, `home` 188.9, `takeoff` 192.7 |
+| Japan | `twoYears` 198.7, `flight` 201.3, `arrive` 203.6, `japan` 203.6 (same second as `arrive`; the old name kept), `tokyo` 205.6, `asakusa` 207.7, `neon` 210.7, `food` 213.7, `lost` 215.8, `laughed` 217.3, `lanterns` 219.4, `anniversary` 222.3, `moreThanATrip` 227.4, `nextChapter` 230.2 |
+| Proposal | `birthday` 239.1, `kneel` 241, `question` 243.6, `photoReveal` 247.7, `yes` 249.6 |
+| Wedding and end | `threeYears` 257.4, `weddingDate` 265, `iDo` 267, `anniversaryWish` 269.4, `notSunday` 273, `coworkersMilestone` 278.9, `classmatesMilestone` 280.4, `dogParentsMilestone` 281.7, `homeownersMilestone` 282.8, `husbandAndWife` 284, `fullOfFate` 286, `celebrate` 292.8, `endCard` 299.6, `fadeOut` 305.1 |
 
 Four version-1 names are still assigned, so older imports keep working:
 `payArgument` and `heWins` are `hoursTalking`, `foodUntouched` is `ourThing`,
 `dogOfTheirOwn` is `cherry`, `walmartToForever` is `coworkersMilestone`.
 
-`NARRATION` is 35 lines, `{ id, start, end, spread, text, es }`. `text` is English, `es` is
-Spanish. `spread` is 0 on the cover and 1..8 after that. Both strings are copied exactly
+`NARRATION` is 39 lines, `{ id, start, end, spread, text, es }`. `text` is English, `es` is
+Spanish. `spread` is 0 on the cover and 1..9 after that. Both strings are copied exactly
 into [SCRIPT.md](SCRIPT.md), including the typographic apostrophes, the ellipsis, and the
 « » quotes on "Sí, acepto". Captions fade over 0.5 s and stay up until 0.6 s after `end`,
 or until the next line's `start`, whichever is sooner. The words come from `narrationText`,
 so a Spanish viewing shows `es`.
 
-`SPREADS` rows are `{ k, id, title, titleEs, start, open, close, end }`. Spread 8 has
+`SPREADS` rows are `{ k, id, title, titleEs, start, open, close, end }`. Spread 9 has
 `close: null, end: null`. `start` equals the leaf turn that opens the spread; `open` equals
 that turn's end; `close` / `end` equal the next turn, or null when the spread stays open.
 
@@ -315,8 +319,8 @@ changes without a reload:
 
 `STRINGS` holds the shell: page title, cover title, end-card names (`BRIAN & MARLIN` in both
 languages) and date, chapter labels, control names, intro copy, and the two error sentences.
-Spread titles live on `SPREADS`, not in `STRINGS`. The intro hint says "about four and a
-half minutes" / "unos cuatro minutos y medio". The film is exactly 275 s.
+Spread titles live on `SPREADS`, not in `STRINGS`. The intro hint says "About five minutes ·
+best with sound" / "Unos cinco minutos · mejor con sonido". The film is exactly 308 s.
 
 The EN | ES control in `ui.js` reloads the page. It keeps `t` to three decimals and sets
 `play=1` when the film was playing. Other query parameters stay.
@@ -325,7 +329,7 @@ The EN | ES control in `ui.js` reloads the page. It keeps `t` to three decimals 
 
 `src/spreads/index.js` exports
 
-`SPREAD_MODULES = [walmart, lunch, dates, fate, official, life, proposal, wedding]`.
+`SPREAD_MODULES = [walmart, lunch, dates, fate, official, life, japan, proposal, wedding]`.
 
 Index k−1 is spread k. Ids match `SPREADS`. `src/spreads/_stub.js` is not imported.
 
@@ -436,15 +440,44 @@ Hearts and confetti run from `official`. One warm point light.
 **Life** (k = 6). One couple card at a time, under a sky V-fold at γ = 1.78. Open /
 `buildingLife`: moving boxes and the ribbon "building our life". At `firstPlace`: the
 apartment, a swinging key, `life-box`, and the tag "our first place". At `cherry`: the
-dog-bed, `dog-jump`, then `life-dogcuddle` at `cherry + 0.4·(home − cherry)`, and the print
+dog-bed, `dog-jump`, then `life-dogcuddle` at `cherry + 1.15`, and the print
 "Cherry, our girl" / "Cherry, nuestra niña". At `home`: the house, a SOLD / VENDIDA sign,
-`life-deed` then `life-keys` (the handoff is the midpoint from `home` to the travel beat),
-and the print "signing the deed". The paper plane leaves at narration line `h4`'s `start`.
-At `japan`: torii, temple-gate, `japan-selfie`, Fuji on the sky band, and the print
-"Tokyo · 2 years" / "Tokio · 2 años". At `nextChapter` that tag replaces the anniversary
-tag. One warm point light. `dog-bed` is scene art, not a character.
+`life-deed` then `life-keys` (keys at `home + 1.45`), and the print "signing the deed" /
+"firmando las escrituras". The home stays up. At `takeoff` a stickered suitcase pops, a tag
+reads "next stop: Japan ✈" / "próxima parada: Japón ✈", and a paper plane flies toward the
+next page. The Tokyo print and the trip itself are the japan spread. Two point lights, a
+warm glow and a fill. `dog-bed` is scene art, not a character. `art/life/` still holds
+`fuji`, `torii` and `temple-gate`; this spread does not mount them.
 
-**Proposal** (k = 7). The party backdrop is the only V-fold, a mountain at γ = 1.78, with
+**Japan** (k = 7). Left page is Asakusa by day, right page is Tokyo by night. One hero
+owns the centre at a time. Sky and Fuji are mountain V-folds sharing γ = 1.68 and stay up
+for the chapter. The lantern arch is its own mountain at γ = π/2 + 0.13. The big heart is
+its own mountain at γ = π/2 + 0.16. Three sliders, `side: 'spread'`: the paper plane on the
+flight path, the walking couple, and the goodbye. At `twoYears` a stickered suitcase pops
+with a heart tag "2 years ♥" / "2 años ♥" and a boarding pass slides out ("TO: JAPAN" /
+"DESTINO: JAPÓN"). At `flight` the plane crosses both pages on a dotted path, with two
+paper clouds, and tucks away at `arrive`. At `arrive` (`japan` is that same second)
+`japan-arrive` waves under "We made it!" / "¡Llegamos!" and a stamp reads "JAPAN" /
+"JAPÓN". At `tokyo` the `japan-walk` cycle (or `japan-walk-0` if the cycle is missing)
+crosses the left page and a sign reads "Tokyo" / "Tokio". At `asakusa` the pagoda, a plum
+branch and the Kaminarimon rise, `japan-selfie` faces the gate, a flash pops, and the
+`photos.tokyo` print swings in ("Tokyo · 2 years" / "Tokio · 2 años"). At `neon` the sky
+flips to night, the city, three blank neon signs and a vending machine come up, the walk
+continues on the right page, and a cool point light fades in. At `food` the ramen stall,
+steam, `japan-ramen`, a note "we tried everything" / "probamos de todo", and five snacks
+(sushi, ramen, dango, taiyaki, matcha). At `lost` the `japan-lost` cycle stands in a dashed
+circle with a question mark; at `laughed` the frame flips and "ha ha ha!" / "¡ja, ja, ja!"
+pops. At `lanterns` nine lanterns light along the arch and `japan-wish` stands under them.
+At `anniversary` `japan-hug`, the heart, a ribbon "happy anniversary ♥" / "¡feliz
+aniversario! ♥", and small hearts. At `moreThanATrip` three memory cards (the gate, a bowl,
+the sign). At `nextChapter` `japan-goodbye` walks off and an arrow reads "next chapter →" /
+"próximo capítulo →". Fallbacks are paper dolls (`her` wave, `her` walk, `couple` sit,
+`him` think, `couple` stand, `couple` walk). Two point lights: cool neon and warm lantern.
+`temple-gate` and `torii` are in `art/japan/` and are not mounted. No Japanese or Chinese
+characters: signs are blank or carry a heart, and the lettering above is English and
+Spanish through `L()`.
+
+**Proposal** (k = 8). The party backdrop is the only V-fold, a mountain at γ = 1.78, with
 HAPPY BIRTHDAY / FELIZ CUMPLEAÑOS on the right half. Cycle `proposal`: frame 0 until
 `kneel`, frame 1 (the kneel, with the ring sparkle) until `yes`, frame 2 (the hug) from
 `yes`. The question bubble is "Will you marry me?" / "¿Te casas conmigo?". At `photoReveal`
@@ -452,7 +485,7 @@ the `photos.proposal` print swings in, caption "she said yes!" / "¡dijo que sí
 the YES! / ¡SÍ! banner unfurls. `dog-sit` and `dog-jump` watch. Cake, gifts, streamers and
 confetti dress the page. Cherry is a girl; there is no bow tie. One warm point light.
 
-**Wedding** (k = 8). The spread never closes. Shared mountain γ = 1.78: trees, arch, the
+**Wedding** (k = 9). The spread never closes. Shared mountain γ = 1.78: trees, arch, the
 couple (`wedding` cycle; frame 1 from `iDo`), a garland "3 YEARS" / "3 AÑOS" with numbered
 hearts, a ribbon of five milestone portraits (`vest-chat`, `school-couple`,
 `life-dogcuddle`, `life-keys`, `wedding-0`), and a "See you there!" banner. The easel
@@ -464,7 +497,7 @@ fallback is `{ who: 'her', outfit: 'casual' }`, a person, not a dog. Both "I do"
 say "I do!" / "¡Sí, acepto!". Gentle motion continues under the end card. One warm point
 light.
 
-`paper.js` still exports `boat()` and `crane()`. None of these eight spreads call them.
+`paper.js` still exports `boat()` and `crane()`. None of these nine spreads call them.
 `popup.floatingLayer` is exported and unused here.
 
 ## 8. Characters, scene art, photos
@@ -492,14 +525,14 @@ A sidecar must be an object with:
 | `w`, `h` | integers matching that header |
 | `feet` | `[x, y]` in pixels, finite numbers, inside the bitmap (`x ≤ w−1`, `y ≤ h−1`). This is where the drawing meets the ground: the group's origin. Scene-art feet are often fractional |
 | `who` | non-empty list from `him`, `her`, `dog`, `sister`, `familyDog`, `parents`, `prop`, `oliver`. Every committed scene piece is `["prop"]` |
-| `scene` | `walmart`, `dates`, `official`, `life`, `proposal`, `wedding`, or `any`. `lunch` and `fate` are not in this set. The committed sidecars in `art/lunch/` and `art/fate/` use `"any"` |
+| `scene` | `walmart`, `lunch`, `dates`, `fate`, `official`, `life`, `japan`, `proposal`, `wedding`, or `any`. The committed sidecars in `art/lunch/` and `art/fate/` still say `"any"`. Japan sidecars say `"japan"` |
 | `units` | suggested height in world units, `(0, 20]` |
 | `cycle`, `frame` | both set, or both omitted. `frame` is an integer ≥ 0. One frame index per cycle |
 
 An invalid sidecar prints errors and exits 1 without replacing a manifest. An empty folder
 writes an empty manifest and exits 0.
 
-The eight committed sets, besides `page-left` and `page-right`:
+The nine committed sets, besides `page-left` and `page-right`:
 
 | Folder | Set pieces |
 |---|---|
@@ -509,6 +542,7 @@ The eight committed sets, besides `page-left` and `page-right`:
 | `art/fate/` | banner, bike-rack, college, concession, marquee, projector, screen, seats-front, seats-mid, signpost, trees |
 | `art/official/` | bouquet, calendar, candle-table, confetti-cluster, envelope-pile, garland, heart-arch, heart-balloons, heart-stick, photo-booth-strip, posts, valentine-cards |
 | `art/life/` | apartment, dog-bed, fuji, house, moving-boxes, paper-plane, sky-band, suitcase-stickers, temple-gate, torii |
+| `art/japan/` | boarding-pass, city-night, food-dango, food-matcha, food-ramen, food-sushi, food-taiyaki, fuji, heart-big, kaminarimon, lantern, neon-sign-a, neon-sign-b, neon-sign-c, pagoda, paper-plane, plum-branch, ramen-stall, signpost, sky-day, sky-night, suitcase-stickers, temple-gate, torii, vending-machine |
 | `art/proposal/` | backdrop, balloon-bunch, balloons-left, balloons-right, banner-yes, cake-table, gifts, party-hat, streamers |
 | `art/wedding/` | arch, cake, chairs-left, chairs-right, desk-calendar, easel, flower-pots, lantern-string, trees-backdrop |
 
@@ -560,8 +594,8 @@ select `cover`.
 `PHOTO_ASPECT` is `{ cover: 0.8, proposal: 0.82, dog: 0.7, oliver: 1.333, walmart: 0.779, lunch: 0.75, deed: 1.181, tokyo: 0.893 }`.
 
 Where the files are used: `cover` in the brass medallion; `walmart` on the Walmart spread;
-`lunch` on the lunch spread; `oliver` on the dates spread; `dog`, `deed` and `tokyo` on the
-life spread; `proposal` on the proposal spread. `tools/prep-photos.py` builds only
+`lunch` on the lunch spread; `oliver` on the dates spread; `dog` and `deed` on the life
+spread; `tokyo` on the japan spread; `proposal` on the proposal spread. `tools/prep-photos.py` builds only
 `cover.jpg`, `proposal.jpg` and `dog.jpg`. The other five are supplied already cropped.
 Details are in [`photos/README.md`](../photos/README.md).
 
@@ -600,14 +634,15 @@ facade is a mountain (1.66) and the couple plus the ribbon are valleys (1.12), s
 valley γ so those two stay parallel.
 
 Sliders in the film: the Walmart aisle (two, `side: 'spread'`), the dates walk, sister, car
-and run, and the fate campus walk. Each scales with `popup.rise` so it lies flat while the
-page is turning.
+and run, the fate campus walk, and on Japan the paper plane, the walk, and the goodbye (all
+three `side: 'spread'`). Each scales with `popup.rise` so it lies flat while the page is
+turning. The life spread's paper plane is a free group, not a slider.
 
 `dev/popup.html` checks 200 angles on load (crease perpendicular to the glue lines,
 orthonormal mounts, every card corner in its own half and inside the page, flat when closed,
 erect when open). Each `dev/spread-*.html?check=1` samples α from π down to 0 and the
-spread's open window. There is one harness per spread, including `spread-lunch.html` and
-`spread-fate.html`.
+spread's open window. There is one harness per spread, including `spread-lunch.html`,
+`spread-fate.html` and `spread-japan.html`.
 
 ## 10. Camera cues
 
@@ -631,7 +666,7 @@ Its own shots:
 - **Prologue.** A slow push in on the closed cover from t = 0 until 0.4 s before the first
   turn (`TURN_LEAD`). The cover's top is `COVER_TOP`.
 - **Page turns.** A wide, slightly high, centred view, from 0.4 s before the leaf moves
-  until the turn ends. All eight turns get one.
+  until the turn ends. All nine turns get one.
 - **End card.** From `END_CARD.start` to `DURATION`, a pull back and up. The look-at height
   is `openPageY(SPREADS.length)`, the open wedding spread. Negative vertical bias sinks the
   book so the names sit above it.
@@ -684,10 +719,10 @@ bottom 16%. `window.__cam.sample(t, aspect?)` returns `[px, py, pz, tx, ty, tz, 
 
 The schedule is in [§5](#5-master-schedule): ignition `lampOn` to `lampOn + 2.4` (0.4–2.8),
 level 1 until the proposal spread, proposal at 0.85 with a +0.18 swell around `yes`,
-wedding at 1.15, fade across `[fadeStart − 3, end − 0.5]` which is 268.6–274.5. Mood is
-chosen by spread id (`proposal`, `wedding`), not by a hard-coded k. The comment in
-`environment.js` that names 147.5–152.5 is the old window; the numbers in `FADE_OUT` are
-computed from `END_CARD`. The desk is a 40 × 40 walnut plane at y = 0, fading into the
+wedding at 1.15, fade across `[fadeStart − 3, end − 0.5]` which is 302.1–307.5. Mood is
+chosen by spread id (`proposal`, `wedding`), not by a hard-coded k. Japan keeps the warm
+room lamp and adds its own point lights. The numbers in `FADE_OUT` are computed from
+`END_CARD`. The desk is a 40 × 40 walnut plane at y = 0, fading into the
 room colour between radii 6.2 and 13.2 (the open album is 7.2 wide). Fog and the backdrop
 share that horizon colour. 320 dust motes, seeded with `makeRng(4242)`, drift in the vertex
 shader from `t` and glow only inside the lamp cone.
@@ -696,9 +731,9 @@ A hidden spread would remove its point light and force three.js to rebuild shade
 `adoptLights` clones each spread `PointLight` into a proxy that stays in the scene, hides
 the original, and `syncSpreadLights` copies world position, colour, intensity, distance and
 decay every pose. The proxy's intensity is 0 while the spread (or the light's own parent
-chain) is hidden. Other light types are not proxied. Seven spreads contribute one point
-light. Dates contributes two (warm and cool). The rendered set is the four environment
-lights plus nine proxies, all the time.
+chain) is hidden. Other light types are not proxied. Six spreads contribute one point
+light. Dates (warm and cool), life (glow and fill) and Japan (neon and lantern) contribute
+two each. The rendered set is the four environment lights plus twelve proxies, all the time.
 
 `book.update(t)` measures spot and hemisphere irradiance on the cover to drive the brass.
 It does not add a light.
@@ -722,8 +757,8 @@ matches, and `tools/render-video.mjs` can seek frame to frame on one loaded page
   session after playback has been steady for 80 ms. The narration buffer is started at
   offset = current film time. Duck breakpoints are the `NARRATION` line edges plus 0.25 s.
   Peak target for music plus foley, with no narration file, is at or under −3 dBFS.
-  `dev/audio.html` checks that, including the 6 dB duck. Its HTML comment still says
-  "0–153 s"; the check imports `DURATION` (275) and measures silence after `DURATION − 0.5`.
+  `dev/audio.html` checks that, including the 6 dB duck. Its comment names `DURATION`; the
+  check imports it (308) and measures silence after `DURATION − 0.5`.
 - **No per-frame allocation** on the hot path: shared vectors in `popup.js`, one reused
   angle array of length `LEAVES` in `main.js`, cached figure canvases.
 - Wall-clock code is `Player`, the UI idle timer (2.5 s), the tab-visibility pause, and
@@ -745,16 +780,22 @@ does not choose `narration.en.*` by itself; pass the file.
 The score is one 4-bar love theme in F, 3/4, an unmetered overture on the cover, then one
 section per spread. Walmart is playful (124, 118, 110, then 102 BPM). Lunch slows (100, 82,
 66). Dates walks, turns to night, then a short chase. Fate opens on a cinema organ. Official
-states the waltz and then a solo around the kiss. Life travels, and a koto takes the Japan
-passage. The proposal hushes and blooms on yes. The wedding states the theme, rings a pop
+states the waltz and then a solo around the kiss. Life travels and lifts as the paper plane
+leaves at `takeoff`. Japan is its own section, from its page turn to the proposal's: a
+pluck pulse into the flight, a pentatonic koto stroll, a neon night with a comic turn, a
+tender solo whose tonic lands on `anniversary`, and a dominant left hanging into the
+proposal. The proposal hushes and blooms on yes. The wedding states the theme, rings a pop
 on each of the five milestones, cadences, and fades under the end card.
 
 Foley: lamp click, and on every leaf turn (there is no skipped leaf) a rustle, a whoosh for
 the whole turn, and a flap, plus a creak and a thump on the cover turn. A shutter on the
-prints named `coworkers`, `ourThing`, `dogWalk`, `cherry`, `home`, `japan`, `photoReveal`.
-A stamp at `official`. Pen scratches at `home`. A clock that speeds up from `hoursTalking`
-to `ourThing`. A projector whirr from `movies` to `apartSeats`. A school bell at
-`sameSchool`. A pop at `yes` and at each of the five milestone beats.
+prints named `coworkers`, `ourThing`, `dogWalk`, `cherry`, `home`, `photoReveal`, and on
+`asakusa` (the Tokyo print). A stamp at `official` and another at `arrive`. Pen scratches
+at `home`. A clock that speeds up from `hoursTalking` to `ourThing`. A projector whirr from
+`movies` to `apartSeats`. A school bell at `sameSchool`. A pop at `yes` and at each of the
+five milestone beats. Japan also adds a whoosh at `takeoff`, a jet whoosh from `flight` to
+`arrive`, a suitcase thump at `twoYears`, three neon clicks, five food blips, a rustle at
+`lost`, and a lantern glint run at `lanterns`.
 
 ## 13. Privacy
 
@@ -775,7 +816,7 @@ What the film will load, and what a fresh clone shows:
 |---|---|---|
 | `photos/<name>.jpg` for the eight names in [§8](#8-characters-scene-art-photos) | `photos.js` | `null`. Cover emblem is a cut-paper heart. The original three prints are the doodled heart. The five added names draw their motif when the aspect matches. `?photos=0` skips the fetch |
 | `characters/manifest.json` and the images it names | `characters.js` | empty set, silent. `actor()` uses paper dolls, or a hole when the fallback is `null`. `?chars=0` skips the fetch |
-| `art/<id>/manifest.json` and its WebP pieces, eight folders | the same loader, base `./art/<id>/` | empty set. Spreads paint `paper.page` backgrounds and skip set pieces. The committed tree has all eight |
+| `art/<id>/manifest.json` and its WebP pieces, nine folders | the same loader, base `./art/<id>/` | empty set. Spreads paint `paper.page` backgrounds and skip set pieces. The committed tree has all nine |
 | `audio/narration.<lang>.(mp3\|m4a\|wav)`, then `audio/narration.(mp3\|m4a\|wav)` | `audio.js` | no narration, no duck, no error |
 
 Do not copy the photographs, the character drawings, or the recordings anywhere else in the
@@ -797,7 +838,7 @@ MP4 will leave the machine. Its optional-asset regex covers photos and `audio/na
 (optional language suffix) only, so a missing character file or a missing scene manifest
 fails that run. `--lang en|es` appends `lang=`. The default output name is `film-<lang>.mp4`
 (from `--lang`, else from an existing `lang=` in `--query`, else `en`). `--to` defaults to
-`DURATION` imported from `timeline.js`. At 30 fps that is 8250 frames.
+`DURATION` imported from `timeline.js`. At 30 fps that is 9240 frames.
 
 ## 14. Adding or changing a scene
 
@@ -856,7 +897,7 @@ fails that run. `--lang en|es` appends `lang=`. The default output name is `film
 1. `dims.js`: `LEAVES` (page size too, if the album changes). `leafAngles`, the φ array in
    `main.js`, and the hinge scratch in `book.js` are sized from `LEAVES`.
 2. `book.js`: cover and back cover are leaf 0 and leaf `LEAVES − 1`. The hover gap and
-   `openPageY` are formulas, so a new count updates them. Anything that still assumes eight
+   `openPageY` are formulas, so a new count updates them. Anything that still assumes nine
    anchors has to be read.
 3. `camera.js`: the end-card shot uses `openPageY(SPREADS.length)`. A new last spread
    becomes that height on its own.
@@ -865,8 +906,8 @@ fails that run. `--lang en|es` appends `lang=`. The default output name is `film
    currently has `close: null`. Give it a close, and let the new last spread be the one
    that stays open if that is still the design.
 5. `src/spreads/<id>.js`, register it in `SPREAD_MODULES` at index k−1, and add
-   `dev/spread-<id>.html` by copying one of the eight. Copy the fold check. Add a washi
-   colour if the eight tapes are not enough; the list already wraps with `%`.
+   `dev/spread-<id>.html` by copying one of the nine. Copy the fold check. Add a washi
+   colour if the nine tapes are not enough; the list already wraps with `%`.
 6. `art/<id>/` plus a manifest. `main.js` discovers art folders from `timeline.SPREADS`,
    so a new id is loaded once it is in that table. Add the id to `SCENES` in
    `build-character-manifest.mjs`, or mark the sidecars `any`.
@@ -876,7 +917,7 @@ fails that run. `--lang en|es` appends `lang=`. The default output name is `film
 8. `audio.js`: a section function for the new id, called from `buildEvents`. Turn music
    and turn foley already loop every `LEAF_TURNS` row. There is no skipped leaf.
 9. Warm-up times are derived from `LEAF_TURNS` and `DURATION`. They grow on their own.
-   Today that list has 18 moments.
+   Today that list has 20 moments.
 
 Keep `characters/` and `photos/` out of the commit, and keep narration files out as well
 ([§13](#13-privacy)). Scene art is scenery. People go in `characters/poses/` and through
@@ -900,7 +941,7 @@ the manifest.
     One page per spread id.
   - `dev/audio.html` — offline score, peak ≤ −3 dBFS, chapter energy, turn foley, silence
     after `DURATION − 0.5`, 6 dB duck. `?quick=1` renders three windows only. The comment
-    at the top of the file still says the film is 0–153 s.
+    at the top of the file names `DURATION`, which is 308 s.
   - `dev/prints.html` — glyph coverage of the characters the film letters. A fallback glyph
     is `console.error`, so `snap.mjs` fails. The specimen grid still paints `cover`,
     `proposal` and `dog` only, and the page comment still says "three photos".
