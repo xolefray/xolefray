@@ -4,16 +4,17 @@
 import { L } from '../i18n.js';
 import { PHOTO_ASPECT, photoPrint } from '../photos.js';
 
-const HERO = 1.62;
-const WALK_H = 1.58;
-const RAMEN_H = 1.34;
+const HERO = 1.7;
+const WALK_H = 1.7;
+const RAMEN_H = 1.66;
 const ARCH_G = Math.PI / 2 + 0.13;
 const ARCH_Z = -0.85;
 const ARCH_SIN = Math.sin(ARCH_G);
-const HEART_G = Math.PI / 2 + 0.16;
-const HEART_Z = -0.32;
-const HEART_W = 2.85;
-const HEART_H = 1.78;
+// Hug, heart and the anniversary banner share this hinge. Far enough from the
+// gutter that a square heart (≤ 2 tall) and a wide ribbon above their heads
+// both stay inside the loose fold limit.
+const HUG_X = 2.02;
+const HUG_Z = 0.92;
 const SKY_Z = -1.18;
 const SKY_W = 4.8;
 const SKY_H = 1.58;
@@ -126,7 +127,8 @@ export default {
     const anniversary = BEATS.anniversary;
     const more = BEATS.moreThanATrip;
     const next = BEATS.nextChapter;
-    const wideAt = spread.close - 2.05;
+    // Last 1.3 s before the closing turn window (close − 0.4) is the final wide.
+    const wideAt = spread.close - 0.4 - 1.3;
 
     let leftArt;
     let rightArt;
@@ -344,9 +346,9 @@ export default {
     }
 
     // ------------------------------------------------------------------ opening: suitcase, tag, pass, centre front
-    const suitH = 0.98;
-    const suitW = widthOf(info('suitcase-stickers'), suitH, 0.55);
-    const suit = stand('right', 1.35, 0.95, 'back', 1.15, 0.98, 'suitcase');
+    const suitH = 1.38;
+    const suitW = widthOf(info('suitcase-stickers'), suitH, 0.85);
+    const suit = stand('right', 1.58, 0.95, 'back', Math.max(suitW, 1.15), suitH + 0.55, 'suitcase');
     const suitCard = prop('suitcase-stickers', suitH);
     if (suitCard) suit.add(suitCard);
     const tagW = 0.86;
@@ -369,11 +371,9 @@ export default {
     // ------------------------------------------------------------------ flight
     const planeSlider = track(popup.slider({ side: 'spread', path: FLIGHT, lift: 0.006, smooth: true }));
     const planeRoot = holdOf(planeSlider.mount, 'plane');
-    const planeCard = prop('paper-plane', 0.62);
-    if (planeCard) {
-      planeCard.rotation.x = -0.1;
-      planeRoot.add(planeCard);
-    }
+    // Long side of the drawing (620×408). Height 1.45 → about 2.2 long, facing the reader.
+    const planeCard = prop('paper-plane', 1.45);
+    if (planeCard) planeRoot.add(planeCard);
     const cloudL = track(popup.onPage({ side: 'left', x: 1.85, z: -0.35, lift: 0.004 }));
     const cloudR = track(popup.onPage({ side: 'right', x: 2.05, z: 0.15, lift: 0.004 }));
     const cloudA = painted(THREE, paper, cloudCanvas(paper), 0.62);
@@ -385,16 +385,28 @@ export default {
     cloudL.mount.add(cloudA);
     cloudR.mount.add(cloudB);
 
-    const dotGeo = new THREE.PlaneGeometry(0.11, 0.11);
-    dotGeo.rotateX(-Math.PI / 2);
+    // Standing beads, not flat specks, so the trail reads from the front.
+    const dotGeo = new THREE.PlaneGeometry(0.46, 0.46);
+    dotGeo.translate(0, 0.23, 0);
     const dotMat = new THREE.MeshBasicMaterial({
-      map: paper.texture(dotCanvas(paper, C)),
+      map: paper.texture(dotCanvas(paper, { mustard: '#e07a28', teal: '#e07a28' })),
       alphaTest: 0.4,
       depthWrite: false,
     });
+    const TRAIL = [];
+    for (let i = 0; i < FLIGHT.length - 1; i++) {
+      for (let s = 0; s < 4; s++) {
+        const f = s / 4;
+        TRAIL.push([
+          FLIGHT[i][0] + (FLIGHT[i + 1][0] - FLIGHT[i][0]) * f,
+          FLIGHT[i][1] + (FLIGHT[i + 1][1] - FLIGHT[i][1]) * f,
+        ]);
+      }
+    }
+    TRAIL.push(FLIGHT[FLIGHT.length - 1]);
     const leftDots = [];
     const rightDots = [];
-    for (let i = 0; i < FLIGHT.length; i++) (FLIGHT[i][0] < 0 ? leftDots : rightDots).push(i);
+    for (let i = 0; i < TRAIL.length; i++) (TRAIL[i][0] < 0 ? leftDots : rightDots).push(i);
     const DOT_X = 1.7;
     const dotsPageL = track(popup.onPage({ side: 'left', x: DOT_X, z: 0, lift: 0.008 }));
     const dotsPageR = track(popup.onPage({ side: 'right', x: DOT_X, z: 0, lift: 0.008 }));
@@ -491,7 +503,7 @@ export default {
     const shotLong = 1.18;
     const shotW = shotRatio >= 1 ? shotLong : shotLong * shotRatio;
     const shotH = shotRatio >= 1 ? shotLong / shotRatio : shotLong;
-    const printHold = stand('left', 2.52, 0.62, 'back', shotW, shotH, 'tokyo-print');
+    const printHold = stand('left', 3.02, 0.62, 'back', shotW, shotH, 'tokyo-print');
     const printCard = paper.card({
       canvas: paper.dieCut(shot, { margin: 2 }),
       width: shotW,
@@ -650,7 +662,8 @@ export default {
       const x = -2.25 + (4.5 * i) / (LANTERN_N - 1);
       const u = x / 2.25;
       lanternX[i] = x;
-      lanternY[i] = 1.86 - 0.7 * u * u;
+      // A real arc: high over the gutter, dipping toward each fore-edge.
+      lanternY[i] = 1.88 - 0.55 * u * u;
       lanternLx[i] = x / ARCH_SIN;
       if (!lanternProto) continue;
       const g = lanternProto.clone(true);
@@ -687,7 +700,7 @@ export default {
     addRopeInstances(THREE, ropeMat, archL, ropeL);
     addRopeInstances(THREE, ropeMat, archR, ropeR);
 
-    const wishH = HERO;
+    const wishH = 1.7;
     const wishW = widthOf(charInfo(characters, 'japan-wish'), wishH, 0.95);
     const wishHold = stand('left', 1.4, 0.86, 'back', wishW, wishH, 'japan-wish');
     const wishCard = characterArt.actor(
@@ -714,25 +727,20 @@ export default {
     motes.castShadow = false;
     wishHold.add(motes);
 
-    const heart = track(popup.vFold({ z0: HEART_Z, gamma: HEART_G, width: HEART_W, height: HEART_H }));
-    heart.object.name = 'heart-big';
-    const heartL = holdOf(heart.left, 'heart-l');
-    const heartR = holdOf(heart.right, 'heart-r');
-    if (has('heart-big')) {
-      const parts = paper.splitCard({
-        canvas: paper.dieCut(art.canvas('heart-big'), { margin: 6 }),
-        width: HEART_W,
-        height: HEART_H,
-      });
-      parts.left.name = 'heart-l';
-      parts.right.name = 'heart-r';
-      heartL.add(parts.left);
-      heartR.add(parts.right);
+    // Natural proportions (the drawing is almost square), ≤ 2 tall, same hinge
+    // line as the hug and in front of the gate so the gate cannot hide it.
+    const heartH = 1.86;
+    const heartW = widthOf(info('heart-big'), heartH, 1.88);
+    const heartHold = stand('left', HUG_X, 0.68, 'back', heartW, heartH, 'heart-big');
+    const heartCard = prop('heart-big', heartH);
+    if (heartCard) {
+      heartCard.scale.set(0, 0, 0);
+      heartHold.add(heartCard);
     }
 
-    const hugH = 1.64;
+    const hugH = 1.7;
     const hugW = widthOf(charInfo(characters, 'japan-hug'), hugH, 0.85);
-    const hugHold = stand('left', 1.28, 0.9, 'back', hugW, hugH, 'japan-hug');
+    const hugHold = stand('left', HUG_X, HUG_Z, 'back', hugW, hugH, 'japan-hug');
     const hugCard = characterArt.actor(
       paper, characters, figures, 'japan-hug',
       { who: 'couple', outfit: 'casual', pose: 'stand' },
@@ -744,12 +752,15 @@ export default {
       hugHold.add(hugCard);
     }
 
-    const ribW = 2.15;
-    const ribbonHold = stand('left', 1.42, 1.12, 'back', ribW, 0.5, 'anniversary-ribbon');
-    const ribbon = painted(THREE, paper, ribbonArt(paper, FONT, C, L('happy anniversary ♥', '¡feliz aniversario! ♥')), ribW);
+    // Level banner on the hug, above their heads. Short canvas; fitSize shrinks
+    // the longer Spanish line so it stays on the ribbon.
+    const ribW = 1.88;
+    const ribbon = painted(THREE, paper, ribbonArt(paper, FONT, C, L('happy anniversary ♥', '¡feliz aniversario! ♥'), 188), ribW);
     ribbon.name = 'anniversary-ribbon';
-    ribbon.position.set(0, 0, 0.02);
-    ribbonHold.add(ribbon);
+    // z stays 0: a forward offset becomes −Y once the stand lies flat.
+    ribbon.position.set(0, hugH + 0.02, 0);
+    ribbon.scale.set(0, 0, 0);
+    hugHold.add(ribbon);
 
     const heartGeo = new THREE.PlaneGeometry(0.14, 0.14);
     heartGeo.translate(0, 0.07, 0);
@@ -769,9 +780,9 @@ export default {
 
     const memories = [];
     const memSpec = [
-      ['kaminarimon', 1.22, 0.4, -0.06],
-      ['food-ramen', 1.95, 0.42, 0.04],
-      ['signpost', 2.68, 0.38, -0.03],
+      ['kaminarimon', 1.12, 0.42, -0.06],
+      ['food-ramen', 1.42, 1.12, 0.04],
+      ['signpost', 0.78, 0.9, -0.03],
     ];
     for (let i = 0; i < memSpec.length; i++) {
       const [id, x, z, tilt] = memSpec[i];
@@ -787,7 +798,7 @@ export default {
 
     const byeSlider = track(popup.slider({ side: 'spread', path: BYE, lift: 0.012, smooth: false }));
     const byeRoot = holdOf(byeSlider.mount, 'japan-goodbye');
-    const byeH = 1.58;
+    const byeH = 1.7;
     const byeCard = characterArt.actor(
       paper, characters, figures, 'japan-goodbye',
       { who: 'couple', outfit: 'casual', pose: 'walk' },
@@ -804,7 +815,7 @@ export default {
     const arrowHold = stand('right', 2.15, 1.05, 'back', arrowW, 0.46, 'next-arrow');
     const arrow = painted(THREE, paper, ribbonArt(paper, FONT, C, L('next chapter →', 'próximo capítulo →')), arrowW);
     arrow.name = 'next-chapter';
-    arrow.position.set(0, 0, 0.02);
+    arrow.position.set(0, 0.62, 0.02);
     arrowHold.add(arrow);
     const sparkGeo = new THREE.PlaneGeometry(0.11, 0.11);
     sparkGeo.translate(0, 0.055, 0);
@@ -836,24 +847,46 @@ export default {
     const YUP = new THREE.Vector3(0, 1, 0);
     let lostFrame = 0;
 
-    // Starts are at least 1.2s apart so each shot rests (camera.js blends anything closer).
-    // Each rest covers the film sample for that beat and ends before the page-turn windows.
-    const cues = [
-      { t: open + 0.28, hold: 0.7, at: [0, 1.15, 0], size: 7.5, from: 'front' },
-      { t: twoYears + 0.65, hold: 1.5, at: [1.35, 0.85, 0.65], size: 3.2, from: 'front' },
-      { t: flight - 0.3, hold: 1.7, at: [-0.25, 0.85, 0.3], size: 4.8, from: 'front' },
-      { t: arrive - 0.2, hold: 1.6, at: [-1.55, 1.15, 0.45], size: 2.8, from: 'front' },
-      { t: tokyo - 0.05, hold: 1.6, at: [-0.55, 1.1, 0.45], size: 3.8, from: 'front' },
-      { t: asakusa + 0.05, hold: 2.4, at: [-2.0, 1.18, 0.35], size: 3.4, from: 'front' },
-      { t: neon + 0.25, hold: 2.3, at: [1.55, 1.15, 0.15], size: 4.5, from: 'front' },
-      { t: food + 0.35, hold: 1.5, at: [1.95, 1.02, 0.55], size: 3.1, from: 'front' },
-      { t: lost - 0.05, hold: 2.6, at: [1.7, 1.15, 0.5], size: 3.0, from: 'front' },
-      { t: lanterns - 0.35, hold: 3.2, at: [-0.1, 1.28, 0.12], size: 4.2, from: 'front' },
-      { t: anniversary + 0.85, hold: 3.6, at: [-0.7, 1.02, 0.32], size: 2.7, from: 'front' },
-      { t: more - 0.1, hold: 1.4, at: [-1.9, 1.05, 0.25], size: 4.2, from: 'front' },
-      { t: next - 1.4, hold: 3.6, at: [1.35, 1.05, 0.4], size: 4.2, from: 'front' },
-      { t: wideAt + 0.3, hold: 1.2, at: [0, 1.15, 0], size: 7.5, from: 'front' },
+    // camera.js rests only when cues are ≥ 1.2 s apart, then travels for ~1.05 s
+    // before the next one. Holds run until the next cue. The opening turn blocks
+    // anything before open + 0.16, so the wide starts just after that and yields
+    // at twoYears + ~0.4 (the rig needs the gap; twoYears + 0.3 is 0.1 s earlier).
+    const openT = open + 0.2;
+    const twoT = Math.max(twoYears + 0.42, openT + 1.22);
+    const flightT = Math.max(flight + 0.05, twoT + 1.22);
+    const arriveT = Math.max(arrive + 0.08, flightT + 1.22);
+    const tokyoT = Math.max(tokyo + 0.25, arriveT + 1.22);
+    const asakusaT = Math.max(asakusa + 0.16, tokyoT + 1.22);
+    const neonT = Math.max(neon + 0.72, asakusaT + 1.22);
+    const foodT = Math.max(food + 0.16, neonT + 1.22);
+    const lostT = Math.max(lost + 0.36, foodT + 1.22);
+    const lanternT = Math.max(lanterns + 0.18, lostT + 1.22);
+    const annT = Math.max(anniversary + 0.32, lanternT + 1.22);
+    const moreT = Math.max(more + 0.12, annT + 4.6);
+    const nextT = Math.max(next - 0.05, moreT + 1.22);
+    const shots = [
+      { t: openT, at: [0, 1.05, 0], size: 7.5, from: 'front' },
+      { t: twoT, at: [1.58, 0.78, 0.78], size: 2.5, from: 'front' },
+      { t: flightT, at: [0.15, 0.95, 0.35], size: 4.0, from: 'front' },
+      { t: arriveT, at: [-1.72, 0.88, 0.62], size: 2.5, from: 'front' },
+      { t: tokyoT, at: [0.15, 0.95, 0.5], size: 3.0, from: 'front' },
+      { t: asakusaT, at: [-1.58, 0.38, 0.62], size: 2.7, from: 'left' },
+      { t: neonT, at: [1.75, 1.12, 0.05], size: 3.6, from: 'right' },
+      { t: foodT, at: [1.95, 1.05, 0.7], size: 2.4, from: 'front' },
+      { t: lostT, at: [1.85, 1.08, 0.66], size: 2.3, from: 'front' },
+      { t: lanternT, at: [-1.4, 0.95, 0.45], size: 3.2, from: 'front' },
+      { t: annT, at: [-HUG_X, 0.82, 0.62], size: 2.4, from: 'front' },
+      { t: moreT, at: [-1.85, 0.62, 0.55], size: 3.4, from: 'left' },
+      { t: nextT, at: [1.85, 1.05, 0.62], size: 3.0, from: 'right' },
+      { t: wideAt, at: [0, 1.05, 0], size: 7.5, from: 'front' },
     ];
+    const cues = shots.map((c, i) => ({
+      t: c.t,
+      hold: i + 1 < shots.length ? shots[i + 1].t - c.t : Math.max(0.6, (spread.close - 0.4) - c.t),
+      at: c.at,
+      size: c.size,
+      from: c.from,
+    }));
 
     return {
       group,
@@ -882,12 +915,19 @@ export default {
         const uFly = smoothstep(flight, arrive - 0.15, t);
         const planeS = smoothstep(flight - 0.12, flight + 0.22, t) * (1 - smoothstep(arrive - 0.25, arrive + 0.05, t));
         planeSlider.update(alpha, uFly);
-        planeRoot.position.y = erect * (0.06 + Math.sin(uFly * Math.PI) * 0.32) * risen;
+        planeRoot.position.y = erect * (0.42 + Math.sin(uFly * Math.PI) * 0.72) * risen;
         const ps = planeS * risen * erect;
         planeRoot.scale.set(ps, ps, ps > 0.02 ? 1 : 0);
-        planeRoot.rotation.z = Math.sin(uFly * Math.PI * 2) * 0.16 * planeS;
-        layDots(dotsL, leftDots, FLIGHT, DOT_X, -1, uFly, ps, scratchM, scratchP, scratchQ, scratchS);
-        layDots(dotsR, rightDots, FLIGHT, DOT_X, 1, uFly, ps, scratchM, scratchP, scratchQ, scratchS);
+        // The slider yaws the card along the path, which turns it edge-on. Cancel that
+        // so the drawing stays face-on to the reader, with a small bank.
+        planeRoot.quaternion.copy(planeSlider.mount.quaternion).invert();
+        planeRoot.rotateZ(Math.sin(uFly * Math.PI * 2) * 0.14 * planeS);
+        layDots(dotsL, leftDots, TRAIL, DOT_X, -1, uFly, ps, scratchM, scratchP, scratchQ, scratchS);
+        layDots(dotsR, rightDots, TRAIL, DOT_X, 1, uFly, ps, scratchM, scratchP, scratchQ, scratchS);
+        // The fold check reads the mesh origin, not instances. Collapse it while the page turns.
+        const dotShow = ps > 0.02 ? 1 : 0;
+        dotsL.scale.set(dotShow, dotShow, dotShow);
+        dotsR.scale.set(dotShow, dotShow, dotShow);
         const drift = Math.sin(t * 0.45) * 0.16;
         cloudA.position.set(drift, 0.02, 0);
         cloudB.position.set(-drift * 0.7, 0.02, 0);
@@ -1046,13 +1086,12 @@ export default {
         }
         motes.instanceMatrix.needsUpdate = true;
 
-        const hugF = face(t, anniversary + 0.04, more - 0.22);
+        const hugF = face(t, anniversary + 0.04, next - 0.22);
         applyFace(hugHold, hugF, hugF > 0.92 ? breathe : 1, bump(t, anniversary, 0.36));
         const heartS = popIn(ease, t, anniversary + 0.02, 0.38) * (1 - smoothstep(more - 0.4, more - 0.08, t));
-        setShow(heartL, heartS);
-        setShow(heartR, heartS);
+        if (heartCard) setShow(heartCard, heartS);
         const ribS = popIn(ease, t, anniversary + 0.22, 0.32) * (1 - smoothstep(more - 0.38, more - 0.06, t));
-        applyFace(ribbonHold, ribS, 1, 0);
+        ribbon.scale.set(ribS, ribS, ribS > 0.02 ? 1 : 0);
         const heartsOn = smoothstep(anniversary + 0.3, anniversary + 0.6, t) * (hugF > 0.4 ? 1 : 0);
         for (let i = 0; i < 5; i++) {
           const age = (t * 0.28 + i * 0.19) % 1;
@@ -1084,7 +1123,7 @@ export default {
         const sparkOn = arrowS > 0.55 ? 1 : 0;
         for (let i = 0; i < 6; i++) {
           const p = 0.55 + 0.45 * Math.abs(Math.sin(t * 3.2 + i));
-          scratchP.set(-0.95 + i * 0.36, 0.38 + Math.sin(t * 2 + i) * 0.05, 0.04);
+          scratchP.set(-0.95 + i * 0.36, 0.86 + Math.sin(t * 2 + i) * 0.05, 0.04);
           scratchQ.identity();
           scratchS.set(p * sparkOn, p * sparkOn, sparkOn);
           scratchM.compose(scratchP, scratchQ, scratchS);
@@ -1205,7 +1244,7 @@ function layDots(mesh, indices, path, originX, side, uFly, show, m, p, q, s) {
     const lx = side < 0 ? path[i][0] + originX : path[i][0] - originX;
     p.set(lx, 0.004, path[i][1]);
     q.identity();
-    s.set(sc, 1, sc > 0.02 ? 1 : 0);
+    s.set(sc, sc, sc > 0.02 ? 1 : 0);
     m.compose(p, q, s);
     mesh.setMatrixAt(k, m);
   }
@@ -1349,17 +1388,18 @@ function haArt(paper, FONT, C, text) {
   return canvas;
 }
 
-function ribbonArt(paper, FONT, C, text) {
+function ribbonArt(paper, FONT, C, text, H = 280) {
   const W = 1400;
-  const H = 280;
   const { canvas, ctx } = paper.makeCanvas(W, H);
   ctx.fillStyle = C.tomato;
-  roundBox(ctx, 16, 36, W - 32, H - 72, 28);
+  const padY = Math.max(10, Math.round(H * 0.12));
+  roundBox(ctx, 16, padY, W - 32, H - padY * 2, Math.min(28, H * 0.2));
   ctx.fill();
   ctx.fillStyle = '#fffaf3';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, 92, W * 0.9);
+  let size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, Math.min(92, H * 0.62), W * 0.9);
+  if (size > H * 0.62) size = H * 0.62;
   ctx.font = `${size}px ${FONT.display}`;
   ctx.fillText(text, W / 2, H * 0.52);
   return canvas;
