@@ -10,16 +10,17 @@
  * never hard-code a film time anywhere else. To retime the film, edit the schedule this file
  * was generated from, then this file.
  *
- * Version 2. Book: 9 leaves (0 = front cover, 1..7 inner
- * boards, 8 = back cover, which never moves) and 8 spreads
- * k = 1..8; spread k lies between leaf k-1 and leaf k and opens while leaf k-1 turns.
+ * Version 3. Book: 10 leaves (0 = front cover, 1..8 inner
+ * boards, 9 = back cover, which never moves) and nine spreads
+ * k = 1..9; spread k lies between leaf k-1 and leaf k and opens while leaf k-1 turns.
+ * Duration 308 s (5:08). Japan is spread k = 7.
  * The narrator speaks as "we". Each narration line and each spread title exists in English and Spanish;
  * which one is shown is chosen in i18n.js (LANG), not by retiming anything here.
  */
 import { LEAVES } from './dims.js';
 import { L, tr } from './i18n.js';
 
-export const DURATION = 275;
+export const DURATION = 308;
 
 export const COUPLE = {
   "him": "Brian",
@@ -65,13 +66,18 @@ export const LEAF_TURNS = [
   },
   {
     "leaf": 6,
-    "start": 201.6,
-    "end": 204.6
+    "start": 194.7,
+    "end": 197.7
   },
   {
     "leaf": 7,
-    "start": 219.9,
-    "end": 222.9
+    "start": 235.1,
+    "end": 238.1
+  },
+  {
+    "leaf": 8,
+    "start": 253.4,
+    "end": 256.4
   }
 ];
 
@@ -134,26 +140,36 @@ export const SPREADS = [
     "titleEs": "Construyendo nuestra vida",
     "start": 173.4,
     "open": 176.4,
-    "close": 201.6,
-    "end": 204.6
+    "close": 194.7,
+    "end": 197.7
   },
   {
     "k": 7,
-    "id": "proposal",
-    "title": "On her birthday",
-    "titleEs": "En su cumpleaños",
-    "start": 201.6,
-    "open": 204.6,
-    "close": 219.9,
-    "end": 222.9
+    "id": "japan",
+    "title": "Our Japan adventure",
+    "titleEs": "Nuestra aventura en Japón",
+    "start": 194.7,
+    "open": 197.7,
+    "close": 235.1,
+    "end": 238.1
   },
   {
     "k": 8,
+    "id": "proposal",
+    "title": "On her birthday",
+    "titleEs": "En su cumpleaños",
+    "start": 235.1,
+    "open": 238.1,
+    "close": 253.4,
+    "end": 256.4
+  },
+  {
+    "k": 9,
     "id": "wedding",
     "title": "February 6, 2027",
     "titleEs": "6 de febrero de 2027",
-    "start": 219.9,
-    "open": 222.9,
+    "start": 253.4,
+    "open": 256.4,
     "close": null,
     "end": null
   }
@@ -374,74 +390,106 @@ export const NARRATION = [
     "es": "Más adelante, compramos nuestra propia casa."
   },
   {
-    "id": "h4",
-    "start": 193,
-    "end": 200,
-    "spread": 6,
-    "text": "And for our two-year anniversary, we traveled to Japan, where another unforgettable chapter began.",
-    "es": "Y para nuestro segundo aniversario, viajamos a Japón, donde comenzó otro capítulo inolvidable."
+    "id": "j1",
+    "start": 198.7,
+    "end": 204.8,
+    "spread": 7,
+    "text": "For our two-year anniversary, we packed our bags and flew across the world to Japan.",
+    "es": "Para nuestro segundo aniversario, hicimos las maletas y cruzamos el mundo hasta Japón."
+  },
+  {
+    "id": "j2",
+    "start": 205.6,
+    "end": 212.7,
+    "spread": 7,
+    "text": "We wandered Tokyo side by side, from the great red lantern at Asakusa to streets glowing with neon.",
+    "es": "Recorrimos Tokio lado a lado, desde el gran farol rojo de Asakusa hasta calles llenas de luces de neón."
+  },
+  {
+    "id": "j3",
+    "start": 213.7,
+    "end": 218.6,
+    "spread": 7,
+    "text": "We tried everything, got a little lost, and laughed the whole way.",
+    "es": "Probamos de todo, nos perdimos un poquito y nos reímos todo el camino."
+  },
+  {
+    "id": "j4",
+    "start": 219.4,
+    "end": 226.2,
+    "spread": 7,
+    "text": "Celebrating two years together on the other side of the world is something we’ll never forget.",
+    "es": "Celebrar dos años juntos al otro lado del mundo es algo que nunca olvidaremos."
+  },
+  {
+    "id": "j5",
+    "start": 227.4,
+    "end": 232.9,
+    "spread": 7,
+    "text": "It was more than a trip. It was the start of another unforgettable chapter.",
+    "es": "Fue más que un viaje. Fue el comienzo de otro capítulo inolvidable."
   },
   {
     "id": "p1",
-    "start": 205.6,
-    "end": 209.4,
-    "spread": 7,
+    "start": 239.1,
+    "end": 242.9,
+    "spread": 8,
     "text": "On Marlin’s birthday, Brian got down on one knee…",
     "es": "En el cumpleaños de Marlin, Brian se arrodilló…"
   },
   {
     "id": "p2",
-    "start": 210.1,
-    "end": 213.3,
-    "spread": 7,
+    "start": 243.6,
+    "end": 246.8,
+    "spread": 8,
     "text": "…and asked her to spend forever with him.",
     "es": "…y le pidió pasar toda la vida juntos."
   },
   {
     "id": "x1",
-    "start": 223.9,
-    "end": 230.7,
-    "spread": 8,
+    "start": 257.4,
+    "end": 264.2,
+    "spread": 9,
     "text": "And now, after three years together, we’re finally making it official in a whole new way!",
     "es": "Y ahora, después de tres años juntos, ¡por fin lo haremos oficial de una manera completamente nueva!"
   },
   {
     "id": "x2",
-    "start": 231.5,
-    "end": 234.9,
-    "spread": 8,
+    "start": 265,
+    "end": 268.4,
+    "spread": 9,
     "text": "On February 6, 2027, we’ll be saying “I do.”",
     "es": "El 6 de febrero de 2027 diremos «Sí, acepto»."
   },
   {
     "id": "x3",
-    "start": 235.9,
-    "end": 244,
-    "spread": 8,
+    "start": 269.4,
+    "end": 277.5,
+    "spread": 9,
     "text": "We wanted February 7, our anniversary… but apparently a Sunday wasn’t everyone’s idea of a good party!",
     "es": "Queríamos el 7 de febrero, nuestro aniversario… ¡pero al parecer un domingo no era la idea de una buena fiesta para todos!"
   },
   {
     "id": "x4",
-    "start": 245,
-    "end": 251.9,
-    "spread": 8,
+    "start": 278.5,
+    "end": 285.4,
+    "spread": 9,
     "text": "From Walmart coworkers to college classmates, dog parents, homeowners, and now husband and wife…",
     "es": "De compañeros en Walmart a compañeros de universidad, papás perrunos, dueños de casa y, ahora, esposos…"
   },
   {
     "id": "x5",
-    "start": 252.5,
-    "end": 258.4,
-    "spread": 8,
+    "start": 286,
+    "end": 291.9,
+    "spread": 9,
     "text": "…our story has been full of unexpected turns, laughter, and a little bit of fate.",
     "es": "…nuestra historia ha estado llena de giros inesperados, risas y un poquito de destino."
   },
   {
     "id": "x6",
-    "start": 259.3,
-    "end": 263.9,
-    "spread": 8,
+    "start": 292.8,
+    "end": 297.4,
+    "spread": 9,
     "text": "We can’t wait to celebrate the next chapter with you!",
     "es": "¡No podemos esperar para celebrar el próximo capítulo con ustedes!"
   }
@@ -489,32 +537,45 @@ export const BEATS = {
   "firstPlace": 182.3,
   "cherry": 185.2,
   "home": 188.9,
-  "japan": 195.1,
-  "nextChapter": 197.9,
-  "birthday": 205.6,
-  "kneel": 207.5,
-  "question": 210.1,
-  "threeYears": 223.9,
-  "weddingDate": 231.5,
-  "iDo": 233.5,
-  "anniversaryWish": 235.9,
-  "notSunday": 239.5,
-  "coworkersMilestone": 245.4,
-  "classmatesMilestone": 246.9,
-  "dogParentsMilestone": 248.2,
-  "homeownersMilestone": 249.3,
-  "husbandAndWife": 250.5,
-  "fullOfFate": 252.5,
-  "celebrate": 259.3,
-  "photoReveal": 214.2,
-  "yes": 216.1,
-  "endCard": 266.1,
-  "fadeOut": 271.6
+  "twoYears": 198.7,
+  "flight": 201.3,
+  "arrive": 203.6,
+  "tokyo": 205.6,
+  "asakusa": 207.7,
+  "neon": 210.7,
+  "food": 213.7,
+  "lost": 215.8,
+  "laughed": 217.3,
+  "lanterns": 219.4,
+  "anniversary": 222.3,
+  "moreThanATrip": 227.4,
+  "nextChapter": 230.2,
+  "birthday": 239.1,
+  "kneel": 241,
+  "question": 243.6,
+  "threeYears": 257.4,
+  "weddingDate": 265,
+  "iDo": 267,
+  "anniversaryWish": 269.4,
+  "notSunday": 273,
+  "coworkersMilestone": 278.9,
+  "classmatesMilestone": 280.4,
+  "dogParentsMilestone": 281.7,
+  "homeownersMilestone": 282.8,
+  "husbandAndWife": 284,
+  "fullOfFate": 286,
+  "celebrate": 292.8,
+  "photoReveal": 247.7,
+  "yes": 249.6,
+  "takeoff": 192.7,
+  "japan": 203.6,
+  "endCard": 299.6,
+  "fadeOut": 305.1
 };
 
 /**
  * version-1 aliases — beat names the six existing scenes (and the score) still import.
- * Each is the version-2 beat that now carries that moment. Do not delete these until those
+ * Each is the beat that now carries that moment. Do not delete these until those
  * scenes stop reading the old names.
  */
 BEATS.payArgument = BEATS.hoursTalking; // version-1 name, same moment as hoursTalking
@@ -525,9 +586,9 @@ BEATS.walmartToForever = BEATS.coworkersMilestone; // version-1 name, same momen
 
 /** The closing card (names + date): appears at start, the picture fades from fadeStart to end. */
 export const END_CARD = {
-  "start": 266.1,
-  "end": 275,
-  "fadeStart": 271.6
+  "start": 299.6,
+  "end": 308,
+  "fadeStart": 305.1
 };
 
 /** Scrubber chapters, derived: the cover, one per spread (from the moment it starts opening), the end card. */

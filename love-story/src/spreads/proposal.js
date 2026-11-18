@@ -1,4 +1,4 @@
-// Spread 7 — "On her birthday". The party wakes up, Brian kneels, he asks,
+// Spread 8 — "On her birthday". The party wakes up, Brian kneels, he asks,
 // the real photo, then YES and the hug until the page turns.
 // Times come from timeline.BEATS / SPREADS (never written as literals).
 // Drawings: characters cycle "proposal" and love-story/art/proposal/. update() allocates nothing.

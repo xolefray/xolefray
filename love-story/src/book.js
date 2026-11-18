@@ -1,7 +1,7 @@
 /**
  * book.js — the hand-made scrapbook: LEAVES hinged leaves (dims.js), a red cloth spine tied with a
  * cord, the leather cover with its cut-paper title and photo medallion, and one anchor per spread
- * (contract §3, §5 "src/book.js"). Version 2 has nine leaves and eight spreads; nothing below
+ * (contract §3, §5 "src/book.js"). Version 3 has ten leaves and nine spreads; nothing below
  * assumes that count.
  *
  * Leaves: 0 = front cover, 1..LEAVES−2 = thick scrapbook card, LEAVES−1 = back cover. Every leaf is

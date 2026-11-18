@@ -40,6 +40,7 @@ const TAPES = [
   { tilt: '1.4deg', color: '#7a3b50' },
   { tilt: '-2.6deg', color: '#8a5a2b' },
   { tilt: '1.15deg', color: '#5a3d78' },
+  { tilt: '-1.35deg', color: '#9a3d48' },
 ];
 
 /** Spread k's label rides the leaf turn that opens it: turn start + 0.4 s → turn end. */

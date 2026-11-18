@@ -74,7 +74,7 @@ export const STRINGS = {
   language: { en: 'Language', es: 'Idioma' },
   begin: { en: 'Begin', es: 'Empezar' },
   introLine: { en: 'Open the scrapbook and see how it all began.', es: 'Abre el álbum y mira cómo empezó todo.' },
-  introHint: { en: 'About four and a half minutes · best with sound', es: 'Unos cuatro minutos y medio · mejor con sonido' },
+  introHint: { en: 'About five minutes · best with sound', es: 'Unos cinco minutos · mejor con sonido' },
   introStatus: { en: 'gluing in the photos…', es: 'pegando las fotos…' },
   introAria: { en: 'Our Love Story', es: 'Nuestra historia de amor' },
   errorFold: {
@@ -90,8 +90,8 @@ export const STRINGS = {
     es: 'Un álbum pop-up hecho a mano sobre un escritorio, que cuenta cómo se conocieron Brian y Marlin',
   },
   metaDescription: {
-    en: 'Our Love Story — Brian & Marlin. A four-and-a-half-minute pop-up scrapbook film about how they met, drawn live in your browser.',
-    es: 'Nuestra historia de amor — Brian y Marlin. Una película de unos cuatro minutos y medio, un álbum pop-up sobre cómo se conocieron, dibujada en vivo en el navegador.',
+    en: 'Our Love Story — Brian & Marlin. A five-minute pop-up scrapbook film about how they met, drawn live in your browser.',
+    es: 'Nuestra historia de amor — Brian y Marlin. Una película de unos cinco minutos, un álbum pop-up sobre cómo se conocieron, dibujada en vivo en el navegador.',
   },
   stubPlaceholder: { en: 'a real pop-up scene goes here', es: 'aquí va una escena pop-up de verdad' },
 };

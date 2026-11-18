@@ -1,4 +1,4 @@
-// Spread 8 — "February 6, 2027". The book stays open under the end card.
+// Spread 9 — "February 6, 2027". The book stays open under the end card.
 // Times come from timeline.BEATS / SPREADS / END_CARD. Lettering goes through L().
 // Drawings: wedding cycle, cherry-flower, and the milestone portraits on the ribbon.
 // One mountain gamma keeps the arch, the couple, the garland and the ribbon parallel.

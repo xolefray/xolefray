@@ -77,9 +77,13 @@
     scene.add(book.group);
 
     const spreads = [];
-    for (let i = 0; i < SPREAD_MODULES.length; i++) {
+    for (let i = 0; i < SPREADS.length; i++) {
       const info = SPREADS[i];
-      const mod = SPREAD_MODULES[i];
+      const mod = SPREAD_MODULES.find((m) => m.id === info.id);
+      if (!mod) {
+        console.error(`[camera harness] no module for spread ${info.id}`);
+        continue;
+      }
       try {
         let art = null;
         try { art = await characterArt.loadCharacters({ disabled: false, base: `../art/${info.id}/` }); }

@@ -1,6 +1,7 @@
-// Spread 6 — "Building our life". Four stops along a path: moving in, Cherry,
-// a home, Japan. One couple card at a time, big and centred on its stop.
-// Times come from timeline.BEATS / NARRATION / SPREADS. update() allocates nothing.
+// Spread 6 — "Building our life". Moving in, Cherry, then the home.
+// The Japan stop stays keyed to BEATS.japan / nextChapter. In version 3 those beats
+// are after this spread closes, so that stop does not show while the page is open.
+// Times come from timeline.BEATS / SPREADS. update() allocates nothing.
 import { L } from '../i18n.js';
 import { photoPrint, PHOTO_ASPECT } from '../photos.js';
 
@@ -68,10 +69,8 @@ export default {
   title: 'Building our life',
   build(ctx) {
     const { THREE, paper, popup, rng, photos, FONT, timeline, characters, characterArt, art } = ctx;
-    const { BEATS, SPREADS, NARRATION, COUPLE, smoothstep, ease } = timeline;
+    const { BEATS, SPREADS, COUPLE, smoothstep, ease } = timeline;
     const spread = SPREADS.find((s) => s.id === 'life');
-    const line = (id) => NARRATION.find((n) => n.id === id);
-    const h4 = line('h4');
     const C = paper.PALETTES.scrapbook;
     const group = new THREE.Group();
     group.name = 'life';
@@ -91,7 +90,8 @@ export default {
     const home = BEATS.home;
     const japan = BEATS.japan;
     const next = BEATS.nextChapter;
-    const travelAt = h4 ? h4.start : (home + japan) * 0.5;
+    // h4 is gone. The trip begins on the Japan spread, at BEATS.japan.
+    const travelAt = japan;
     const cuddleAt = cherry + 1.15;
     const keysAt = home + (travelAt - home) * 0.5;
 

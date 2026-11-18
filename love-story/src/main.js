@@ -581,10 +581,12 @@ async function boot() {
   scene.add(book.group);
   setLoadProgress(0.2);
 
-  for (let i = 0; i < SPREAD_MODULES.length; i++) {
+  for (let i = 0; i < SPREADS.length; i++) {
     await afterPaint();
-    buildSpread(SPREAD_MODULES[i], SPREADS[i]);
-    setLoadProgress(0.2 + (0.6 * (i + 1)) / SPREAD_MODULES.length);
+    const info = SPREADS[i];
+    const mod = SPREAD_MODULES.find((m) => m.id === info.id);
+    buildSpread(mod, info);
+    setLoadProgress(0.2 + (0.6 * (i + 1)) / SPREADS.length);
   }
 
   worldCues = collectCues();

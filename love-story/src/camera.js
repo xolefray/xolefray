@@ -238,8 +238,9 @@ function insideTurn(t) {
 }
 
 /**
- * A scene cue is only a shot while its spread is open. Beats that version 1 parked inside a spread
- * and version 2 moved past that spread's close would otherwise yank the camera onto a closed page.
+ * A scene cue is only a shot while its spread is open. Beats that an earlier version parked inside
+ * a spread and a later schedule moved past that spread's close would otherwise yank the camera
+ * onto a closed page.
  * A cue at the spread's open (or up to 0.2 s before it) is kept. The wedding never closes.
  */
 function cueOnOpenSpread(c) {
