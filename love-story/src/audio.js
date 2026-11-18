@@ -12,14 +12,19 @@
  *          one loop for half a minute. Walmart is playful; lunch slows and warms; dates
  *          walks, turns to night, then a short chase; fate opens with a cinema-organ
  *          flourish, rises toward the same school, and holds a chord; official states the
- *          waltz in full and then a solo; life travels and turns pentatonic; the proposal
- *          hushes and blooms; the wedding states the theme, builds through the five
- *          milestones, cadences, and fades under the end card to silence.
+ *          waltz in full and then a solo; life travels and lifts as the paper plane leaves;
+ *          japan (its own spread, about 40 s) stays inside the same theme for five moods —
+ *          a pulse and take-off, a pentatonic koto stroll, a neon night, a tender solo, and
+ *          a question left hanging into the proposal; the proposal hushes and blooms; the
+ *          wedding states the theme, builds through the five milestones, cadences, and
+ *          fades under the end card to silence. Japan changes colour at least every 8–10 s.
  *  FOLEY   Lamp click, cover creak and soft thump, a paper whoosh and a lock-flap on every
  *          page turn, a shutter whenever a photo print appears, a stamp when the date is
  *          marked, a pen scratch on the deed, a clock that speeds up through the long
  *          lunch, a soft projector whirr, a school bell, a confetti pop on "yes", and a
- *          pop on each of the five milestones.
+ *          pop on each of the five milestones. Japan adds a paper-plane whoosh, a soft jet
+ *          whoosh, a suitcase thump, a passport stamp, the Asakusa shutter, three neon
+ *          switch-clicks, five small food pops, a rustle, and a lantern chime run.
  *  NARRATION  Look for audio/narration.<lang>.(mp3|m4a|wav) first (lang from i18n.js),
  *          then audio/narration.(mp3|m4a|wav), then window.__NARRATION_URL. The file is
  *          decoded and played locked to film time (seeks and pauses restart it at the
@@ -60,6 +65,7 @@ const LEVEL = {
   chime: 0.095,
   pluck: 0.15,
   koto: 0.11,
+  ep: 0.11,
   organ: 0.075,
   pad: 0.034,
   bass: 0.13,
@@ -77,11 +83,13 @@ const LEVEL = {
   whirr: 0.45,
   scratch: 0.34,
   schoolBell: 0.3,
+  blip: 0.3,
+  glint: 0.22,
 };
 
 const FOLEY = new Set([
   'click', 'creak', 'whoosh', 'flap', 'thump', 'rustle', 'shutter', 'pop', 'stamp',
-  'tick', 'whirr', 'scratch', 'schoolBell',
+  'tick', 'whirr', 'scratch', 'schoolBell', 'blip', 'glint',
 ]);
 
 /** Longest a texture may run before the register or the instrument changes. */
@@ -125,6 +133,26 @@ const THEME = [
 /** Same theme, but the last note lands high — the joyful cadence on "yes". */
 const THEME_JOY = THEME.map((n) => (n[0] === 11 ? [11, 77, 0.85, 1.12] : n.slice()));
 
+/**
+ * The love theme on F major pentatonic (F G A C D). Degree 7 (E) becomes 6 (D);
+ * degree 4 (Bb) becomes 3 (A). Same rhythm, so it is still the theme.
+ */
+const THEME_PENTA = [
+  [0, 72, 1, 1],
+  [1, 74, 0.5, 0.9],
+  [1.5, 77, 1.5, 1],
+  [3, 77, 2, 1.05],
+  [5, 74, 1, 0.92],
+  [6, 72, 1, 0.88],
+  [7, 69, 1, 0.84],
+  [8, 69, 1, 0.9],
+  [9, 67, 2, 1],
+  [11, 65, 1, 0.82],
+];
+
+/** One sus2, long enough to drone under a short statement. */
+const DRONE = [[0, 'Fsus2', 12, 1]];
+
 /** I–vi–IV–V, with the tonic returning under the final step so the phrase cadences. */
 const LOVE = [
   [0, 'F', 3, 1],
@@ -155,7 +183,7 @@ const WARM = [
   [9, 'C', 3, 1],
 ];
 
-/** Second life statement: opens onto a sus2 so the koto's G has a home. */
+/** Second life statement: a sus2 colour as the travelling phrase turns toward the trip. */
 const LIFE2 = [
   [0, 'F', 3, 1],
   [3, 'Fsus2', 3, 0.98],
@@ -186,7 +214,7 @@ function chordAt(chords, beat) {
 
 /**
  * One statement (or a clipped prefix) of the love theme plus its waltz.
- * `lead` is 'bell' | 'pluck' | 'chime'. Waltz "pah-pah" uses `arp`.
+ * `lead` is 'bell' | 'pluck' | 'chime' | 'organ' | 'koto' | 'ep'. Waltz "pah-pah" uses `arp`.
  */
 function placeTheme(out, rng, o) {
   const {
@@ -217,6 +245,12 @@ function placeTheme(out, rng, o) {
         midi: note, vel: v, pan, wet: Math.min(wet, 0.34),
         decay: Math.max(decay, 0.22), mixture: mixture === true, role: 'lead',
       });
+    } else if (lead === 'koto') {
+      push(out, 'koto', t, {
+        midi: note, vel: v, pan, wet: Math.min(wet, 0.16), decay: Math.min(decay, 0.11), role: 'lead',
+      });
+    } else if (lead === 'ep') {
+      push(out, 'ep', t, { midi: note, vel: v, pan, wet: Math.min(wet, 0.28), decay, role: 'lead' });
     } else {
       const sung = clamp(0.65 + 0.18 * dur * spb, 0.7, 1.25) * ring;
       push(out, 'bell', t, { midi: note, vel: v, pan, wet, ring: sung, role: 'lead' });
@@ -617,12 +651,17 @@ function official(out, rng) {
 
 function life(out, rng) {
   const t0 = spread('life').start;
-  const jp = BEATS.japan;
-  const t1 = spread('proposal').start;
-  const buckets = layPhrases(out, rng, t0, jp, [
+  const travelling = [
     { ...WALTZ, bpm: 78, lead: 'bell', progression: LOVE, vel: 0.54, padVel: 0.32, bassVel: 0.36, arpVel: 0.2, arp: 'pluck', decay: 0.15, padCutoff: 1200, padAttack: 0.6, padRelease: 1.3, wet: 0.3 },
     { ...WALTZ, bpm: 88, lead: 'pluck', progression: LIFE2, vel: 0.5, padVel: 0.28, bassVel: 0.48, arpVel: 0.24, arp: 'pluck', decay: 0.13, bounce: true, padCutoff: 1500, padAttack: 0.4, padRelease: 1.05, wet: 0.18 },
-  ]);
+  ];
+  // The previous variation drew jitter up to the old japan beat. Spend that same
+  // shared stream (discard the notes) so the wedding and the foley keep their timing.
+  layPhrases([], rng, t0, BEATS.japan, travelling);
+  const jr = makeRng(20260207);
+  // The travelling variation ends as the paper plane lifts off. Japan is the next spread.
+  const lift = Math.min(BEATS.takeoff, spread('japan').start - 0.25);
+  const buckets = layPhrases(out, jr, t0, lift, travelling);
   if (buckets[0]) out.push(...doubleFrom(buckets[0], BEATS.firstPlace, -12, 0.46));
   [88, 91, 88].forEach((midi, i) => {
     bell(out, BEATS.cherry + i * 0.15, midi, 0.22, { ring: 0.6, pan: 0.36, wet: 0.24 });
@@ -631,20 +670,193 @@ function life(out, rng) {
   push(out, 'bass', BEATS.home, { midi: 41, vel: 0.55, decay: 0.6, role: 'bass' });
   bell(out, BEATS.home, 65, 0.28, { ring: 1.15, wet: 0.3 });
 
-  const yo = [65, 67, 69, 72, 74, 72, 69, 67, 65, 69];
-  const stop = t1 - 0.12;
-  const mid = jp + (stop - jp) / 2;
-  bed(out, jp, t1 - jp, 'Fsus2', 0.3, { cutoff: 1450, attack: 0.35, release: 1.3, wet: 0.3 });
-  for (let i = 0, t = jp; t < stop && i < 48; i++, t += 0.21) {
-    const high = t >= mid ? 12 : 0;
-    push(out, 'koto', t, {
-      midi: yo[i % yo.length] + high,
-      vel: 0.34 + (i % 5 === 0 ? 0.08 : 0),
-      pan: high ? 0.22 : -0.26,
-      wet: 0.12,
-      decay: 0.22,
-      role: 'koto',
+  // Little lift: the theme's sol–ti–do, rising, as the plane leaves. Whoosh is foley.
+  const run = [60, 64, 67, 72, 76, 77];
+  const room = Math.max(0.45, spread('japan').start - lift - 0.25);
+  const span = Math.min(1.25, room);
+  run.forEach((midi, i) => {
+    bell(out, lift + (span * i) / (run.length - 1), midi, 0.22 + i * 0.04, {
+      ring: 0.75 + i * 0.08, wet: 0.32, pan: -0.06 + i * 0.03,
     });
+  });
+}
+
+/**
+ * Japan, from its page turn to the proposal's page turn. Five moods, each under 10 s,
+ * all cut from the love theme. Tempi are fitted to the beats so a bar still lands on
+ * the gesture if the schedule moves. Own random stream: this section must not shift
+ * the shared stream the wedding already consumed.
+ *
+ *  1. twoYears → arrive   4 bars of 3/4, light pluck pulse, then a dominant rise into F.
+ *  2. tokyo → asakusa     2 bars of 3/4, pentatonic theme, koto over an Fsus2 drone.
+ *  3. neon → laughed      3 bars of 3/4, electric piano + bells, then a comic turn.
+ *  4. lanterns → anniversary  slow 3/4; the held tonic of the theme lands on anniversary.
+ *  5. moreThanATrip → nextChapter  IV–V, then a dominant left unresolved.
+ */
+function japan(out) {
+  const jr = makeRng(20270206);
+  const t0 = spread('japan').start;
+  const t1 = spread('proposal').start;
+  const depart = BEATS.flight;
+  const land = BEATS.arrive;
+
+  const hop = depart - t0;
+  if (hop > 0.8) {
+    placeTheme(out, jr, {
+      ...WALTZ,
+      start: t0,
+      bpm: (12 * 60) / hop,
+      toBeat: 12,
+      lead: 'pluck',
+      progression: PLAY,
+      bounce: true,
+      vel: 0.4,
+      padVel: 0.1,
+      bassVel: 0.4,
+      arpVel: 0.2,
+      arp: 'pluck',
+      decay: 0.08,
+      padCutoff: 1600,
+      padAttack: 0.18,
+      padRelease: 0.55,
+      wet: 0.14,
+    });
+  }
+
+  // Dominant arpeggio (C) climbing into the arrival tonic. Jet whoosh is foley.
+  const rise = [60, 64, 67, 72, 76, 79, 84];
+  const climb = Math.max(0.3, land - depart);
+  rise.forEach((midi, i) => {
+    const t = depart + (climb * i) / rise.length;
+    if (t >= t1) return;
+    bell(out, t, midi, 0.24 + i * 0.028, { ring: 0.7, wet: 0.28, pan: -0.12 + i * 0.04 });
+  });
+  const arrived = BEATS.tokyo - land;
+  if (arrived > 0.2) {
+    bed(out, land, arrived, 'F', 0.36, { cutoff: 1750, attack: 0.03, release: 0.85, wet: 0.32 });
+    [65, 69, 72, 77].forEach((midi, i) => {
+      bell(out, land + i * 0.014, midi, 0.32, { ring: 1.15, wet: 0.34, pan: (i - 1.5) * 0.1 });
+    });
+    chime(out, land + 0.04, 84, 0.24, { ring: 1.3, wet: 0.38, pan: 0.16 });
+  }
+
+  const stroll = BEATS.neon - BEATS.tokyo;
+  if (stroll > 0.6) {
+    placeTheme(out, jr, {
+      ...WALTZ,
+      start: BEATS.tokyo,
+      bpm: (6 * 60) / stroll,
+      toBeat: 6,
+      melody: THEME_PENTA,
+      progression: DRONE,
+      lead: 'koto',
+      vel: 0.62,
+      waltz: false,
+      bass: false,
+      pad: true,
+      padVel: 0.26,
+      decay: 0.085,
+      wet: 0.1,
+      pan: 0.08,
+      padCutoff: 860,
+      padAttack: 0.45,
+      padRelease: 1.15,
+    });
+    // One low, soft temple bell as the gate appears. Not a chord.
+    bell(out, BEATS.asakusa, 46, 0.26, { ring: 2.3, wet: 0.5, pan: -0.04 });
+  }
+
+  const night = BEATS.lost - BEATS.neon;
+  if (night > 0.6) {
+    placeTheme(out, jr, {
+      ...WALTZ,
+      start: BEATS.neon,
+      bpm: (9 * 60) / night,
+      toBeat: 9,
+      lead: 'ep',
+      transpose: 12,
+      progression: PLAY,
+      vel: 0.46,
+      padVel: 0.14,
+      bassVel: 0.28,
+      arpVel: 0.2,
+      arp: 'bell',
+      decay: 0.3,
+      padCutoff: 1500,
+      padAttack: 0.22,
+      padRelease: 0.6,
+      wet: 0.22,
+      ring: 0.55,
+    });
+  }
+
+  const comicSpan = BEATS.lanterns - BEATS.lost;
+  if (comicSpan > 0.4) {
+    bed(out, BEATS.lost, comicSpan, 'Bb', 0.14, { cutoff: 1400, attack: 0.08, release: 0.4, wet: 0.24 });
+    const steps = [77, 76, 74, 72, 74, 76, 77, 79];
+    steps.forEach((midi, i) => {
+      pluck(out, BEATS.lost + (comicSpan * i) / steps.length, midi, 0.32, {
+        decay: 0.07, pan: i % 2 ? 0.32 : -0.28,
+      });
+    });
+    push(out, 'bass', BEATS.lost, { midi: 53, vel: 0.32, decay: 0.1, role: 'bass' });
+    push(out, 'bass', BEATS.lost + comicSpan * 0.28, { midi: 65, vel: 0.26, decay: 0.08, role: 'bass' });
+    const bubbles = [79, 84, 88, 91, 96, 91, 88, 96];
+    bubbles.forEach((midi, i) => {
+      const t = BEATS.laughed + i * 0.085;
+      if (t >= BEATS.lanterns - 0.05) return;
+      chime(out, t, midi, 0.18 + (i % 3) * 0.035, { ring: 0.7, wet: 0.38, pan: i % 2 ? 0.32 : -0.18 });
+    });
+  }
+
+  const remember = BEATS.moreThanATrip - BEATS.lanterns;
+  const toTonic = BEATS.anniversary - BEATS.lanterns;
+  if (remember > 0.8 && toTonic > 0.3) {
+    const bpm = (3 * 60) / toTonic;
+    const solo = [];
+    placeTheme(solo, jr, {
+      ...WALTZ,
+      start: BEATS.lanterns,
+      bpm,
+      toBeat: (remember * bpm) / 60,
+      lead: 'bell',
+      progression: WARM,
+      waltz: false,
+      bass: false,
+      pad: true,
+      vel: 0.4,
+      padVel: 0.16,
+      padCutoff: 900,
+      padAttack: 0.7,
+      padRelease: 1.35,
+      wet: 0.36,
+      ring: 1.45,
+    });
+    out.push(...solo);
+    out.push(...doubleFrom(solo, BEATS.anniversary, -12, 0.4));
+    bed(out, BEATS.anniversary, BEATS.moreThanATrip - BEATS.anniversary, 'Fmaj7', 0.26, {
+      cutoff: 1350, attack: 0.4, release: 1.25, wet: 0.38,
+    });
+  }
+
+  const ask = BEATS.nextChapter;
+  const warmSpan = ask - BEATS.moreThanATrip;
+  if (warmSpan > 0.4) {
+    bed(out, BEATS.moreThanATrip, warmSpan * 0.62, 'Bb', 0.3, {
+      cutoff: 1150, attack: 0.16, release: 0.45, wet: 0.34,
+    });
+    bed(out, BEATS.moreThanATrip + warmSpan * 0.42, warmSpan * 0.62, 'C7', 0.28, {
+      cutoff: 1220, attack: 0.1, release: 0.4, wet: 0.32,
+    });
+    bell(out, BEATS.moreThanATrip + warmSpan * 0.14, 69, 0.32, { ring: 1.15, wet: 0.34 });
+    bell(out, BEATS.moreThanATrip + warmSpan * 0.5, 67, 0.34, { ring: 1.25, wet: 0.36, pan: -0.06 });
+  }
+  const hang = t1 - ask;
+  if (hang > 0.3) {
+    // Dominant, no tonic: the proposal's quiet F is the answer.
+    bed(out, ask, hang, 'C7', 0.24, { cutoff: 960, attack: 0.28, release: 1.1, wet: 0.4 });
+    bell(out, ask, 76, 0.2, { ring: 2.5, wet: 0.48, pan: 0.08 });
+    bell(out, ask + 0.06, 67, 0.11, { ring: 2.1, wet: 0.36, pan: -0.12 });
   }
 }
 
@@ -762,8 +974,10 @@ function foley(out, rng) {
   }
   fx('stamp', BEATS.official, { vel: 1, off: rng.range(0, 3) });
 
-  const prints = ['coworkers', 'ourThing', 'dogWalk', 'cherry', 'home', 'japan', 'photoReveal'];
+  // Asakusa holds the Tokyo print. The old life `japan` beat is now `arrive` — a stamp, not a shutter.
+  const prints = ['coworkers', 'ourThing', 'dogWalk', 'cherry', 'home', 'photoReveal'];
   for (const name of prints) fx('shutter', BEATS[name], { vel: 1 });
+  fx('shutter', BEATS.asakusa, { vel: 0.92 });
 
   fx('scratch', BEATS.home - 0.08, { dur: 0.16, vel: 0.75, off: rng.range(0, 1.5), pan: 0.18 });
   fx('scratch', BEATS.home + 0.16, { dur: 0.2, vel: 0.6, off: rng.range(0, 1.5), pan: 0.22 });
@@ -794,6 +1008,38 @@ function foley(out, rng) {
   miles.forEach((name, i) => {
     fx('pop', BEATS[name], { vel: 0.7 + i * 0.06, off: rng.range(0, 2) });
   });
+
+  // Japan cues. Fixed offsets: they sit after the shared random stream so earlier foley stays put.
+  fx('whoosh', BEATS.takeoff, {
+    dur: 0.8, len: 0.8, sustain: true, vel: 0.4, lo: 340, hi: 2000, off: 0.55,
+  });
+  const flightDur = Math.max(0.35, BEATS.arrive - BEATS.flight);
+  fx('whoosh', BEATS.flight, {
+    dur: flightDur, len: flightDur, sustain: true, vel: 0.32, lo: 540, hi: 3600, off: 1.2,
+  });
+  fx('thump', BEATS.twoYears, { vel: 0.68, f: 124, off: 0.25 });
+  fx('stamp', BEATS.arrive, { vel: 0.72, off: 0.4 });
+  fx('thump', BEATS.arrive + 0.015, { vel: 0.36, f: 98, off: 0.7 });
+
+  const neonSpan = Math.max(0.3, BEATS.food - BEATS.neon);
+  [0.12, 0.46, 0.78].forEach((u, i) => {
+    const t = BEATS.neon + neonSpan * u;
+    fx('click', t, { vel: 0.22 + i * 0.04 });
+    fx('glint', t + 0.018, { vel: 0.55, f: [1760, 2340, 2960][i], tau: 0.12, pan: 0.15 - i * 0.12 });
+  });
+  const foodSpan = Math.max(0.3, BEATS.lost - BEATS.food);
+  [0.06, 0.26, 0.46, 0.66, 0.84].forEach((u, i) => {
+    fx('blip', BEATS.food + foodSpan * u, {
+      vel: 0.42 + (i % 2) * 0.08,
+      f: [540, 700, 610, 780, 660][i],
+      pan: i % 2 ? 0.28 : -0.22,
+      off: 0.15 * i,
+    });
+  });
+  fx('rustle', BEATS.lost, { dur: 0.3, vel: 0.62, off: 0.35, pan: 0.12 });
+  [523.25, 587.33, 659.25, 698.46, 783.99, 880, 987.77].forEach((f, i) => {
+    fx('glint', BEATS.lanterns + i * 0.07, { vel: 0.34 + i * 0.03, f, tau: 0.26, pan: -0.25 + i * 0.08 });
+  });
 }
 
 function buildEvents() {
@@ -806,6 +1052,7 @@ function buildEvents() {
   fate(out, rng);
   official(out, rng);
   life(out, rng);
+  japan(out);
   proposal(out, rng);
   wedding(out, rng);
   foley(out, rng);
@@ -1150,8 +1397,37 @@ function pluckVoice(s, e, when) {
 }
 
 function kotoVoice(s, e, when) {
-  // Sharper attack, a little more pitch dip, drier — a paper koto, not a real one.
-  pluckLike(s, e, when, { level: LEVEL.koto, decay: 0.2, bend: 1.09, brightness: 0.08 });
+  // Short bright paper-koto pluck: quick decay, a small pick dip, a clear octave.
+  pluckLike(s, e, when, { level: LEVEL.koto, decay: 0.09, bend: 1.045, brightness: 0.32 });
+}
+
+/** Soft electric piano: sines, a tiny hammer dip, a short click. */
+function epVoice(s, e, when) {
+  const { ctx } = s;
+  const f = mtof(e.midi);
+  if (!(f > 20)) return;
+  const amp = e.vel * LEVEL.ep * clamp((440 / f) ** 0.22, 0.72, 1.25);
+  const tau = Math.max(0.08, e.decay ?? 0.32);
+  const out = s.lane(e.pan ?? 0.06, e.wet ?? 0.22, true);
+  const partials = [[1, 1, 1], [2.002, 0.22, 0.4], [3, 0.06, 0.18]];
+  for (const [ratio, level, dscale] of partials) {
+    if (f * ratio > ctx.sampleRate * 0.45) break;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    const f1 = f * ratio;
+    osc.frequency.setValueAtTime(f1 * 1.012, when);
+    osc.frequency.exponentialRampToValueAtTime(f1, when + 0.03);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(amp * level, when + 0.006);
+    g.gain.setTargetAtTime(0, when + 0.006, Math.max(0.02, (tau * dscale) / 3.1));
+    osc.connect(g).connect(out);
+    s.play(osc, when, when + tau * dscale * 6 + 0.03);
+  }
+  pitchedNoise(s, when, {
+    f: Math.min(f * 3.5, 4800), q: 3.2, tau: 0.007, vel: amp * 0.22,
+    pan: e.pan ?? 0, wet: 0.04, ducked: true,
+  });
 }
 
 function bassVoice(s, e, when) {
@@ -1321,6 +1597,7 @@ const VOICES = {
   chime: chimeVoice,
   pluck: pluckVoice,
   koto: kotoVoice,
+  ep: epVoice,
   organ,
   bass: bassVoice,
   pad,
@@ -1377,6 +1654,20 @@ const VOICES = {
     crinkle(s, when + 0.01, { dur: 0.14, vel: v * 0.55, off: e.off || 0.3, pan: -0.1, hp: 2200 });
     ping(s, when + 0.04, { f: 1800, tau: 0.02, vel: v * 0.22, pan: 0.3, wet: 0.1 });
     ping(s, when + 0.08, { f: 2500, tau: 0.016, vel: v * 0.16, pan: -0.25, wet: 0.1 });
+  },
+  blip(s, e, when) {
+    const v = e.vel * LEVEL.blip;
+    const f = e.f > 0 ? e.f : 600;
+    ping(s, when, { f, f1: f * 0.55, tau: 0.028, vel: v, pan: e.pan ?? 0, wet: 0.08 });
+    burst(s, when, {
+      f: Math.min(2400, f * 3), q: 1.4, tau: 0.007, vel: v * 0.35,
+      pan: e.pan ?? 0, wet: 0.05, off: e.off || 0,
+    });
+  },
+  glint(s, e, when) {
+    const v = e.vel * LEVEL.glint;
+    if (!(e.f > 0)) return;
+    ping(s, when, { f: e.f, tau: e.tau ?? 0.2, vel: v, pan: e.pan ?? 0.12, wet: 0.22 });
   },
   tick(s, e, when) {
     const v = e.vel * LEVEL.tick;

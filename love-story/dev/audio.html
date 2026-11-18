@@ -229,7 +229,7 @@
         await drive(audio, clock, 0.15);
         audio.setMuted(false);
         note('mute', audio);
-        clock.t = 151.2;
+        clock.t = DURATION - 4;
         await drive(audio, clock, 0.4); note('near end', audio);
         audio.sync(DURATION, false); note('stopped', audio);
         res.narration = audio.narration;
@@ -290,7 +290,13 @@
       let perSecond;
       let fine;
       if (QUICK) {
-        const windows = [[0, 8], [26, 30], [56, 64], [108, 120], [123, 132], [148, DURATION]];
+        const windows = [
+          [0, 8], [26, 30], [56, 64],
+          [BEATS.takeoff - 1, BEATS.tokyo],
+          [BEATS.neon, BEATS.anniversary],
+          [BEATS.kneel, BEATS.yes + 1],
+          [END_CARD.fadeStart - 1, DURATION],
+        ];
         perSecond = [];
         fine = [];
         for (const [a, b] of windows) {
@@ -330,6 +336,15 @@
       const stamp = await foleyWindow('stamp', BEATS.official - 0.02, BEATS.official + 0.25);
       const shutter = await foleyWindow('shutter', BEATS.photoReveal - 0.02, BEATS.photoReveal + 0.12);
       const pop = await foleyWindow('pop', BEATS.yes - 0.02, BEATS.yes + 0.2);
+      const plane = await foleyWindow('plane', BEATS.takeoff - 0.02, BEATS.takeoff + 0.7);
+      const jet = await foleyWindow('jet', BEATS.flight, BEATS.flight + 0.45);
+      const suitcase = await foleyWindow('suitcase', BEATS.twoYears - 0.02, BEATS.twoYears + 0.28);
+      const passport = await foleyWindow('passport', BEATS.arrive - 0.02, BEATS.arrive + 0.28);
+      const asakusa = await foleyWindow('asakusa', BEATS.asakusa - 0.02, BEATS.asakusa + 0.12);
+      const neon = await foleyWindow('neon', BEATS.neon, BEATS.food);
+      const food = await foleyWindow('food', BEATS.food, BEATS.lost);
+      const lost = await foleyWindow('lost', BEATS.lost - 0.02, BEATS.lost + 0.35);
+      const lanterns = await foleyWindow('lanterns', BEATS.lanterns - 0.02, BEATS.lanterns + 0.55);
 
       // The fade reaches 0 at DURATION − 0.5. Measure only from there, not the whole last second.
       const tailRows = fine.filter((r) => r.t >= SILENCE_AT - 1e-6);
@@ -386,6 +401,8 @@
         ...turns.map((tr) => ({ name: `${tr.label} @ ${tr.at}s onset ${tr.onset.toFixed(1)} / turn ${tr.peak.toFixed(1)} dBFS`, ok: tr.onset >= -30 && tr.peak >= -30 })),
         { name: `lamp ${lamp.peak.toFixed(1)} dBFS`, ok: lamp.peak >= -30 },
         { name: `stamp ${stamp.peak.toFixed(1)} shutter ${shutter.peak.toFixed(1)} pop ${pop.peak.toFixed(1)} dBFS`, ok: stamp.peak >= -28 && shutter.peak >= -28 && pop.peak >= -28 },
+        { name: `plane ${plane.peak.toFixed(1)} jet ${jet.peak.toFixed(1)} suitcase ${suitcase.peak.toFixed(1)} passport ${passport.peak.toFixed(1)} dBFS`, ok: plane.peak >= -34 && jet.peak >= -36 && suitcase.peak >= -32 && passport.peak >= -28 },
+        { name: `asakusa shutter ${asakusa.peak.toFixed(1)} neon ${neon.peak.toFixed(1)} food ${food.peak.toFixed(1)} lost ${lost.peak.toFixed(1)} lanterns ${lanterns.peak.toFixed(1)} dBFS`, ok: asakusa.peak >= -28 && neon.peak >= -36 && food.peak >= -34 && lost.peak >= -36 && lanterns.peak >= -36 },
         { name: `silence after ${SILENCE_AT}s: peak ${tail.peak.toFixed(1)} dBFS ≤ −60`, ok: tail.peak <= -60 },
         { name: `duck under ${duckLine.id}: ${lineDelta.toFixed(1)} dB (dry ${lineDry.rms.toFixed(1)} → wet ${lineWet.rms.toFixed(1)})`, ok: lineDelta >= 4.2 && lineDelta <= 7.5 },
         { name: `no duck in the gap: Δ ${gapDelta.toFixed(1)} dB`, ok: Math.abs(gapDelta) <= 1.5 },
@@ -412,11 +429,14 @@
         return `[audio] ${String(slice[0].t).padStart(3)}s ` + slice.map((r) => `${r.peak.toFixed(0)}/${r.rms.toFixed(0)}`.padStart(9)).join('');
       }).join('\n'));
       console.info('[audio] foley ' + turns.map((tr) => `${tr.label}@${tr.at}: onset ${tr.onset.toFixed(1)} turn ${tr.peak.toFixed(1)}`).join(' · ')
-        + ` · lamp ${lamp.peak.toFixed(1)} stamp ${stamp.peak.toFixed(1)} shutter ${shutter.peak.toFixed(1)} pop ${pop.peak.toFixed(1)}`);
+        + ` · lamp ${lamp.peak.toFixed(1)} stamp ${stamp.peak.toFixed(1)} shutter ${shutter.peak.toFixed(1)} pop ${pop.peak.toFixed(1)}`
+        + ` · plane ${plane.peak.toFixed(1)} jet ${jet.peak.toFixed(1)} suitcase ${suitcase.peak.toFixed(1)} passport ${passport.peak.toFixed(1)}`
+        + ` · asakusa ${asakusa.peak.toFixed(1)} neon ${neon.peak.toFixed(1)} food ${food.peak.toFixed(1)} lost ${lost.peak.toFixed(1)} lanterns ${lanterns.peak.toFixed(1)}`);
       console.info('[audio] checks ' + checks.map((c) => `${c.ok ? 'ok' : 'FAIL'}: ${c.name}`).join(' | '));
 
       window.__audioStats = {
         sampleRate: SR, renderMs, quick: QUICK, overall, chapters, turns, lamp, stamp, shutter, pop,
+        plane, jet, suitcase, passport, asakusa, neon, food, lost, lanterns,
         holes, tail, duck, live, narration,
         perSecond: perSecond.map((r) => ({ t: +r.t.toFixed(2), peak: +r.peak.toFixed(1), rms: +r.rms.toFixed(1) })),
         checks, ok,
