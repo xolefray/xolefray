@@ -14,7 +14,7 @@ const CLEAR = 0.02;
 const SMALL = 0.34;
 const POP_DUR = 0.32; // pop-in / pop-out, under 0.35 s
 const FLIP_HALF = 0.15; // squash to a sliver, then open: 0.3 s for the swap
-const TRAIL_N = 5;
+const TRAIL_N = 8;
 
 // Page distance from the gutter. Spread x is −x on the left page and +x on the right.
 // Three stops across the open book: first place on the outer left, Cherry toward
@@ -52,11 +52,19 @@ const HOME_X = 1.92;
 const HOME_Z = 1.0;
 const DEED_H = 1.36;
 const KEYS_H = 1.52;
-// Suitcase waits left of the couple, beside the steps. The tag sits on it.
-const SUIT_X = 1.08;
-const SUIT_Z = 0.9;
-const SUIT_H = 0.74;
-const PLANE_H = 0.36;
+// Suitcase stands left of the couple and closer to the reader than the house,
+// so the deed print and the SOLD board (further right, further back) cannot cover it.
+const SUIT_X = 1.03;
+const SUIT_Z = 1.08;
+const SUIT_H = 0.92;
+// Card height. The drawing is wider than it is tall (620×408); long side ≈ 0.72.
+const PLANE_H = 0.474;
+// Luggage tag above the suitcase, left of the couple. Wide enough for both languages.
+const TAG_W = 1.1;
+const TAG_H = 0.54;
+const TAG_X = 0.73;
+const TAG_Y = 0.96;
+const TAG_Z = 1.12;
 
 // Bands of moving-boxes.webp, bottom box first (pixel rows).
 const BOX_BANDS = [[515, 852], [355, 515], [190, 355], [24, 190]];
@@ -373,39 +381,38 @@ export default {
       aspect: PHOTO_ASPECT.deed,
       seed: 6,
       side: 'right',
-      x: 3.02,
-      z: 0.36,
-      long: 0.84,
-      tilt: 0.05,
+      x: 3.22,
+      z: 0.62,
+      long: 0.5,
+      tilt: 0.04,
+      // Above the yard sign and the screen caption. Shrink scales the card, not this lift,
+      // so the print stays up beside the sign instead of dropping onto the page edge.
+      lift: 0.7,
       at: home,
-      shrink: 0,
+      shrink: takeoff,
     });
 
     // ---------------------------------------------------------------- takeoff
-    const suitW = propW(meta('suitcase-stickers'), SUIT_H, 0.5);
-    const suit = stand('right', SUIT_X, SUIT_Z, Math.max(suitW, 0.55), SUIT_H + 0.2);
+    const suitW = propW(meta('suitcase-stickers'), SUIT_H, 0.55);
+    const suit = stand('right', SUIT_X, SUIT_Z, Math.max(suitW, 0.56), SUIT_H);
     const suitRig = addShow(rigOn(suit, 'suitcase-stickers'), takeoff);
     watch(3, mountDrawing(suitRig, 'art', 'suitcase-stickers', SUIT_H));
 
-    const stopW = 0.98;
-    const stopH = 0.36;
-    // Narrow, and low on its own hinge, so the tag clears the couple and the fold.
-    const stop = stand('right', 0.96, SUIT_Z, stopW, 0.86);
-    const stopRig = addShow(rigOn(stop, 'next-stop'), takeoff + 0.16);
-    const stopCard = paper.card({
-      canvas: paintNextStop(paper, FONT, L('next stop: Japan ✈', 'próxima parada: Japón ✈'), C),
-      width: stopW,
-      height: stopH,
-      anchor: 'bottom-center',
-    });
-    stopCard.name = 'next-stop';
-    stopCard.position.set(0, 0.46, 0.02);
-    stopRig.add(stopCard);
-
-    // Paper plane. Scaled in Y by rise so the arc lies flat while the page turns.
+    // Tag and plane live in one group scaled by rise, so both lie flat as the page shuts
+    // without a standUp hinge near the gutter (a wide tag there cannot stand tall).
     const flight = new THREE.Group();
     flight.name = 'flight';
     group.add(flight);
+    const stopCard = paper.card({
+      canvas: paintNextStop(paper, FONT, L('next stop: Japan ✈', 'próxima parada: Japón ✈'), C),
+      width: TAG_W,
+      height: TAG_H,
+      anchor: 'bottom-center',
+    });
+    stopCard.name = 'next-stop';
+    stopCard.position.set(TAG_X, TAG_Y, TAG_Z);
+    stopCard.scale.set(0.001, 0.001, 1);
+    flight.add(stopCard);
     let plane = null;
     if (has('paper-plane')) {
       plane = characterArt.characterCard(paper, art, 'paper-plane', { height: PLANE_H, flip: true });
@@ -438,15 +445,21 @@ export default {
       [1.9, 2.4, 1.75],
     ];
 
-    const closeCue = spread.close == null ? takeoff + 2 : spread.close - 0.4;
+    // One framing from the beat until the page-turn window: couple, keys, suitcase, tag, plane.
+    // The rig eases into its wide turn shot early, so the same framing is keyed again just
+    // before that shot (close − 0.49) and the picture does not pull away at the beat.
+    const holdUntil = spread.close == null ? takeoff + 1.6 : spread.close - 0.45;
+    const stay = spread.close == null ? takeoff + 1.45 : spread.close - 0.49;
+    const takeoffAt = [1.5, 1.12, 0.5];
     const cues = [
       { t: spread.open, hold: 0.7, at: [0, 0.95, 0.02], size: 7.5, from: 'front' },
-      { t: round2(building + 0.35), hold: 4.1, at: [-2.55, 1.15, 0.32], size: 3.3, from: 'left' },
-      { t: round2(first + 0.35), hold: 2.1, at: [-2.2, 1.12, 0.12], size: 3.5, from: 'left' },
+      // Look lower so the couple's feet clear a caption, including the two-line Spanish line.
+      { t: round2(building + 0.35), hold: 4.1, at: [-2.55, 0.96, 0.32], size: 3.5, from: 'left' },
+      { t: round2(first + 0.35), hold: 2.1, at: [-2.15, 0.72, 0.12], size: 4.0, from: 'left' },
       { t: round2(cherry + 1.15), hold: 2.15, at: [-1.35, 1.0, 0.4], size: 2.7, from: 'front' },
       { t: round2(home + 0.4), hold: 2.5, at: [1.85, 1.05, 0.42], size: 3.4, from: 'right' },
-      // House, keys, suitcase and the plane leaving. Ends before the page-turn window.
-      { t: round2(takeoff + 0.28), hold: round2(Math.max(0.4, closeCue - (takeoff + 0.28) - 0.08)), at: [1.65, 1.15, 0.28], size: 4.5, from: 'front' },
+      { t: round2(takeoff), hold: round2(Math.max(0.5, holdUntil - takeoff)), at: takeoffAt, size: 3.4, from: 'right' },
+      { t: round2(stay), hold: 0.25, at: [takeoffAt[0], takeoffAt[1], takeoffAt[2]], size: 3.4, from: 'right' },
     ];
 
     return {
@@ -500,6 +513,15 @@ export default {
             ? Math.abs(Math.sin(age * 9)) * 0.055 * Math.exp(-age * 3.2)
             : 0;
           suitRig.position.y += hop;
+          const tagAt = takeoff + 0.08;
+          const tagPop = appear(t, tagAt, outBack);
+          const tagAge = t - tagAt;
+          const tagHop = tagAge > 0 && tagAge < 0.55
+            ? Math.abs(Math.sin(tagAge * 10)) * 0.04 * Math.exp(-tagAge * 3.4)
+            : 0;
+          const ts = tagPop > 0.001 ? tagPop : 0.001;
+          stopCard.scale.set(ts, ts, 1);
+          stopCard.position.y = TAG_Y + tagHop;
         }
 
         for (let i = 0; i < castRigs.length; i++) {
@@ -595,8 +617,8 @@ export default {
         }
         for (let i = 0; i < trail.length; i++) {
           const dash = trail[i];
-          const uu = uFly - (i + 1) * 0.08;
-          if (uu <= 0.02 || showPlane < 0.2) {
+          const uu = uFly - (i + 1) * 0.09;
+          if (uu <= 0.015 || showPlane < 0.15) {
             dash.scale.setScalar(0.001);
             dash.material.opacity = 0;
             continue;
@@ -604,10 +626,11 @@ export default {
           flightAt(uu, trailA);
           flightAt(Math.min(1, uu + 0.04), trailB);
           dash.position.copy(trailA);
+          dash.position.z += 0.04;
           dash.rotation.z = Math.atan2(trailB.y - trailA.y, trailB.x - trailA.x);
           const fade = 1 - i / trail.length;
-          dash.scale.set(0.2 * fade + 0.09, 0.07, 1);
-          dash.material.opacity = fade * 0.95 * showPlane;
+          dash.scale.set(0.2, 0.11, 1);
+          dash.material.opacity = (0.45 + 0.55 * fade) * showPlane;
         }
 
         const at = lightAt[zone];
@@ -910,14 +933,14 @@ function makeDots(THREE, paper, n) {
 }
 
 function dashCanvas(paper) {
-  const { canvas, ctx } = paper.makeCanvas(64, 28);
-  ctx.fillStyle = '#b07848';
+  const { canvas, ctx } = paper.makeCanvas(64, 36);
+  ctx.fillStyle = '#3a2f2a';
   ctx.beginPath();
-  ctx.moveTo(7, 9);
-  ctx.quadraticCurveTo(32, 4, 57, 8);
-  ctx.quadraticCurveTo(61, 14, 56, 19);
-  ctx.quadraticCurveTo(32, 24, 8, 19);
-  ctx.quadraticCurveTo(3, 14, 7, 9);
+  ctx.ellipse(32, 18, 24, 12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f6e6cc';
+  ctx.beginPath();
+  ctx.ellipse(26, 15, 7, 4, -0.4, 0, Math.PI * 2);
   ctx.fill();
   return canvas;
 }
@@ -1025,7 +1048,16 @@ function layPhoto(paper, THREE, popup, track, photoRigs, photo, opts) {
   mesh.position.y = CLEAR;
   mesh.rotation.z = opts.tilt;
   hold.add(mesh);
-  stand.mount.add(hold);
+  const lift = opts.lift > 0 ? opts.lift : 0;
+  if (lift > 0) {
+    const raised = new THREE.Group();
+    raised.name = 'photo-lift';
+    raised.position.y = lift;
+    raised.add(hold);
+    stand.mount.add(raised);
+  } else {
+    stand.mount.add(hold);
+  }
   photoRigs.push({ hold, at: opts.at, shrink: opts.shrink, pop: opts.pop || 0 });
   return hold;
 }
@@ -1352,10 +1384,11 @@ function puffTex(paper, THREE) {
 
 // Plane lifts off the roof and climbs toward the right edge. u is 0..1. Writes `out`.
 function flightAt(u, out) {
-  // Roof to the right edge of the page, with a short climb that stays on the spread.
-  const x = 2.28 + (3.42 - 2.28) * u;
-  const y = 1.46 + u * 0.22 + Math.sin(u * Math.PI) * 0.3;
-  const z = 0.2 + (-0.12 - 0.2) * u;
+  // Above the roof banner, in front of the house, climbing off the right edge.
+  // Feet sit on this point; the drawing reaches up and to the right of it.
+  const x = 2.32 + (3.08 - 2.32) * u;
+  const y = 2.24 + u * 0.16 + Math.sin(u * Math.PI) * 0.1;
+  const z = 0.86 + (0.5 - 0.86) * u;
   out.set(x, y, z);
   return out;
 }
@@ -1382,38 +1415,45 @@ function makeTrail(THREE, paper, parent, count) {
 }
 
 function paintNextStop(paper, FONT, text, C) {
-  const words = text.replace('✈', '').replace(/\s+/g, ' ').trim();
-  const colon = words.indexOf(':');
-  const lines = colon > 0
-    ? [words.slice(0, colon).trim(), words.slice(colon + 1).trim()]
-    : [words];
-  const W = 860;
-  const H = lines.length > 1 ? 360 : 240;
+  const raw = text.replace(/✈/g, ' ').replace(/\s+/g, ' ').trim();
+  const colon = raw.indexOf(':');
+  const head = (colon > 0 ? raw.slice(0, colon) : raw).trim();
+  const tail = (colon > 0 ? raw.slice(colon + 1) : '').trim();
+  const W = 1100;
+  const H = 486;
   const { canvas, ctx } = paper.makeCanvas(W, H);
-  ctx.fillStyle = '#fff6ea';
+  ctx.fillStyle = '#fff8ee';
   ctx.strokeStyle = C.ink;
-  ctx.lineWidth = 8;
+  ctx.lineWidth = 14;
   ctx.beginPath();
-  ctx.roundRect(14, 18, W - 28, H - 36, 28);
+  ctx.roundRect(16, 16, W - 32, H - 32, 42);
   ctx.fill();
   ctx.stroke();
+  ctx.strokeStyle = '#e7c9a4';
+  ctx.lineWidth = 4;
+  ctx.setLineDash([10, 9]);
+  ctx.beginPath();
+  ctx.roundRect(38, 38, W - 76, H - 76, 28);
+  ctx.stroke();
+  ctx.setLineDash([]);
   const font = (size) => `700 ${size}px ${FONT.hand}`;
-  const maxW = W * 0.62;
-  let size = 78;
-  for (let i = 0; i < lines.length; i++) size = Math.min(size, fitSize(ctx, lines[i], font, 78, maxW));
-  ctx.font = font(size);
-  ctx.fillStyle = C.ink;
+  const maxW = W * 0.9;
+  const headSize = fitSize(ctx, head, font, 168, maxW);
+  const tailSize = fitSize(ctx, tail || head, font, 188, maxW * 0.78);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  if (lines.length > 1) {
-    ctx.fillText(lines[0], W * 0.40, H * 0.36);
-    ctx.fillText(lines[1], W * 0.40, H * 0.66);
-  } else {
-    ctx.fillText(lines[0], W * 0.40, H * 0.52);
-  }
-  drawMiniPlane(ctx, W * 0.84, H * 0.52, 64);
+  ctx.fillStyle = C.ink;
+  ctx.font = font(headSize);
+  ctx.fillText(head, W * 0.5, H * 0.36);
+  ctx.fillStyle = C.tomato;
+  ctx.font = font(tailSize);
+  const tailW = ctx.measureText(tail).width;
+  const icon = Math.min(118, tailSize * 0.95);
+  const row = tailW + icon * 0.85;
+  ctx.fillText(tail, W * 0.5 - icon * 0.38, H * 0.70);
+  drawMiniPlane(ctx, W * 0.5 + row * 0.5 - icon * 0.15, H * 0.70, icon);
   paper.addGrain(ctx, W, H, { amount: 0.035, seed: 14, mottle: 0.4 });
-  return paper.dieCut(canvas, { margin: 6 });
+  return paper.dieCut(canvas, { margin: 8 });
 }
 
 function drawMiniPlane(ctx, x, y, s) {
