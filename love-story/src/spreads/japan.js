@@ -1,25 +1,37 @@
 // Spread — "Our Japan adventure". Left page: Asakusa by day. Right page: Tokyo by night.
-// The finale meets in the centre, across the gutter. Times come from timeline.BEATS.
+// One hero owns the centre at a time. Sky + Fuji stay at the back. Times come from BEATS.
 // Lettering is drawn in code through L(). update() allocates nothing. Cards stay opaque.
 import { L } from '../i18n.js';
 import { PHOTO_ASPECT, photoPrint } from '../photos.js';
 
-const HERO = 1.6;
-const BACK_G = 1.68;
-const ARCH_G = 1.25;
+const HERO = 1.62;
+const WALK_H = 1.58;
+const RAMEN_H = 1.34;
+const ARCH_G = Math.PI / 2 + 0.13;
+const ARCH_Z = -0.85;
+const ARCH_SIN = Math.sin(ARCH_G);
+const HEART_G = Math.PI / 2 + 0.16;
+const HEART_Z = -0.32;
+const HEART_W = 2.85;
+const HEART_H = 1.78;
 const SKY_Z = -1.18;
 const SKY_W = 4.8;
 const SKY_H = 1.58;
 const FUJI_Z = -0.55;
 const FUJI_H = 1.12;
+const LANTERN_N = 9;
+const LANTERN_H = 0.4;
 
 const FLIGHT = [
-  [-3.3, 0.2], [-2.5, 0.62], [-1.7, -0.2], [-0.85, 0.5],
-  [0.05, -0.28], [0.95, 0.48], [1.8, -0.08], [2.6, 0.38], [3.25, 0.08],
+  [-3.15, 0.05], [-2.25, 0.95], [-1.3, -0.2], [-0.35, 0.85],
+  [0.6, -0.05], [1.5, 0.9], [2.4, 0.1], [3.15, 0.5],
 ];
 const WALK = [
-  [-2.55, 0.46], [-1.55, 0.52], [-0.7, 0.4],
-  [0.85, 0.36], [1.7, 0.3], [2.4, 0.26],
+  [-2.35, 0.72], [-1.45, 0.7], [-0.55, 0.66],
+  [0.75, 0.62], [1.6, 0.58], [2.4, 0.54],
+];
+const BYE = [
+  [0.22, 0.64], [1.15, 0.6], [2.05, 0.55], [2.82, 0.48],
 ];
 
 function clamp01(x) {
@@ -32,7 +44,7 @@ function popIn(ease, t, at, dur) {
   if (u >= 1) return 1;
   let s = ease.outBack(u);
   if (s < 0) s = 0;
-  else if (s > 1.08) s = 1.08;
+  else if (s > 1.06) s = 1.06;
   return s;
 }
 
@@ -44,7 +56,7 @@ function bump(t, at, dur) {
 
 // Paper flip: 0 hidden, 1 face-on. Scale X only, so the card turns edge-on and stays opaque.
 function face(t, tIn, tOut) {
-  const IN = 0.26;
+  const IN = 0.24;
   const OUT = 0.2;
   if (t < tIn) return 0;
   if (t < tIn + IN) return Math.sin(((t - tIn) / IN) * Math.PI * 0.5);
@@ -61,7 +73,12 @@ function applyFace(obj, f, breathe, kick) {
     obj.scale.set(0, 0, 0);
     return;
   }
-  obj.scale.set(f, breathe * (1 + 0.07 * kick), 1);
+  obj.scale.set(f, breathe * (1 + 0.06 * kick), 1);
+}
+
+function setShow(obj, s) {
+  if (s < 0.02) obj.scale.set(0, 0, 0);
+  else obj.scale.set(s, s, 1);
 }
 
 function fitSize(ctx, text, font, px, maxW) {
@@ -109,7 +126,7 @@ export default {
     const anniversary = BEATS.anniversary;
     const more = BEATS.moreThanATrip;
     const next = BEATS.nextChapter;
-    const wideAt = 233.0;
+    const wideAt = spread.close - 2.05;
 
     let leftArt;
     let rightArt;
@@ -141,8 +158,7 @@ export default {
     };
     const stand = (side, x, z, fold, width, height, name) => {
       const m = track(popup.standUp({ side, x, z, fold, width, height }));
-      const h = holdOf(m.mount, name);
-      return h;
+      return holdOf(m.mount, name);
     };
 
     const prop = (id, height) => {
@@ -159,54 +175,60 @@ export default {
       if (card) card.name = id;
       return card;
     };
+    const nightMats = [];
+    const tintOf = (root) => {
+      if (!root) return;
+      root.traverse((o) => {
+        if (o.isMesh && o.material && o.material.color && !o.material.userData.noTint) nightMats.push(o.material);
+      });
+    };
 
-    // ------------------------------------------------------------------ back: sky, then Fuji
-    const sky = track(popup.vFold({ z0: SKY_Z, gamma: BACK_G, width: SKY_W, height: SKY_H }));
+    // ------------------------------------------------------------------ back: sky, then Fuji. Up for the whole chapter.
+    const sky = track(popup.vFold({ z0: SKY_Z, gamma: 1.68, width: SKY_W, height: SKY_H }));
     sky.object.name = 'sky';
     const skyMat = has('sky-day') ? mapMat(THREE, paper, art.canvas('sky-day')) : null;
     const nightMat = has('sky-night') ? mapMat(THREE, paper, art.canvas('sky-night')) : null;
-    const dayHalves = [];
-    const nightPivots = [];
     if (skyMat) {
-      dayHalves.push(halfPlane(THREE, skyMat, SKY_W, SKY_H, -1), halfPlane(THREE, skyMat, SKY_W, SKY_H, 1));
-      sky.left.add(dayHalves[0]);
-      sky.right.add(dayHalves[1]);
+      const dayL = halfPlane(THREE, skyMat, SKY_W, SKY_H, -1);
+      const dayR = halfPlane(THREE, skyMat, SKY_W, SKY_H, 1);
+      sky.left.add(dayL);
+      sky.right.add(dayR);
     }
+    const nightPivots = [];
     if (nightMat) {
       const nL = halfPlane(THREE, nightMat, SKY_W, SKY_H, -1);
       const nR = halfPlane(THREE, nightMat, SKY_W, SKY_H, 1);
       const pL = holdOf(sky.left, 'sky-night-l');
       const pR = holdOf(sky.right, 'sky-night-r');
-      pL.position.z = 0.004;
-      pR.position.z = 0.004;
+      pL.position.z = 0.01;
+      pR.position.z = 0.01;
       pL.add(nL);
       pR.add(nR);
       nightPivots.push(pL, pR);
     }
     const starDots = [];
     if (nightPivots.length) {
-      const starGeo = new THREE.PlaneGeometry(0.07, 0.07);
+      const starGeo = new THREE.PlaneGeometry(0.08, 0.08);
       const starMat = new THREE.MeshBasicMaterial({
-        map: paper.texture(starCanvas(paper, C)),
+        map: paper.texture(starCanvas(paper)),
         transparent: true,
         depthWrite: false,
         toneMapped: false,
       });
-      const at = [[-1.5, 1.15], [-0.7, 0.85], [0.8, 1.2], [1.55, 0.78]];
+      const at = [[-1.15, 1.15], [1.2, 1.05]];
       for (let i = 0; i < at.length; i++) {
         const mesh = new THREE.Mesh(starGeo, starMat);
         mesh.name = 'star';
-        mesh.position.set(at[i][0], at[i][1], 0.006);
+        mesh.position.set(at[i][0], at[i][1], 0.008);
         mesh.castShadow = false;
-        nightPivots[i < 2 ? 0 : 1].add(mesh);
+        nightPivots[i === 0 ? 0 : 1].add(mesh);
         starDots.push(mesh);
       }
     }
 
     const fujiW = widthOf(info('fuji'), FUJI_H, 3.2);
-    const fuji = track(popup.vFold({ z0: FUJI_Z, gamma: BACK_G, width: fujiW, height: FUJI_H }));
+    const fuji = track(popup.vFold({ z0: FUJI_Z, gamma: 1.68, width: fujiW, height: FUJI_H }));
     fuji.object.name = 'fuji';
-    const fujiPivot = holdOf(fuji.object, 'fuji-pivot');
     if (has('fuji')) {
       const parts = paper.splitCard({
         canvas: paper.dieCut(art.canvas('fuji'), { margin: 6 }),
@@ -219,130 +241,151 @@ export default {
       fuji.right.add(parts.right);
     }
 
-    // ------------------------------------------------------------------ left page, day
-    const pagodaH = 2.0;
-    const pagoda = stand('left', 3.02, -1.0, 'front', widthOf(info('pagoda'), pagodaH, 1), pagodaH, 'pagoda');
+    // ------------------------------------------------------------------ left page: Asakusa set, stays once it rises
+    const pagodaH = 2.02;
+    const pagoda = stand('left', 3.05, -1.02, 'front', widthOf(info('pagoda'), pagodaH, 1), pagodaH, 'pagoda');
     const pagodaCard = sheet('pagoda', pagodaH);
     if (pagodaCard) pagoda.add(pagodaCard);
 
-    const gateH = 1.78;
-    const gateW = widthOf(info('kaminarimon'), gateH, 2.3);
-    const gate = stand('left', 2.18, -0.4, 'front', gateW, gateH, 'gate');
+    const gateH = 1.8;
+    const gateW = widthOf(info('kaminarimon'), gateH, 2.4);
+    const gate = stand('left', 2.18, -0.52, 'front', gateW, gateH + 0.1, 'gate');
     const gateCard = sheet('kaminarimon', gateH);
-    if (gateCard) gate.add(gateCard);
+    if (gateCard) {
+      gateCard.position.y += 0.1;
+      gate.add(gateCard);
+    }
 
-    const plumH = 0.9;
-    const plum = stand('left', 1.15, -0.42, 'back', widthOf(info('plum-branch'), plumH, 0.95), plumH, 'plum');
+    const plumH = 0.92;
+    const plumW = widthOf(info('plum-branch'), plumH, 0.95);
+    const plum = stand('left', 1.48, 0.02, 'back', plumW, plumH, 'plum');
     const plumCard = sheet('plum-branch', plumH);
-    if (plumCard) plum.add(plumCard);
+    if (plumCard) {
+      plumCard.traverse((o) => { if (o.isMesh) o.position.x = 0; });
+      plum.add(plumCard);
+    }
 
-    // ------------------------------------------------------------------ right page, night
-    const cityH = 1.28;
-    const cityW = widthOf(info('city-night'), cityH, 2.6);
-    const city = stand('right', 2.2, -0.82, 'front', cityW, cityH, 'city');
+    // ------------------------------------------------------------------ right page: night set lives here, heroes stay in front of it
+    const cityH = 1.88;
+    const cityNat = widthOf(info('city-night'), cityH, 2.8);
+    const cityW = 2.58;
+    const city = stand('right', 0.98 + cityW / 2, -0.58, 'front', cityW, cityH, 'city');
     const cityCard = sheet('city-night', cityH);
-    if (cityCard) city.add(cityCard);
+    if (cityCard) {
+      cityCard.scale.x = cityNat > 0 ? cityW / cityNat : 1;
+      city.add(cityCard);
+      tintOf(cityCard);
+    }
 
     const neonSpec = [
-      ['neon-sign-a', 1.02, 1.42, -0.15],
-      ['neon-sign-b', 0.7, 2.15, 0.02],
-      ['neon-sign-c', 0.52, 2.85, -0.32],
+      ['neon-sign-a', 0.82, 1.72, -0.22, '#ff8ab6'],
+      ['neon-sign-b', 0.66, 2.48, -0.02, '#7ef0e0'],
+      ['neon-sign-c', 0.48, 2.86, -0.28, '#ffd56a'],
     ];
     const neons = [];
-    const neonMats = [];
     for (let i = 0; i < neonSpec.length; i++) {
-      const [id, h, x, z] = neonSpec[i];
-      const w = widthOf(info(id), h, 0.6);
-      const hold = stand('right', x, z, 'back', w, h, id);
-      const card = sheet(id, h);
-      if (card) {
+      const [id, h, x, z, glowColor] = neonSpec[i];
+      const w = widthOf(info(id), h, 0.5);
+      const hold = stand('right', x, z, 'back', Math.max(0.4, w), h, id);
+      let card = null;
+      if (has(id)) {
+        const solid = solidSign(paper, art.canvas(id));
+        card = oneSided(THREE, paper, solid, info(id), h);
+        card.name = id;
         hold.add(card);
-        card.traverse((o) => {
-          if (o.isMesh && o.material && o.material.emissive) neonMats.push(o.material);
-        });
+        tintOf(card);
       }
-      const glowH = h * 1.05;
-      const glowGeo = new THREE.PlaneGeometry(w * 1.2, glowH);
+      const glowW = Math.min(Math.max(w, h * 0.45) * 1.1, Math.max(0.36, (3.48 - x) * 2));
+      const glowH = h * 1.12;
+      const glowGeo = new THREE.PlaneGeometry(glowW, glowH);
       glowGeo.translate(0, glowH * 0.5, 0);
-      const glow = new THREE.Mesh(
-        glowGeo,
-        new THREE.MeshBasicMaterial({
-          color: i === 1 ? '#7ef0e4' : i === 2 ? '#ffd56a' : '#ff9ec4',
-          transparent: true,
-          opacity: 0,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-          toneMapped: false,
-        }),
-      );
+      const glow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({
+        color: glowColor,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+      }));
       glow.name = `${id}-glow`;
-      glow.position.set(0, h * 0.08, -0.012);
+      glow.position.set(0, 0, -0.02);
       glow.castShadow = false;
+      glow.material.userData.noTint = true;
       hold.add(glow);
       neons.push({ hold, glow });
     }
 
-    const vendH = 1.12;
-    const vend = stand('right', 3.12, 0.28, 'back', widthOf(info('vending-machine'), vendH, 0.6), vendH, 'vending');
+    const vendH = 1.05;
+    const vend = stand('right', 3.22, 0.02, 'back', widthOf(info('vending-machine'), vendH, 0.55), vendH, 'vending');
     const vendCard = sheet('vending-machine', vendH);
     const vendMats = [];
     if (vendCard) {
       vend.add(vendCard);
+      tintOf(vendCard);
       vendCard.traverse((o) => {
-        if (o.isMesh && o.material && o.material.emissive) vendMats.push(o.material);
+        if (o.isMesh && o.material && o.material.emissive) {
+          o.material.emissive.setRGB(0.784, 1, 0.941);
+          vendMats.push(o.material);
+        }
       });
     }
 
-    const signH = 1.36;
-    const signW = widthOf(info('signpost'), signH, 0.75);
-    const sign = stand('right', 2.55, 0.08, 'back', signW, signH, 'signpost');
+    const signH = 1.28;
+    const signW = widthOf(info('signpost'), signH, 0.7);
+    const sign = stand('right', 3.05, 0.42, 'back', signW, signH, 'signpost');
     if (has('signpost')) {
-      const painted = cloneCanvas(paper, art.canvas('signpost'));
-      letterSign(painted.ctx, painted.canvas, FONT);
-      const card = oneSided(THREE, paper, painted.canvas, info('signpost'), signH);
+      const paintedSign = cloneCanvas(paper, art.canvas('signpost'));
+      letterSign(paintedSign.ctx, paintedSign.canvas, FONT);
+      const card = oneSided(THREE, paper, paintedSign.canvas, info('signpost'), signH);
       card.name = 'signpost';
+      card.position.y += 0.06;
       sign.add(card);
+      tintOf(card);
     }
 
-    // ------------------------------------------------------------------ opening: suitcase, tag, pass
-    const suitH = 0.74;
-    const suitW = widthOf(info('suitcase-stickers'), suitH, 0.45);
-    // Far enough from the gutter that the tag stays inside the loose wedge.
-    const suit = stand('left', 1.42, 0.9, 'back', suitW + 0.9, suitH + 0.55, 'suitcase');
+    // ------------------------------------------------------------------ opening: suitcase, tag, pass, centre front
+    const suitH = 0.98;
+    const suitW = widthOf(info('suitcase-stickers'), suitH, 0.55);
+    const suit = stand('right', 1.35, 0.95, 'back', 1.15, 0.98, 'suitcase');
     const suitCard = prop('suitcase-stickers', suitH);
     if (suitCard) suit.add(suitCard);
-    const tag = painted(THREE, paper, heartTag(paper, FONT, C, L('2 years ♥', '2 años ♥')), 0.62);
+    const tagW = 0.86;
+    const tag = painted(THREE, paper, heartTag(paper, FONT, L('2 years ♥', '2 años ♥')), tagW);
     tag.name = 'heart-tag';
-    tag.position.set(-0.02, suitH * 0.92, 0.03);
+    tag.position.set(-0.02, suitH * 0.78, 0.03);
     suit.add(tag);
-    const passH = 0.3;
-    const passW = widthOf(info('boarding-pass'), passH, 0.72);
+    const passH = 0.48;
+    const passW = widthOf(info('boarding-pass'), passH, 1.15);
     let pass = null;
     if (has('boarding-pass')) {
       const paintedPass = cloneCanvas(paper, art.canvas('boarding-pass'));
       letterPass(paintedPass.ctx, paintedPass.canvas, FONT, L('TO: JAPAN', 'DESTINO: JAPÓN'));
       pass = oneSided(THREE, paper, paintedPass.canvas, info('boarding-pass'), passH);
       pass.name = 'boarding-pass';
-      // Left-page +X points at the gutter, so the pass slides the other way.
-      pass.position.set(-0.02, suitH * 0.42, 0.04);
+      pass.position.set(0.05, suitH * 0.34, 0.02);
       suit.add(pass);
     }
 
     // ------------------------------------------------------------------ flight
-    const planeSlider = track(popup.slider({ side: 'spread', path: FLIGHT, lift: 0.004, smooth: true }));
+    const planeSlider = track(popup.slider({ side: 'spread', path: FLIGHT, lift: 0.006, smooth: true }));
     const planeRoot = holdOf(planeSlider.mount, 'plane');
-    const planeCard = prop('paper-plane', 0.32);
-    if (planeCard) planeRoot.add(planeCard);
-    const cloudL = track(popup.onPage({ side: 'left', x: 1.7, z: -0.15, lift: 0.004 }));
-    const cloudR = track(popup.onPage({ side: 'right', x: 1.9, z: 0.2, lift: 0.004 }));
-    const cloudA = painted(THREE, paper, cloudCanvas(paper), 0.55);
-    const cloudB = painted(THREE, paper, cloudCanvas(paper), 0.42);
+    const planeCard = prop('paper-plane', 0.62);
+    if (planeCard) {
+      planeCard.rotation.x = -0.1;
+      planeRoot.add(planeCard);
+    }
+    const cloudL = track(popup.onPage({ side: 'left', x: 1.85, z: -0.35, lift: 0.004 }));
+    const cloudR = track(popup.onPage({ side: 'right', x: 2.05, z: 0.15, lift: 0.004 }));
+    const cloudA = painted(THREE, paper, cloudCanvas(paper), 0.62);
+    const cloudB = painted(THREE, paper, cloudCanvas(paper), 0.48);
     cloudA.name = 'cloud-a';
     cloudB.name = 'cloud-b';
+    cloudA.rotation.x = -Math.PI / 2;
+    cloudB.rotation.x = -Math.PI / 2;
     cloudL.mount.add(cloudA);
     cloudR.mount.add(cloudB);
 
-    const dotGeo = new THREE.PlaneGeometry(0.08, 0.08);
+    const dotGeo = new THREE.PlaneGeometry(0.11, 0.11);
     dotGeo.rotateX(-Math.PI / 2);
     const dotMat = new THREE.MeshBasicMaterial({
       map: paper.texture(dotCanvas(paper, C)),
@@ -351,11 +394,10 @@ export default {
     });
     const leftDots = [];
     const rightDots = [];
-    for (let i = 0; i < FLIGHT.length; i++) {
-      (FLIGHT[i][0] < 0 ? leftDots : rightDots).push(i);
-    }
-    const dotsPageL = track(popup.onPage({ side: 'left', x: 1.6, z: 0, lift: 0.008 }));
-    const dotsPageR = track(popup.onPage({ side: 'right', x: 1.6, z: 0, lift: 0.008 }));
+    for (let i = 0; i < FLIGHT.length; i++) (FLIGHT[i][0] < 0 ? leftDots : rightDots).push(i);
+    const DOT_X = 1.7;
+    const dotsPageL = track(popup.onPage({ side: 'left', x: DOT_X, z: 0, lift: 0.008 }));
+    const dotsPageR = track(popup.onPage({ side: 'right', x: DOT_X, z: 0, lift: 0.008 }));
     const dotsL = new THREE.InstancedMesh(dotGeo, dotMat, Math.max(1, leftDots.length));
     const dotsR = new THREE.InstancedMesh(dotGeo, dotMat, Math.max(1, rightDots.length));
     dotsL.name = 'flight-dots-l';
@@ -364,9 +406,9 @@ export default {
     dotsPageL.mount.add(dotsL);
     dotsPageR.mount.add(dotsR);
 
-    // ------------------------------------------------------------------ heroes
+    // ------------------------------------------------------------------ heroes, one at a time, front half
     const arriveW = widthOf(charInfo(characters, 'japan-arrive'), HERO, 1.3);
-    const arriveHold = stand('left', 1.85, 0.52, 'back', arriveW, HERO + 0.2, 'japan-arrive');
+    const arriveHold = stand('left', 1.72, 0.8, 'back', arriveW, HERO, 'japan-arrive');
     const arriveCard = characterArt.actor(
       paper, characters, figures, 'japan-arrive',
       { who: 'her', outfit: 'casual', pose: 'wave' },
@@ -377,40 +419,42 @@ export default {
       seat(arriveCard, charInfo(characters, 'japan-arrive'), HERO);
       arriveHold.add(arriveCard);
     }
-    const bubble = painted(THREE, paper, speech(paper, FONT, C, L('We made it!', '¡Llegamos!')), 0.92);
+    const bubble = painted(THREE, paper, speech(paper, FONT, C, L('We made it!', '¡Llegamos!')), 0.98);
     bubble.name = 'made-it';
-    bubble.position.set(-0.55, HERO * 0.78, 0.05);
+    bubble.position.set(-0.72, HERO * 0.92, 0.018);
     arriveHold.add(bubble);
 
-    const stamp = painted(THREE, paper, stampArt(paper, FONT, C, L('JAPAN', 'JAPÓN')), 0.62);
+    const stamp = painted(THREE, paper, stampArt(paper, FONT, L('JAPAN', 'JAPÓN')), 0.58);
     stamp.name = 'passport-stamp';
-    const stampHold = stand('left', 2.55, 0.22, 'back', 0.66, 0.66, 'stamp');
+    const stampHold = stand('left', 3.15, 1.02, 'back', 0.62, 0.62, 'stamp');
     stampHold.add(stamp);
 
-    const walkSlider = track(popup.slider({ side: 'spread', path: WALK, lift: 0.01, smooth: false }));
+    const walkSlider = track(popup.slider({ side: 'spread', path: WALK, lift: 0.012, smooth: false }));
     const walkRoot = holdOf(walkSlider.mount, 'japan-walk');
     const walkIds = characters && characters.cycle ? characters.cycle('japan-walk') : [];
     const walkFlip = walkIds.length
-      ? characterArt.characterFlip(paper, characters, walkIds, { height: HERO })
+      ? characterArt.characterFlip(paper, characters, walkIds, { height: WALK_H })
       : null;
     if (walkFlip) {
-      seat(walkFlip.group, charInfo(characters, walkIds[0]), HERO);
+      seat(walkFlip.group, charInfo(characters, walkIds[0]), WALK_H);
       walkRoot.add(walkFlip.group);
+      tintOf(walkFlip.group);
     } else {
       const one = characterArt.actor(
         paper, characters, figures, 'japan-walk-0',
         { who: 'her', outfit: 'casual', pose: 'walk' },
-        { height: HERO },
+        { height: WALK_H },
       );
       if (one) {
         one.name = 'japan-walk-0';
-        seat(one, charInfo(characters, 'japan-walk-0'), HERO);
+        seat(one, charInfo(characters, 'japan-walk-0'), WALK_H);
         walkRoot.add(one);
+        tintOf(one);
       }
     }
 
     const selfieW = widthOf(charInfo(characters, 'japan-selfie'), HERO, 1);
-    const selfieHold = stand('left', 1.62, 0.78, 'back', selfieW, HERO, 'japan-selfie');
+    const selfieHold = stand('left', 1.58, 0.84, 'back', selfieW, HERO, 'japan-selfie');
     const selfieCard = characterArt.actor(
       paper, characters, figures, 'japan-selfie',
       { who: 'her', outfit: 'casual', pose: 'wave' },
@@ -428,9 +472,9 @@ export default {
       depthWrite: false,
       toneMapped: false,
     });
-    const flash = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.7), flashMat);
+    const flash = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 1.55), flashMat);
     flash.name = 'flash';
-    flash.position.set(0, 0.9, 0.06);
+    flash.position.set(0.05, 0.95, 0.018);
     flash.castShadow = false;
     selfieHold.add(flash);
 
@@ -438,7 +482,7 @@ export default {
       width: 520,
       style: 'polaroid',
       caption: L('Tokyo · 2 years', 'Tokio · 2 años'),
-      tilt: -0.05,
+      tilt: -0.04,
       tape: true,
       aspect: PHOTO_ASPECT.tokyo,
       seed: 21,
@@ -447,7 +491,7 @@ export default {
     const shotLong = 1.18;
     const shotW = shotRatio >= 1 ? shotLong : shotLong * shotRatio;
     const shotH = shotRatio >= 1 ? shotLong / shotRatio : shotLong;
-    const printHold = stand('left', 2.72, 0.48, 'back', shotW, shotH, 'tokyo-print');
+    const printHold = stand('left', 2.52, 0.62, 'back', shotW, shotH, 'tokyo-print');
     const printCard = paper.card({
       canvas: paper.dieCut(shot, { margin: 2 }),
       width: shotW,
@@ -457,41 +501,49 @@ export default {
     printCard.name = 'tokyo-print';
     printHold.add(printCard);
 
-    const stallH = 1.28;
-    const stallW = widthOf(info('ramen-stall'), stallH, 1.3);
-    const stall = stand('right', 2.55, 0.55, 'back', stallW, stallH, 'ramen-stall');
+    const stallH = 1.42;
+    const stallW = widthOf(info('ramen-stall'), stallH, 1.35);
+    const stall = stand('right', 2.12, 0.22, 'back', stallW, stallH, 'ramen-stall');
     const stallCard = sheet('ramen-stall', stallH);
-    if (stallCard) stall.add(stallCard);
+    if (stallCard) {
+      stall.add(stallCard);
+      tintOf(stallCard);
+    }
     const steam = [];
-    const steamGeo = new THREE.PlaneGeometry(0.28, 0.42);
+    const steamGeo = new THREE.PlaneGeometry(0.26, 0.4);
     const steamMat = new THREE.MeshBasicMaterial({
       map: paper.texture(steamCanvas(paper)),
       transparent: true,
       depthWrite: false,
       opacity: 0,
     });
-    for (let i = 0; i < 2; i++) {
+    steamMat.userData.noTint = true;
+    {
       const mesh = new THREE.Mesh(steamGeo, steamMat);
       mesh.name = 'steam';
-      mesh.position.set(-0.18 + i * 0.28, stallH * 0.72, 0.04);
+      mesh.position.set(0.02, stallH * 0.62, 0.018);
       mesh.castShadow = false;
       stall.add(mesh);
       steam.push(mesh);
     }
 
-    const ramenH = 1.5;
-    const ramenW = widthOf(charInfo(characters, 'japan-ramen'), ramenH, 1.8);
-    const ramenHold = stand('right', 1.95, 0.98, 'back', ramenW, ramenH, 'japan-ramen');
+    const ramenW = widthOf(charInfo(characters, 'japan-ramen'), RAMEN_H, 1.6);
+    const ramenHold = stand('right', 2.02, 0.98, 'back', ramenW, RAMEN_H, 'japan-ramen');
     const ramenCard = characterArt.actor(
       paper, characters, figures, 'japan-ramen',
       { who: 'couple', outfit: 'casual', pose: 'sit' },
-      { height: ramenH },
+      { height: RAMEN_H },
     );
     if (ramenCard) {
       ramenCard.name = 'japan-ramen';
-      seat(ramenCard, charInfo(characters, 'japan-ramen'), ramenH);
+      seat(ramenCard, charInfo(characters, 'japan-ramen'), RAMEN_H);
       ramenHold.add(ramenCard);
+      tintOf(ramenCard);
     }
+    const tried = painted(THREE, paper, noteArt(paper, FONT, C, L('we tried everything', 'probamos de todo')), 1.25);
+    tried.name = 'tried-everything';
+    tried.position.set(0.15, RAMEN_H * 0.98, 0.018);
+    ramenHold.add(tried);
 
     const foods = [];
     const foodIds = ['food-sushi', 'food-ramen', 'food-dango', 'food-taiyaki', 'food-matcha'];
@@ -499,32 +551,28 @@ export default {
     let foodSpan = 0;
     for (let i = 0; i < foodIds.length; i++) {
       const id = foodIds[i];
-      const h = 0.3;
-      const bit = has(id) ? oneSided(THREE, paper, ticked(paper, art.canvas(id), C), info(id), h) : null;
+      const h = 0.34;
+      const bit = has(id) ? oneSided(THREE, paper, ticked(paper, art.canvas(id)), info(id), h) : null;
       if (!bit) continue;
       bit.name = id;
       const w = widthOf(info(id), h, 0.28);
       foodBits.push({ bit, w });
-      foodSpan += w + (foodBits.length > 1 ? 0.06 : 0);
+      foodSpan += w + 0.05;
     }
-    const snack = stand('right', 2.15, 0.18, 'back', Math.min(2.2, foodSpan + 0.1), 0.72, 'snacks');
+    const snack = stand('right', 2.15, 1.18, 'back', Math.min(2.3, foodSpan + 0.15), 0.5, 'snacks');
     let foodX = -foodSpan / 2;
     for (let i = 0; i < foodBits.length; i++) {
       const { bit, w } = foodBits[i];
       bit.position.set(foodX + w / 2, 0, 0.02);
-      foodX += w + 0.06;
+      foodX += w + 0.05;
       snack.add(bit);
       foods.push(bit);
+      tintOf(bit);
     }
-    const tried = painted(THREE, paper, noteArt(paper, FONT, C, L('we tried everything', 'probamos de todo')), 1.15);
-    tried.name = 'tried-everything';
-    tried.position.set(-0.15, 0.42, 0.03);
-    tried.rotation.z = -0.06;
-    snack.add(tried);
 
     const lostH = HERO;
-    const lostW = widthOf(charInfo(characters, 'japan-lost-0'), lostH, 1.45);
-    const lostHold = stand('right', 2.05, 0.58, 'back', lostW, lostH, 'japan-lost');
+    const lostW = widthOf(charInfo(characters, 'japan-lost-0'), lostH, 1.4);
+    const lostHold = stand('right', 1.98, 0.86, 'back', lostW, lostH, 'japan-lost');
     const lostIds = characters && characters.cycle ? characters.cycle('japan-lost') : [];
     const lostFlip = lostIds.length
       ? characterArt.characterFlip(paper, characters, lostIds, { height: lostH })
@@ -532,6 +580,7 @@ export default {
     if (lostFlip) {
       seat(lostFlip.group, charInfo(characters, lostIds[0]), lostH);
       lostHold.add(lostFlip.group);
+      tintOf(lostFlip.group);
     } else {
       const one = characterArt.actor(
         paper, characters, figures, 'japan-lost-0',
@@ -542,35 +591,39 @@ export default {
         one.name = 'japan-lost-0';
         seat(one, charInfo(characters, 'japan-lost-0'), lostH);
         lostHold.add(one);
+        tintOf(one);
       }
     }
-    const qMark = painted(THREE, paper, questionArt(paper, FONT, C), 0.34);
+    const qMark = painted(THREE, paper, questionArt(paper, FONT, C), 0.36);
     qMark.name = 'lost-question';
-    qMark.position.set(0.78, lostH * 0.82, 0.04);
+    qMark.position.set(0.82, lostH * 0.86, 0.018);
     lostHold.add(qMark);
     const haCanvas = haArt(paper, FONT, C, L('ha ha ha!', '¡ja, ja, ja!'));
     const ha = [];
+    const haBaseY = [];
     for (let i = 0; i < 3; i++) {
-      const mesh = painted(THREE, paper, haCanvas, 0.7 - i * 0.06);
+      const mesh = painted(THREE, paper, haCanvas, 0.78 - i * 0.06);
       mesh.name = 'ha-ha';
-      mesh.position.set(-0.35 + i * 0.42, lostH * 0.7 + i * 0.08, 0.05);
-      mesh.rotation.z = -0.18 + i * 0.16;
+      const y = lostH * 0.78 + i * 0.1;
+      mesh.position.set(-0.42 + i * 0.46, y, 0.018);
+      mesh.rotation.z = -0.16 + i * 0.16;
       lostHold.add(mesh);
       ha.push(mesh);
+      haBaseY.push(y);
     }
 
-    const pathPage = track(popup.onPage({ side: 'right', x: 1.85, z: 0.32, lift: 0.01 }));
+    const pathPage = track(popup.onPage({ side: 'right', x: 1.7, z: 0.55, lift: 0.01 }));
     const PATH_N = 14;
     const pathX = new Float64Array(PATH_N);
     const pathZ = new Float64Array(PATH_N);
     const pathA = new Float64Array(PATH_N);
     for (let i = 0; i < PATH_N; i++) {
       const a = (i / PATH_N) * Math.PI * 2;
-      pathX[i] = Math.cos(a) * 0.52;
-      pathZ[i] = Math.sin(a) * 0.3;
+      pathX[i] = Math.cos(a) * 0.48;
+      pathZ[i] = Math.sin(a) * 0.28;
       pathA[i] = a + Math.PI * 0.5;
     }
-    const dashGeo = new THREE.PlaneGeometry(0.16, 0.03);
+    const dashGeo = new THREE.PlaneGeometry(0.16, 0.035);
     dashGeo.rotateX(-Math.PI / 2);
     const dashes = new THREE.InstancedMesh(dashGeo, new THREE.MeshBasicMaterial({
       map: paper.texture(dashCanvas(paper, C)),
@@ -581,37 +634,62 @@ export default {
     dashes.castShadow = false;
     pathPage.mount.add(dashes);
 
-    // ------------------------------------------------------------------ lantern arch, wish, hug, finale
-    const arch = track(popup.vFold({ z0: 0.08, gamma: ARCH_G, width: 5.0, height: 0.92 }));
+    // ------------------------------------------------------------------ lantern arch across the gutter, above the couple
+    const arch = track(popup.vFold({ z0: ARCH_Z, gamma: ARCH_G, width: 4.9, height: 2.36 }));
     arch.object.name = 'lantern-arch';
-    const archPivotL = holdOf(arch.left, 'arch-l');
-    const archPivotR = holdOf(arch.right, 'arch-r');
-    const ropeMat = new THREE.MeshStandardMaterial({ color: '#8d3a32', roughness: 0.9 });
-    const ropeL = new THREE.Mesh(ropeGeo(THREE, -1), ropeMat);
-    const ropeR = new THREE.Mesh(ropeGeo(THREE, 1), ropeMat);
-    ropeL.name = 'rope-l';
-    ropeR.name = 'rope-r';
-    archPivotL.add(ropeL);
-    archPivotR.add(ropeR);
-    const lanternSpots = [
-      [-1.85, 0.2], [-1.15, 0.32], [-0.45, 0.4],
-      [0.4, 0.4], [1.1, 0.32], [1.75, 0.22], [2.25, 0.14],
-    ];
+    const archL = holdOf(arch.left, 'arch-l');
+    const archR = holdOf(arch.right, 'arch-r');
+    const ropeMat = new THREE.MeshStandardMaterial({ color: '#8a3d32', roughness: 0.9 });
+    const lanternX = new Float64Array(LANTERN_N);
+    const lanternY = new Float64Array(LANTERN_N);
+    const lanternLx = new Float64Array(LANTERN_N);
     const lanternMeshes = [];
-    if (has('lantern')) {
-      const proto = oneSided(THREE, paper, art.canvas('lantern'), info('lantern'), 0.44);
-      for (let i = 0; i < lanternSpots.length; i++) {
-        const g = proto.clone(true);
-        g.name = 'lantern';
-        g.position.set(lanternSpots[i][0], lanternSpots[i][1], 0.03);
-        (lanternSpots[i][0] < 0 ? archPivotL : archPivotR).add(g);
-        lanternMeshes.push(g);
+    const lanternMats = [];
+    const lanternProto = has('lantern') ? oneSided(THREE, paper, art.canvas('lantern'), info('lantern'), LANTERN_H) : null;
+    for (let i = 0; i < LANTERN_N; i++) {
+      const x = -2.25 + (4.5 * i) / (LANTERN_N - 1);
+      const u = x / 2.25;
+      lanternX[i] = x;
+      lanternY[i] = 1.86 - 0.7 * u * u;
+      lanternLx[i] = x / ARCH_SIN;
+      if (!lanternProto) continue;
+      const g = lanternProto.clone(true);
+      g.name = 'lantern';
+      g.position.set(lanternLx[i], lanternY[i], 0.03);
+      g.traverse((o) => {
+        if (o.isMesh && o.material) {
+          o.material = o.material.clone();
+          o.material.emissive = new THREE.Color('#ffb15a');
+          o.material.emissiveIntensity = 0;
+          lanternMats.push(o.material);
+        }
+      });
+      (x < 0 ? archL : archR).add(g);
+      lanternMeshes.push(g);
+    }
+    const ropeL = [];
+    const ropeR = [];
+    for (let i = 0; i < LANTERN_N - 1; i++) {
+      const x0 = lanternLx[i];
+      const y0 = lanternY[i] + LANTERN_H * 0.92;
+      const x1 = lanternLx[i + 1];
+      const y1 = lanternY[i + 1] + LANTERN_H * 0.92;
+      const crosses = lanternX[i] < 0 && lanternX[i + 1] >= 0;
+      if (crosses) {
+        ropeL.push(x0, y0, 0, (y0 + y1) * 0.5);
+        ropeR.push(0, (y0 + y1) * 0.5, x1, y1);
+      } else if (lanternX[i] < 0) {
+        ropeL.push(x0, y0, x1, y1);
+      } else {
+        ropeR.push(x0, y0, x1, y1);
       }
     }
+    addRopeInstances(THREE, ropeMat, archL, ropeL);
+    addRopeInstances(THREE, ropeMat, archR, ropeR);
 
     const wishH = HERO;
     const wishW = widthOf(charInfo(characters, 'japan-wish'), wishH, 0.95);
-    const wishHold = stand('left', 1.42, 0.6, 'back', wishW, wishH, 'japan-wish');
+    const wishHold = stand('left', 1.4, 0.86, 'back', wishW, wishH, 'japan-wish');
     const wishCard = characterArt.actor(
       paper, characters, figures, 'japan-wish',
       { who: 'couple', outfit: 'casual', pose: 'stand' },
@@ -622,7 +700,8 @@ export default {
       seat(wishCard, charInfo(characters, 'japan-wish'), wishH);
       wishHold.add(wishCard);
     }
-    const moteGeo = new THREE.PlaneGeometry(0.08, 0.08);
+    const moteGeo = new THREE.PlaneGeometry(0.09, 0.09);
+    moteGeo.translate(0, 0.045, 0);
     const moteMat = new THREE.MeshBasicMaterial({
       map: paper.texture(dotCanvas(paper, { teal: '#ffd27a', mustard: '#fff4d2' })),
       transparent: true,
@@ -635,26 +714,25 @@ export default {
     motes.castShadow = false;
     wishHold.add(motes);
 
-    const heartH = 1.28;
-    const heartW = widthOf(info('heart-big'), heartH, 1.3);
-    const heartFold = track(popup.vFold({ z0: 0.2, gamma: ARCH_G, width: heartW, height: heartH }));
-    heartFold.object.name = 'heart-big';
-    const heartPivot = holdOf(heartFold.object, 'heart-pivot');
+    const heart = track(popup.vFold({ z0: HEART_Z, gamma: HEART_G, width: HEART_W, height: HEART_H }));
+    heart.object.name = 'heart-big';
+    const heartL = holdOf(heart.left, 'heart-l');
+    const heartR = holdOf(heart.right, 'heart-r');
     if (has('heart-big')) {
       const parts = paper.splitCard({
         canvas: paper.dieCut(art.canvas('heart-big'), { margin: 6 }),
-        width: heartW,
-        height: heartH,
+        width: HEART_W,
+        height: HEART_H,
       });
       parts.left.name = 'heart-l';
       parts.right.name = 'heart-r';
-      heartFold.left.add(parts.left);
-      heartFold.right.add(parts.right);
+      heartL.add(parts.left);
+      heartR.add(parts.right);
     }
 
-    const hugH = 1.58;
-    const hugW = widthOf(charInfo(characters, 'japan-hug'), hugH, 0.82);
-    const hugHold = stand('left', 1.22, 0.74, 'back', hugW, hugH, 'japan-hug');
+    const hugH = 1.64;
+    const hugW = widthOf(charInfo(characters, 'japan-hug'), hugH, 0.85);
+    const hugHold = stand('left', 1.28, 0.9, 'back', hugW, hugH, 'japan-hug');
     const hugCard = characterArt.actor(
       paper, characters, figures, 'japan-hug',
       { who: 'couple', outfit: 'casual', pose: 'stand' },
@@ -666,21 +744,17 @@ export default {
       hugHold.add(hugCard);
     }
 
-    const ribW = 3.15;
-    const ribH = 1.15;
-    const ribbon = track(popup.vFold({ z0: 0.52, gamma: ARCH_G, width: ribW, height: ribH }));
-    ribbon.object.name = 'anniversary-ribbon';
-    const ribCanvas = ribbonArt(paper, FONT, C, L('happy anniversary ♥', '¡feliz aniversario! ♥'), true);
-    const ribParts = paper.splitCard({ canvas: ribCanvas, width: ribW, height: ribH });
-    ribParts.left.name = 'ribbon-l';
-    ribParts.right.name = 'ribbon-r';
-    const ribL = holdOf(ribbon.left, 'ribbon-face-l');
-    const ribR = holdOf(ribbon.right, 'ribbon-face-r');
-    ribL.add(ribParts.left);
-    ribR.add(ribParts.right);
+    const ribW = 2.15;
+    const ribbonHold = stand('left', 1.42, 1.12, 'back', ribW, 0.5, 'anniversary-ribbon');
+    const ribbon = painted(THREE, paper, ribbonArt(paper, FONT, C, L('happy anniversary ♥', '¡feliz aniversario! ♥')), ribW);
+    ribbon.name = 'anniversary-ribbon';
+    ribbon.position.set(0, 0, 0.02);
+    ribbonHold.add(ribbon);
 
+    const heartGeo = new THREE.PlaneGeometry(0.14, 0.14);
+    heartGeo.translate(0, 0.07, 0);
     const floatHearts = new THREE.InstancedMesh(
-      new THREE.PlaneGeometry(0.14, 0.14),
+      heartGeo,
       new THREE.MeshBasicMaterial({
         map: paper.texture(heartCanvas(paper, C)),
         transparent: true,
@@ -693,53 +767,47 @@ export default {
     floatHearts.castShadow = false;
     hugHold.add(floatHearts);
 
-    const memPageL = track(popup.onPage({ side: 'left', x: 1.9, z: 0, lift: 0.012 }));
-    const memPageR = track(popup.onPage({ side: 'right', x: 2.2, z: 0, lift: 0.012 }));
     const memories = [];
     const memSpec = [
-      [memPageL.mount, 'kaminarimon', -0.15, -0.55, 0.08],
-      [memPageL.mount, 'signpost', -0.85, 0.55, -0.12],
-      [memPageR.mount, 'food-ramen', 0.55, -0.15, 0.1],
+      ['kaminarimon', 1.22, 0.4, -0.06],
+      ['food-ramen', 1.95, 0.42, 0.04],
+      ['signpost', 2.68, 0.38, -0.03],
     ];
     for (let i = 0; i < memSpec.length; i++) {
-      const [parent, id, x, z, tilt] = memSpec[i];
+      const [id, x, z, tilt] = memSpec[i];
       const canvas = has(id) ? memoryArt(paper, art.canvas(id)) : memoryArt(paper, null);
-      const mesh = painted(THREE, paper, canvas, 0.78);
+      const mesh = painted(THREE, paper, canvas, 0.64);
       mesh.name = `memory-${id}`;
-      const rig = new THREE.Group();
-      rig.position.set(x, 0, z);
-      rig.rotation.y = tilt;
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.z = 0.22;
-      rig.add(mesh);
-      parent.add(rig);
-      memories.push(rig);
+      const hold = stand('left', x, z, 'back', 0.7, 0.78, `memory-${id}`);
+      mesh.position.set(0, 0, 0.02);
+      mesh.rotation.z = tilt;
+      hold.add(mesh);
+      memories.push(hold);
     }
 
-    const byeSlider = track(popup.slider({
-      side: 'right',
-      path: [[0.7, 0.58], [1.55, 0.5], [2.4, 0.4], [3.05, 0.32]],
-      lift: 0.01,
-      smooth: false,
-    }));
+    const byeSlider = track(popup.slider({ side: 'spread', path: BYE, lift: 0.012, smooth: false }));
     const byeRoot = holdOf(byeSlider.mount, 'japan-goodbye');
+    const byeH = 1.58;
     const byeCard = characterArt.actor(
       paper, characters, figures, 'japan-goodbye',
       { who: 'couple', outfit: 'casual', pose: 'walk' },
-      { height: 1.55 },
+      { height: byeH },
     );
     if (byeCard) {
       byeCard.name = 'japan-goodbye';
-      seat(byeCard, charInfo(characters, 'japan-goodbye'), 1.55);
+      seat(byeCard, charInfo(characters, 'japan-goodbye'), byeH);
       byeRoot.add(byeCard);
+      tintOf(byeCard);
     }
 
-    const arrowHold = stand('right', 1.85, 0.12, 'back', 2.5, 0.46, 'next-arrow');
-    const arrow = painted(THREE, paper, ribbonArt(paper, FONT, C, L('next chapter →', 'próximo capítulo →'), false), 2.35);
+    const arrowW = 2.35;
+    const arrowHold = stand('right', 2.15, 1.05, 'back', arrowW, 0.46, 'next-arrow');
+    const arrow = painted(THREE, paper, ribbonArt(paper, FONT, C, L('next chapter →', 'próximo capítulo →')), arrowW);
     arrow.name = 'next-chapter';
     arrow.position.set(0, 0, 0.02);
     arrowHold.add(arrow);
-    const sparkGeo = new THREE.PlaneGeometry(0.12, 0.12);
+    const sparkGeo = new THREE.PlaneGeometry(0.11, 0.11);
+    sparkGeo.translate(0, 0.055, 0);
     const sparkMat = new THREE.MeshBasicMaterial({
       map: paper.texture(sparkCanvas(paper, C)),
       transparent: true,
@@ -751,14 +819,14 @@ export default {
     sparks.castShadow = false;
     arrowHold.add(sparks);
 
-    const neonLight = new THREE.PointLight('#ffb4d2', 0, 3.4, 1.5);
+    const neonLight = new THREE.PointLight('#9eb6ff', 0, 2.4, 1.6);
     neonLight.name = 'neon-light';
     neonLight.castShadow = false;
-    neonLight.position.set(1.9, 1.15, 0.05);
-    const warmLight = new THREE.PointLight('#ffc48a', 0, 3.6, 1.45);
+    neonLight.position.set(2.15, 1.15, -0.05);
+    const warmLight = new THREE.PointLight('#ffc48a', 0, 3.2, 1.4);
     warmLight.name = 'lantern-light';
     warmLight.castShadow = false;
-    warmLight.position.set(-0.15, 1.35, 0.35);
+    warmLight.position.set(0.05, 1.7, -0.15);
     group.add(neonLight, warmLight);
 
     const scratchM = new THREE.Matrix4();
@@ -768,21 +836,23 @@ export default {
     const YUP = new THREE.Vector3(0, 1, 0);
     let lostFrame = 0;
 
+    // Starts are at least 1.2s apart so each shot rests (camera.js blends anything closer).
+    // Each rest covers the film sample for that beat and ends before the page-turn windows.
     const cues = [
-      { t: open + 0.2, hold: 0.55, at: [0, 1.15, 0.05], size: 7.5, from: 'front' },
-      { t: twoYears + 0.4, hold: 1.15, at: [-0.85, 0.78, 0.72], size: 3.2, from: 'front' },
-      { t: flight + 0.3, hold: 1.3, at: [0.05, 1.0, 0.1], size: 5.5, from: 'high' },
-      { t: arrive + 0.4, hold: 1.3, at: [-1.65, 1.15, 0.28], size: 2.4, from: 'front' },
-      { t: tokyo + 0.4, hold: 1.2, at: [-1.45, 1.05, 0.35], size: 3.5, from: 'front' },
-      { t: asakusa + 0.45, hold: 2.15, at: [-2.05, 1.2, 0.2], size: 2.6, from: 'left' },
-      { t: neon + 0.45, hold: 2.05, at: [1.75, 1.05, -0.05], size: 4.4, from: 'right' },
-      { t: food + 0.4, hold: 1.25, at: [2.05, 1.05, 0.62], size: 2.45, from: 'front' },
-      { t: lost + 0.3, hold: 2.95, at: [1.55, 1.12, 0.42], size: 2.35, from: 'front' },
-      { t: lanterns + 0.45, hold: 1.85, at: [-0.15, 1.15, 0.2], size: 3.6, from: 'front' },
-      { t: anniversary + 0.45, hold: 4.2, at: [-0.35, 1.2, 0.4], size: 2.25, from: 'front' },
-      { t: more + 0.35, hold: 1.65, at: [0.05, 1.05, 0.15], size: 4.3, from: 'front' },
-      { t: next + 0.45, hold: 1.55, at: [1.55, 1.0, 0.32], size: 3.5, from: 'right' },
-      { t: wideAt, hold: 1.55, at: [0, 1.15, 0.05], size: 7.5, from: 'front' },
+      { t: open + 0.28, hold: 0.7, at: [0, 1.15, 0], size: 7.5, from: 'front' },
+      { t: twoYears + 0.65, hold: 1.5, at: [1.35, 0.85, 0.65], size: 3.2, from: 'front' },
+      { t: flight - 0.3, hold: 1.7, at: [-0.25, 0.85, 0.3], size: 4.8, from: 'front' },
+      { t: arrive - 0.2, hold: 1.6, at: [-1.55, 1.15, 0.45], size: 2.8, from: 'front' },
+      { t: tokyo - 0.05, hold: 1.6, at: [-0.55, 1.1, 0.45], size: 3.8, from: 'front' },
+      { t: asakusa + 0.05, hold: 2.4, at: [-2.0, 1.18, 0.35], size: 3.4, from: 'front' },
+      { t: neon + 0.25, hold: 2.3, at: [1.55, 1.15, 0.15], size: 4.5, from: 'front' },
+      { t: food + 0.35, hold: 1.5, at: [1.95, 1.02, 0.55], size: 3.1, from: 'front' },
+      { t: lost - 0.05, hold: 2.6, at: [1.7, 1.15, 0.5], size: 3.0, from: 'front' },
+      { t: lanterns - 0.35, hold: 3.2, at: [-0.1, 1.28, 0.12], size: 4.2, from: 'front' },
+      { t: anniversary + 0.85, hold: 3.6, at: [-0.7, 1.02, 0.32], size: 2.7, from: 'front' },
+      { t: more - 0.1, hold: 1.4, at: [-1.9, 1.05, 0.25], size: 4.2, from: 'front' },
+      { t: next - 1.4, hold: 3.6, at: [1.35, 1.05, 0.4], size: 4.2, from: 'front' },
+      { t: wideAt + 0.3, hold: 1.2, at: [0, 1.15, 0], size: 7.5, from: 'front' },
     ];
 
     return {
@@ -794,155 +864,154 @@ export default {
         const n = folds.length;
         for (let i = 0; i < n; i++) folds[i].update(alpha);
         const risen = popup.rise(alpha);
-        const breathe = 1 + Math.sin(t * 1.55) * 0.012;
+        const erect = alpha > Math.PI - 0.025 ? 1 : 0;
+        const breathe = 1 + Math.sin(t * 1.5) * 0.012;
 
-        const suitS = popIn(ease, t, twoYears - 0.2, 0.42) * (1 - smoothstep(arrive - 0.62, arrive - 0.32, t));
-        applyFace(suit, suitS, 1, bump(t, twoYears, 0.45));
-        const tagS = popIn(ease, t, twoYears + 0.02, 0.3) * suitS;
+        const suitS = popIn(ease, t, twoYears - 0.18, 0.38) * (1 - smoothstep(flight + 0.05, flight + 0.45, t));
+        applyFace(suit, suitS, 1, bump(t, twoYears, 0.5));
+        suit.position.y = suitS > 0.2 ? Math.abs(Math.sin((t - twoYears) * 6.2)) * 0.07 * (1 - smoothstep(twoYears + 0.7, twoYears + 1.3, t)) : 0;
+        const tagS = popIn(ease, t, twoYears + 0.02, 0.28) * (suitS > 0.35 ? 1 : 0);
         tag.scale.set(tagS, tagS, tagS > 0.02 ? 1 : 0);
-        tag.rotation.z = Math.sin(t * 2.4) * 0.08 * tagS;
+        tag.rotation.z = Math.sin(t * 2.2) * 0.07 * tagS;
         if (pass) {
-          const slide = smoothstep(twoYears + 0.12, twoYears + 0.7, t);
-          pass.position.x = -0.02 - slide * (passW * 0.72);
+          const slide = smoothstep(twoYears + 0.12, twoYears + 0.62, t);
+          pass.position.x = 0.08 + slide * (passW * 0.62);
           pass.scale.set(suitS, suitS, suitS > 0.02 ? 1 : 0);
         }
 
-        const uFly = smoothstep(flight, arrive - 0.08, t);
-        const planeS = smoothstep(flight - 0.15, flight + 0.28, t) * (1 - smoothstep(arrive - 0.2, arrive + 0.15, t));
+        const uFly = smoothstep(flight, arrive - 0.15, t);
+        const planeS = smoothstep(flight - 0.12, flight + 0.22, t) * (1 - smoothstep(arrive - 0.25, arrive + 0.05, t));
         planeSlider.update(alpha, uFly);
-        const arc = Math.sin(uFly * Math.PI) * 0.48 + Math.sin(uFly * Math.PI * 2) * 0.12;
-        planeRoot.position.y = arc * risen;
-        const ps = planeS * risen;
+        planeRoot.position.y = erect * (0.06 + Math.sin(uFly * Math.PI) * 0.32) * risen;
+        const ps = planeS * risen * erect;
         planeRoot.scale.set(ps, ps, ps > 0.02 ? 1 : 0);
-        planeRoot.rotation.z = Math.sin(uFly * Math.PI * 3) * 0.45 * planeS;
-        layDots(dotsL, leftDots, FLIGHT, 1.6, uFly, planeS, scratchM, scratchP, scratchQ, scratchS);
-        layDots(dotsR, rightDots, FLIGHT, 1.6, uFly, planeS, scratchM, scratchP, scratchQ, scratchS);
-        const drift = Math.sin(t * 0.45) * 0.18;
-        cloudA.position.set(drift, risen * 0.62, 0);
-        cloudB.position.set(-drift * 0.8, risen * 0.48, 0);
+        planeRoot.rotation.z = Math.sin(uFly * Math.PI * 2) * 0.16 * planeS;
+        layDots(dotsL, leftDots, FLIGHT, DOT_X, -1, uFly, ps, scratchM, scratchP, scratchQ, scratchS);
+        layDots(dotsR, rightDots, FLIGHT, DOT_X, 1, uFly, ps, scratchM, scratchP, scratchQ, scratchS);
+        const drift = Math.sin(t * 0.45) * 0.16;
+        cloudA.position.set(drift, 0.02, 0);
+        cloudB.position.set(-drift * 0.7, 0.02, 0);
         const cS = planeS * risen;
         cloudA.scale.set(cS, cS, cS > 0.02 ? 1 : 0);
         cloudB.scale.set(cS * 0.9, cS * 0.9, cS > 0.02 ? 1 : 0);
 
-        const dayS = popIn(ease, t, arrive - 0.05, 0.5);
-        for (let i = 0; i < dayHalves.length; i++) {
-          dayHalves[i].scale.set(1, dayS, 1);
-        }
-        fujiPivot.scale.set(dayS, dayS, dayS > 0.02 ? 1 : 0);
-        const placeS = popIn(ease, t, arrive + 0.05, 0.4);
+        const placeS = popIn(ease, t, asakusa - 0.05, 0.38);
         applyFace(plum, placeS, 1, 0);
-        applyFace(pagoda, placeS, 1, bump(t, arrive, 0.4));
+        applyFace(pagoda, placeS, 1, bump(t, asakusa, 0.35));
+        const gateS = popIn(ease, t, asakusa, 0.38);
+        applyFace(gate, gateS, 1, bump(t, asakusa, 0.32));
+        gate.rotation.z = Math.sin(t * 1.05) * 0.03 * (gateS > 0.6 ? 1 : 0);
 
-        const arriveF = face(t, arrive + 0.05, tokyo - 0.18);
-        applyFace(arriveHold, arriveF, arriveF > 0.92 ? breathe : 1, bump(t, arrive + 0.1, 0.4));
-        const bubS = popIn(ease, t, arrive + 0.28, 0.28) * (arriveF > 0.4 ? 1 : 0);
+        const arriveF = face(t, arrive + 0.04, tokyo - 0.16);
+        applyFace(arriveHold, arriveF, arriveF > 0.92 ? breathe : 1, bump(t, arrive + 0.08, 0.38));
+        const bubS = popIn(ease, t, arrive + 0.26, 0.26) * (arriveF > 0.45 ? 1 : 0);
         bubble.scale.set(bubS, bubS, bubS > 0.02 ? 1 : 0);
-        const stampS = popIn(ease, t, arrive + 0.35, 0.26);
-        const thump = bump(t, arrive + 0.35, 0.28);
-        stampHold.scale.set(stampS * (1 + 0.12 * thump), stampS * (1 - 0.08 * thump), stampS > 0.02 ? 1 : 0);
-
-        const gateS = popIn(ease, t, asakusa, 0.4);
-        applyFace(gate, gateS, 1, bump(t, asakusa, 0.36));
-        gate.rotation.z = Math.sin(t * 1.25) * 0.03 * (gateS > 0.5 ? 1 : 0);
+        const stampS = popIn(ease, t, arrive + 0.32, 0.24);
+        const thump = bump(t, arrive + 0.32, 0.26);
+        stampHold.scale.set(stampS * (1 + 0.1 * thump), stampS * (1 - 0.06 * thump), stampS > 0.02 ? 1 : 0);
 
         let walkU = 0;
-        if (t < neon) walkU = smoothstep(tokyo, asakusa - 0.15, t) * 0.42;
-        else walkU = 0.42 + smoothstep(neon, food - 0.2, t) * 0.58;
-        const walkShow = smoothstep(tokyo, tokyo + 0.28, t) * (1 - smoothstep(asakusa - 0.08, asakusa + 0.2, t))
-          + smoothstep(neon, neon + 0.22, t) * (1 - smoothstep(food - 0.1, food + 0.22, t));
-        const ws = Math.min(1, walkShow) * risen;
+        if (t < neon) walkU = smoothstep(tokyo, asakusa - 0.12, t) * 0.42;
+        else walkU = 0.42 + smoothstep(neon, food - 0.18, t) * 0.58;
+        const walkDay = smoothstep(tokyo, tokyo + 0.24, t) * (1 - smoothstep(asakusa - 0.1, asakusa + 0.16, t));
+        const walkNight = smoothstep(neon + 0.05, neon + 0.28, t) * (1 - smoothstep(food - 0.12, food + 0.16, t));
+        const ws = Math.min(1, walkDay + walkNight) * risen * erect;
         walkSlider.update(alpha, walkU);
         walkRoot.scale.set(ws, ws, ws > 0.02 ? 1 : 0);
-        const stepping = ws > 0.35;
+        const stepping = ws > 0.4;
         const phase = t * 3;
         const frac = phase - Math.floor(phase);
-        walkRoot.position.y = stepping ? Math.sin(frac * Math.PI) * 0.05 : 0;
-        walkRoot.rotation.z = stepping ? Math.sin(frac * Math.PI * 2) * 0.046 : 0;
+        walkRoot.position.y = stepping ? Math.sin(frac * Math.PI) * 0.055 : 0;
+        walkRoot.rotation.z = stepping ? Math.sin(frac * Math.PI * 2) * 0.05 : 0;
         if (walkFlip) walkFlip.show(Math.floor(phase) & 1);
 
-        const signS = popIn(ease, t, tokyo + 0.05, 0.32);
-        applyFace(sign, signS, 1, bump(t, tokyo, 0.3));
-        const spinning = smoothstep(lost, lost + 0.35, t) * (1 - smoothstep(laughed + 0.15, lanterns - 0.15, t));
-        sign.rotation.z = spinning * Math.sin(t * 7.5) * 1.15;
+        const upTokyo = popIn(ease, t, tokyo + 0.04, 0.28) * (1 - smoothstep(asakusa, asakusa + 0.28, t));
+        const decor = smoothstep(asakusa, asakusa + 0.28, t) * (1 - smoothstep(lost - 0.2, lost + 0.12, t));
+        const spin = smoothstep(lost - 0.08, lost + 0.18, t) * (1 - smoothstep(lanterns - 0.28, lanterns - 0.05, t));
+        const signShow = Math.max(upTokyo, decor * 0.38, spin * 0.92);
+        setShow(sign, signShow);
+        sign.rotation.z = spin * Math.sin(t * 4.2) * 0.04;
 
-        const selfieF = face(t, asakusa + 0.12, neon - 0.2);
-        applyFace(selfieHold, selfieF, selfieF > 0.92 ? breathe : 1, bump(t, asakusa + 0.15, 0.36));
-        const flashU = bump(t, asakusa + 0.72, 0.18);
-        flash.scale.setScalar(flashU > 0.05 ? 1 : 0);
-        flashMat.opacity = flashU * 0.92;
-        const printS = popIn(ease, t, asakusa + 0.48, 0.36);
-        applyFace(printHold, printS, 1, bump(t, asakusa + 0.5, 0.3));
+        const selfieF = face(t, asakusa + 0.12, neon - 0.18);
+        applyFace(selfieHold, selfieF, selfieF > 0.92 ? breathe : 1, bump(t, asakusa + 0.14, 0.34));
+        const flashU = bump(t, asakusa + 0.88, 0.2);
+        flash.scale.setScalar(flashU > 0.04 ? 1 : 0);
+        flashMat.opacity = flashU * 0.8;
+        const printS = popIn(ease, t, asakusa + 0.28, 0.32);
+        applyFace(printHold, printS, 1, bump(t, asakusa + 0.3, 0.28));
 
-        const nightS = popIn(ease, t, neon, 0.48);
+        const nightS = smoothstep(neon, neon + 0.42, t);
         for (let i = 0; i < nightPivots.length; i++) {
-          nightPivots[i].scale.set(nightS > 0.02 ? 1 : 0, nightS, 1);
+          if (nightS < 0.02) nightPivots[i].scale.set(0, 0, 0);
+          else nightPivots[i].scale.set(1, nightS, 1);
         }
         for (let i = 0; i < starDots.length; i++) {
-          const tw = nightS * (0.45 + 0.55 * Math.abs(Math.sin(t * 2.4 + i * 1.3)));
+          const tw = (nightS > 0.55 ? 1 : 0) * (0.55 + 0.45 * Math.abs(Math.sin(t * 2.3 + i * 1.4)));
           starDots[i].scale.setScalar(tw);
         }
-        const cityS = popIn(ease, t, neon + 0.05, 0.42);
-        applyFace(city, cityS, 1, bump(t, neon, 0.35));
-        const neonAt = [neon + 0.2, neon + 0.48, neon + 0.76];
+        const cityS = popIn(ease, t, neon + 0.04, 0.36);
+        applyFace(city, cityS, 1, bump(t, neon, 0.3));
+        const neonAt = [neon + 0.16, neon + 0.4, neon + 0.64];
         let neonOn = 0;
         for (let i = 0; i < neons.length; i++) {
-          const s = popIn(ease, t, neonAt[i], 0.28);
-          applyFace(neons[i].hold, s, 1, bump(t, neonAt[i], 0.3));
-          const glow = (0.55 + 0.45 * Math.abs(Math.sin(t * 3.2 + i))) * (s > 0.6 ? 1 : 0);
-          neons[i].glow.scale.set(s, s, 1);
-          neons[i].glow.material.opacity = glow * 0.85;
-          if (s > 0.6) neonOn = 1;
+          const s = popIn(ease, t, neonAt[i], 0.26);
+          applyFace(neons[i].hold, s, 1, bump(t, neonAt[i], 0.26));
+          const glow = (0.35 + 0.2 * Math.abs(Math.sin(t * 2.8 + i))) * (s > 0.65 ? 1 : 0);
+          neons[i].glow.material.opacity = glow;
+          if (s > 0.65) neonOn = 1;
         }
-        for (let i = 0; i < neonMats.length; i++) {
-          neonMats[i].emissive.set('#ffe6f2');
-          neonMats[i].emissiveIntensity = neonOn * (0.35 + 0.25 * Math.abs(Math.sin(t * 4 + i)));
-        }
-        const vendS = popIn(ease, t, neon + 0.9, 0.3);
-        applyFace(vend, vendS, 1, bump(t, neon + 0.9, 0.28));
+        const vendS = popIn(ease, t, neon + 0.7, 0.28);
+        applyFace(vend, vendS, 1, bump(t, neon + 0.7, 0.24));
         for (let i = 0; i < vendMats.length; i++) {
-          vendMats[i].emissive.set('#d7fff4');
-          vendMats[i].emissiveIntensity = vendS > 0.7 ? 0.4 : 0;
+          vendMats[i].emissiveIntensity = vendS > 0.75 ? 0.35 : 0;
         }
-        neonLight.intensity = risen * neonOn * (0.55 + 0.15 * Math.sin(t * 5));
+        const cool = nightS;
+        const cr = 1 - 0.34 * cool;
+        const cg = 1 - 0.26 * cool;
+        const cb = 1 - 0.08 * cool;
+        for (let i = 0; i < nightMats.length; i++) nightMats[i].color.setRGB(cr, cg, cb);
+        neonLight.intensity = risen * neonOn * (0.22 + 0.06 * Math.sin(t * 4));
 
-        const stallS = popIn(ease, t, food, 0.36);
-        applyFace(stall, stallS, 1, bump(t, food, 0.32));
-        const ramenF = face(t, food + 0.08, lost - 0.18);
-        applyFace(ramenHold, ramenF, ramenF > 0.92 ? breathe : 1, bump(t, food + 0.1, 0.34));
+        const stallS = popIn(ease, t, food, 0.32) * (1 - smoothstep(lost - 0.22, lost + 0.02, t));
+        applyFace(stall, stallS, 1, bump(t, food, 0.28));
+        const ramenF = face(t, food + 0.06, lost - 0.16);
+        applyFace(ramenHold, ramenF, ramenF > 0.92 ? breathe : 1, bump(t, food + 0.08, 0.3));
+        const noteS = popIn(ease, t, food + 0.45, 0.26) * (ramenF > 0.4 ? 1 : 0);
+        tried.scale.set(noteS, noteS, noteS > 0.02 ? 1 : 0);
+        const snackS = popIn(ease, t, food + 0.2, 0.28) * (1 - smoothstep(lost - 0.2, lost + 0.05, t));
+        setShow(snack, snackS);
         for (let i = 0; i < foods.length; i++) {
-          const s = popIn(ease, t, food + 0.28 + i * 0.16, 0.24) * (stallS > 0.4 ? 1 : 0);
+          const s = popIn(ease, t, food + 0.22 + i * 0.12, 0.2);
           foods[i].scale.set(s, s, s > 0.02 ? 1 : 0);
         }
-        const noteS = popIn(ease, t, food + 0.85, 0.3) * (stallS > 0.4 ? 1 : 0);
-        tried.scale.set(noteS, noteS, noteS > 0.02 ? 1 : 0);
-        const steamOn = ramenF > 0.5 ? 1 : 0;
+        const steamOn = ramenF > 0.5 && stallS > 0.4 ? 1 : 0;
         for (let i = 0; i < steam.length; i++) {
           const w = (t * 0.7 + i * 0.45) % 1;
-          steam[i].position.y = stallH * 0.62 + w * 0.28;
-          steam[i].position.x = -0.2 + i * 0.3 + Math.sin(t * 1.6 + i) * 0.03;
-          steam[i].scale.setScalar(0.7 + w * 0.5);
-          steam[i].material.opacity = steamOn * Math.sin(w * Math.PI) * 0.8;
+          steam[i].position.y = stallH * 0.58 + w * 0.26;
+          steam[i].position.x = -0.18 + i * 0.3 + Math.sin(t * 1.6 + i) * 0.03;
+          steam[i].scale.setScalar(0.7 + w * 0.45);
+          steam[i].material.opacity = steamOn * Math.sin(w * Math.PI) * 0.75;
         }
 
-        const lostF = face(t, lost, lanterns - 0.2);
-        applyFace(lostHold, lostF, lostF > 0.92 ? breathe : 1, bump(t, lost, 0.3));
+        const lostF = face(t, lost, lanterns - 0.18);
+        applyFace(lostHold, lostF, lostF > 0.92 ? breathe : 1, bump(t, lost, 0.28));
         const frame = t >= laughed ? 1 : 0;
         if (lostFlip && frame !== lostFrame) {
           lostFlip.show(frame);
           lostFrame = frame;
         }
-        const flick = bump(t, laughed, 0.22);
-        if (lostF > 0.9) lostHold.scale.x = Math.max(0.08, 1 - 0.92 * flick);
-        const qS = popIn(ease, t, lost + 0.22, 0.24) * (lostF > 0.4 ? 1 : 0);
+        const flick = bump(t, laughed, 0.2);
+        if (lostF > 0.9) lostHold.scale.x = Math.max(0.08, (lostF > 0.92 ? breathe : 1) * (1 - 0.9 * flick));
+        const qS = popIn(ease, t, lost + 0.18, 0.22) * (1 - smoothstep(laughed - 0.05, laughed + 0.12, t)) * (lostF > 0.4 ? 1 : 0);
         qMark.scale.set(qS, qS, qS > 0.02 ? 1 : 0);
         qMark.rotation.z = Math.sin(t * 3) * 0.1 * qS;
-        const haS = popIn(ease, t, laughed + 0.05, 0.22) * (lostF > 0.5 ? 1 : 0);
+        const haS = popIn(ease, t, laughed + 0.04, 0.2) * (lostF > 0.5 ? 1 : 0);
         for (let i = 0; i < ha.length; i++) {
           const hop = haS > 0.2 ? Math.abs(Math.sin(t * 6 + i)) * 0.06 : 0;
           ha[i].scale.set(haS, haS, haS > 0.02 ? 1 : 0);
-          ha[i].position.y = lostH * 0.7 + i * 0.08 + hop;
+          ha[i].position.y = haBaseY[i] + hop;
         }
-        const prog = smoothstep(lost + 0.1, lost + 1.15, t) * (lostF > 0.2 ? 1 : 0);
+        const prog = smoothstep(lost + 0.08, lost + 1.05, t) * (1 - smoothstep(lanterns - 0.25, lanterns, t)) * (lostF > 0.2 ? 1 : 0);
         for (let i = 0; i < PATH_N; i++) {
           const s = prog * PATH_N > i + 0.2 ? 1 : 0;
           scratchP.set(pathX[i], 0.002, pathZ[i]);
@@ -953,20 +1022,23 @@ export default {
         }
         dashes.instanceMatrix.needsUpdate = true;
 
-        const archS = popIn(ease, t, lanterns, 0.45);
-        archPivotL.scale.set(archS, archS, archS > 0.02 ? 1 : 0);
-        archPivotR.scale.set(archS, archS, archS > 0.02 ? 1 : 0);
+        const archS = popIn(ease, t, lanterns, 0.4) * erect;
+        setShow(archL, archS);
+        setShow(archR, archS);
+        let lit = 0;
         for (let i = 0; i < lanternMeshes.length; i++) {
-          const s = popIn(ease, t, lanterns + 0.2 + i * 0.14, 0.22);
+          const s = popIn(ease, t, lanterns + 0.16 + i * 0.12, 0.2);
           lanternMeshes[i].scale.set(s, s, s > 0.02 ? 1 : 0);
-          lanternMeshes[i].rotation.z = Math.sin(t * 1.35 + i) * 0.05 * (s > 0.6 ? 1 : 0);
+          lanternMeshes[i].rotation.z = Math.sin(t * 1.2 + i) * 0.045 * (s > 0.6 ? 1 : 0);
+          if (lanternMats[i]) lanternMats[i].emissiveIntensity = s > 0.7 ? 0.4 + 0.15 * Math.abs(Math.sin(t * 2 + i)) : 0;
+          if (s > 0.7) lit += 1;
         }
-        const wishF = face(t, lanterns + 0.2, anniversary - 0.18);
-        applyFace(wishHold, wishF, wishF > 0.92 ? breathe : 1, bump(t, lanterns + 0.25, 0.34));
+        const wishF = face(t, lanterns + 0.18, anniversary - 0.16);
+        applyFace(wishHold, wishF, wishF > 0.92 ? breathe : 1, bump(t, lanterns + 0.22, 0.32));
         for (let i = 0; i < 5; i++) {
           const age = (t * 0.35 + i * 0.17) % 1;
           const on = wishF > 0.6 ? Math.sin(age * Math.PI) : 0;
-          scratchP.set(-0.2 + (i - 2) * 0.12, 0.9 + age * 0.55, 0.05);
+          scratchP.set(-0.15 + (i - 2) * 0.12, 1.05 + age * 0.5, 0.05);
           scratchQ.identity();
           scratchS.set(on, on, on > 0.02 ? 1 : 0);
           scratchM.compose(scratchP, scratchQ, scratchS);
@@ -974,55 +1046,51 @@ export default {
         }
         motes.instanceMatrix.needsUpdate = true;
 
-        const hugF = face(t, anniversary, next - 0.2);
-        applyFace(hugHold, hugF, hugF > 0.92 ? breathe : 1, bump(t, anniversary, 0.4));
-        const heartS = popIn(ease, t, anniversary + 0.05, 0.4) * (hugF > 0.3 || t > next ? 1 : 0);
-        // Heart stays behind the goodbye wide.
-        const heartStay = Math.max(heartS, popIn(ease, t, anniversary + 0.05, 0.4) * (t > anniversary ? 1 : 0));
-        heartPivot.scale.set(heartStay, heartStay, heartStay > 0.02 ? 1 : 0);
-        const ribS = popIn(ease, t, anniversary + 0.28, 0.4);
-        ribL.scale.set(ribS, ribS, ribS > 0.02 ? 1 : 0);
-        ribR.scale.set(ribS, ribS, ribS > 0.02 ? 1 : 0);
-        const heartsOn = smoothstep(anniversary + 0.35, anniversary + 0.7, t);
+        const hugF = face(t, anniversary + 0.04, more - 0.22);
+        applyFace(hugHold, hugF, hugF > 0.92 ? breathe : 1, bump(t, anniversary, 0.36));
+        const heartS = popIn(ease, t, anniversary + 0.02, 0.38) * (1 - smoothstep(more - 0.4, more - 0.08, t));
+        setShow(heartL, heartS);
+        setShow(heartR, heartS);
+        const ribS = popIn(ease, t, anniversary + 0.22, 0.32) * (1 - smoothstep(more - 0.38, more - 0.06, t));
+        applyFace(ribbonHold, ribS, 1, 0);
+        const heartsOn = smoothstep(anniversary + 0.3, anniversary + 0.6, t) * (hugF > 0.4 ? 1 : 0);
         for (let i = 0; i < 5; i++) {
           const age = (t * 0.28 + i * 0.19) % 1;
           const on = heartsOn * Math.sin(age * Math.PI);
-          scratchP.set(-0.15 + (i - 2) * 0.1, 1.05 + age * 0.4, 0.06);
+          scratchP.set(-0.12 + (i - 2) * 0.1, 1.15 + age * 0.4, 0.06);
           scratchQ.identity();
-          scratchS.set(on * 0.9, on * 0.9, on > 0.02 ? 1 : 0);
+          scratchS.set(on * 0.85, on * 0.85, on > 0.02 ? 1 : 0);
           scratchM.compose(scratchP, scratchQ, scratchS);
           floatHearts.setMatrixAt(i, scratchM);
         }
         floatHearts.instanceMatrix.needsUpdate = true;
-        warmLight.intensity = risen * (archS > 0.5 ? 0.45 : 0) + risen * heartsOn * 0.35;
+        warmLight.intensity = risen * (archS > 0.55 ? 0.28 + lit * 0.03 : 0);
 
         for (let i = 0; i < memories.length; i++) {
-          const s = popIn(ease, t, more + i * 0.18, 0.32);
-          memories[i].scale.set(s, s, s > 0.02 ? 1 : 0);
+          const s = popIn(ease, t, more - 0.22 + i * 0.1, 0.26);
+          applyFace(memories[i], s, 1, bump(t, more - 0.1 + i * 0.1, 0.24));
         }
 
-        const byeS = smoothstep(next, next + 0.3, t) * risen;
-        const byeU = smoothstep(next + 0.15, wideAt - 0.15, t);
+        const byeS = smoothstep(next - 1.55, next - 1.05, t) * risen * erect;
+        const byeU = smoothstep(next - 1.35, wideAt - 0.2, t);
         byeSlider.update(alpha, byeU);
         byeRoot.scale.set(byeS, byeS, byeS > 0.02 ? 1 : 0);
         const bphase = t * 2.6;
         const bfrac = bphase - Math.floor(bphase);
-        byeRoot.position.y = byeS > 0.4 ? Math.sin(bfrac * Math.PI) * 0.04 : 0;
-        byeRoot.rotation.z = byeS > 0.4 ? Math.sin(bfrac * Math.PI * 2) * 0.04 : 0;
-        const arrowS = popIn(ease, t, next + 0.35, 0.36);
-        applyFace(arrowHold, arrowS, 1, bump(t, next + 0.4, 0.3));
-        const sparkOn = arrowS > 0.5 ? 1 : 0;
+        byeRoot.position.y = byeS > 0.4 ? Math.sin(bfrac * Math.PI) * 0.05 : 0;
+        byeRoot.rotation.z = byeS > 0.4 ? Math.sin(bfrac * Math.PI * 2) * 0.045 : 0;
+        const arrowS = popIn(ease, t, next + 0.05, 0.32);
+        applyFace(arrowHold, arrowS, 1, bump(t, next + 0.1, 0.26));
+        const sparkOn = arrowS > 0.55 ? 1 : 0;
         for (let i = 0; i < 6; i++) {
-          const p = 0.55 + 0.45 * Math.abs(Math.sin(t * 3.4 + i));
-          scratchP.set(-0.9 + i * 0.36, 0.32 + Math.sin(t * 2 + i) * 0.06, 0.04);
+          const p = 0.55 + 0.45 * Math.abs(Math.sin(t * 3.2 + i));
+          scratchP.set(-0.95 + i * 0.36, 0.38 + Math.sin(t * 2 + i) * 0.05, 0.04);
           scratchQ.identity();
           scratchS.set(p * sparkOn, p * sparkOn, sparkOn);
           scratchM.compose(scratchP, scratchQ, scratchS);
           sparks.setMatrixAt(i, scratchM);
         }
         sparks.instanceMatrix.needsUpdate = true;
-
-        void wideAt;
       },
     };
   },
@@ -1067,9 +1135,10 @@ function oneSided(THREE, paper, canvas, info, height) {
   geo.translate(0, height / 2, 0);
   const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
     map: paper.cutoutTexture(cut),
-    alphaTest: 0.45,
+    alphaTest: 0.5,
     roughness: 0.94,
     metalness: 0,
+    side: THREE.DoubleSide,
   }));
   const yOff = (info.feet[1] - info.h) * s;
   mesh.position.set(((info.w / 2) - info.feet[0]) * s, yOff < -0.02 ? -0.02 : yOff, 0);
@@ -1086,31 +1155,55 @@ function painted(THREE, paper, canvas, width) {
   geo.translate(0, h / 2, 0);
   const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
     map: paper.texture(canvas),
-    alphaTest: 0.32,
+    alphaTest: 0.35,
     roughness: 0.94,
     metalness: 0,
+    side: THREE.DoubleSide,
   }));
   mesh.castShadow = false;
   mesh.receiveShadow = false;
   return mesh;
 }
 
-function ropeGeo(THREE, side) {
-  const geo = new THREE.PlaneGeometry(2.35, 0.028);
-  geo.translate(side * 1.2, 0.7, 0.02);
-  return geo;
+function addRopeInstances(THREE, material, parent, coords) {
+  const n = coords.length / 4;
+  if (!(n > 0)) return;
+  const geo = new THREE.PlaneGeometry(1, 0.028);
+  const mesh = new THREE.InstancedMesh(geo, material, n);
+  mesh.name = 'rope';
+  mesh.castShadow = false;
+  const m = new THREE.Matrix4();
+  const p = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const s = new THREE.Vector3();
+  const axis = new THREE.Vector3(0, 0, 1);
+  for (let i = 0; i < n; i++) {
+    const x0 = coords[i * 4];
+    const y0 = coords[i * 4 + 1];
+    const x1 = coords[i * 4 + 2];
+    const y1 = coords[i * 4 + 3];
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const len = Math.hypot(dx, dy) || 0.001;
+    p.set((x0 + x1) / 2, (y0 + y1) / 2, 0.02);
+    q.setFromAxisAngle(axis, Math.atan2(dy, dx));
+    s.set(len, 1, 1);
+    m.compose(p, q, s);
+    mesh.setMatrixAt(i, m);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  parent.add(mesh);
 }
 
-function layDots(mesh, indices, path, originX, uFly, show, m, p, q, s) {
+function layDots(mesh, indices, path, originX, side, uFly, show, m, p, q, s) {
   const last = path.length - 1;
   for (let k = 0; k < indices.length; k++) {
     const i = indices[k];
     const u = i / last;
-    const grow = (uFly - u) / 0.07;
+    const grow = (uFly - u) / 0.08;
     const sc = show * (grow <= 0 ? 0 : grow >= 1 ? 1 : grow);
-    // onPage origin sits `originX` from the gutter. Spread X maps back to that.
-    const lx = Math.abs(path[i][0]) - originX;
-    p.set(lx, 0.002, path[i][1]);
+    const lx = side < 0 ? path[i][0] + originX : path[i][0] - originX;
+    p.set(lx, 0.004, path[i][1]);
     q.identity();
     s.set(sc, 1, sc > 0.02 ? 1 : 0);
     m.compose(p, q, s);
@@ -1123,42 +1216,41 @@ function letterSign(ctx, canvas, FONT) {
   const text = L('Tokyo', 'Tokio');
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#6b4630';
-  const size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, 78, 250);
+  ctx.fillStyle = '#5c3a24';
+  const size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, 72, canvas.width * 0.62);
   ctx.font = `${size}px ${FONT.display}`;
-  ctx.fillText(text, 300, 152);
+  ctx.fillText(text, canvas.width * 0.48, canvas.height * 0.15);
 }
 
 function letterPass(ctx, canvas, FONT, text) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#6b4630';
-  const size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, 92, canvas.width * 0.58);
+  ctx.fillStyle = '#5c3a24';
+  const size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, 108, canvas.width * 0.52);
   ctx.font = `${size}px ${FONT.display}`;
-  ctx.fillText(text, canvas.width * 0.36, canvas.height * 0.5);
+  ctx.fillText(text, canvas.width * 0.38, canvas.height * 0.5);
 }
 
-function heartTag(paper, FONT, C, text) {
+function heartTag(paper, FONT, text) {
   const W = 640;
   const H = 560;
   const { canvas, ctx } = paper.makeCanvas(W, H);
   ctx.translate(W / 2, H * 0.48);
   ctx.beginPath();
-  ctx.moveTo(0, 150);
-  ctx.bezierCurveTo(-210, 40, -200, -150, 0, -40);
-  ctx.bezierCurveTo(200, -150, 210, 40, 0, 150);
+  ctx.moveTo(0, 160);
+  ctx.bezierCurveTo(-220, 40, -210, -160, 0, -40);
+  ctx.bezierCurveTo(210, -160, 220, 40, 0, 160);
   ctx.fillStyle = '#e2574c';
   ctx.fill();
-  ctx.lineWidth = 10;
+  ctx.lineWidth = 12;
   ctx.strokeStyle = '#f6edd9';
   ctx.stroke();
   ctx.fillStyle = '#fffaf3';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, 64, 300);
+  const size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, 78, 340);
   ctx.font = `${size}px ${FONT.display}`;
-  ctx.fillText(text, 0, 8);
-  void C;
+  ctx.fillText(text, 0, 6);
   return canvas;
 }
 
@@ -1188,7 +1280,7 @@ function speech(paper, FONT, C, text) {
   return canvas;
 }
 
-function stampArt(paper, FONT, C, text) {
+function stampArt(paper, FONT, text) {
   const W = 512;
   const { canvas, ctx } = paper.makeCanvas(W, W);
   ctx.translate(W / 2, W / 2);
@@ -1209,16 +1301,15 @@ function stampArt(paper, FONT, C, text) {
   ctx.fillText(text, 0, -16);
   ctx.font = `36px ${FONT.display}`;
   ctx.fillText('2026', 0, 64);
-  void C;
   return canvas;
 }
 
 function noteArt(paper, FONT, C, text) {
   const W = 860;
-  const H = 280;
+  const H = 240;
   const { canvas, ctx } = paper.makeCanvas(W, H);
   ctx.fillStyle = '#fff7df';
-  roundBox(ctx, 16, 30, W - 32, H - 60, 18);
+  roundBox(ctx, 16, 24, W - 32, H - 48, 18);
   ctx.fill();
   ctx.strokeStyle = C.ink;
   ctx.lineWidth = 6;
@@ -1226,9 +1317,9 @@ function noteArt(paper, FONT, C, text) {
   ctx.fillStyle = C.ink;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const size = fitSize(ctx, text, (n) => `700 ${n}px ${FONT.hand}`, 78, W * 0.84);
+  const size = fitSize(ctx, text, (n) => `700 ${n}px ${FONT.hand}`, 72, W * 0.84);
   ctx.font = `700 ${size}px ${FONT.hand}`;
-  ctx.fillText(text, W / 2, H * 0.48);
+  ctx.fillText(text, W / 2, H * 0.5);
   return canvas;
 }
 
@@ -1258,25 +1349,23 @@ function haArt(paper, FONT, C, text) {
   return canvas;
 }
 
-function ribbonArt(paper, FONT, C, text, tall) {
+function ribbonArt(paper, FONT, C, text) {
   const W = 1400;
-  const H = tall ? 520 : 180;
+  const H = 280;
   const { canvas, ctx } = paper.makeCanvas(W, H);
-  const y = tall ? H * 0.62 : H * 0.5;
-  const bh = tall ? 150 : H - 16;
   ctx.fillStyle = C.tomato;
-  roundBox(ctx, 20, y - bh / 2, W - 40, bh, 24);
+  roundBox(ctx, 16, 36, W - 32, H - 72, 28);
   ctx.fill();
   ctx.fillStyle = '#fffaf3';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, tall ? 78 : 64, W * 0.9);
+  const size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, 92, W * 0.9);
   ctx.font = `${size}px ${FONT.display}`;
-  ctx.fillText(text, W / 2, y + 4);
+  ctx.fillText(text, W / 2, H * 0.52);
   return canvas;
 }
 
-function ticked(paper, src, C) {
+function ticked(paper, src) {
   const pad = 36;
   const { canvas, ctx } = paper.makeCanvas(src.width + pad, src.height + pad);
   ctx.drawImage(src, pad * 0.2, pad * 0.55);
@@ -1292,7 +1381,6 @@ function ticked(paper, src, C) {
   ctx.lineTo(src.width - 10, pad + 18);
   ctx.lineTo(src.width + 6, pad - 4);
   ctx.stroke();
-  void C;
   return canvas;
 }
 
@@ -1303,10 +1391,10 @@ function memoryArt(paper, src) {
   ctx.fillStyle = '#fffaf3';
   roundBox(ctx, 8, 8, W - 16, H - 16, 10);
   ctx.fill();
-  const x = 32;
-  const y = 32;
-  const w = W - 64;
-  const h = H - 120;
+  const x = 28;
+  const y = 28;
+  const w = W - 56;
+  const h = H - 110;
   ctx.save();
   roundBox(ctx, x, y, w, h, 6);
   ctx.clip();
@@ -1322,6 +1410,16 @@ function memoryArt(paper, src) {
   ctx.restore();
   ctx.fillStyle = '#e7b15a';
   ctx.fillRect(W / 2 - 54, 6, 108, 28);
+  return canvas;
+}
+
+function solidSign(paper, src) {
+  const { canvas, ctx } = paper.makeCanvas(src.width, src.height);
+  ctx.fillStyle = '#fff6ea';
+  const m = Math.round(Math.min(src.width, src.height) * 0.06);
+  roundBox(ctx, m, m, src.width - m * 2, src.height - m * 2, Math.max(12, m));
+  ctx.fill();
+  ctx.drawImage(src, 0, 0);
   return canvas;
 }
 
@@ -1412,11 +1510,12 @@ function sparkCanvas(paper, C) {
 }
 
 function roundBox(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
 }
