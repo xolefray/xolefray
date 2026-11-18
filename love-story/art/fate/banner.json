@@ -1,0 +1,15 @@
+{
+  "id": "banner",
+  "file": "banner.webp",
+  "w": 1024,
+  "h": 584,
+  "feet": [
+    511.5,
+    559.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 1.15
+}

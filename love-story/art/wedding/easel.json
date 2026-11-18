@@ -1,0 +1,15 @@
+{
+  "id": "easel",
+  "file": "easel.webp",
+  "w": 451,
+  "h": 921,
+  "feet": [
+    399.0,
+    896
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "wedding",
+  "units": 1.15
+}

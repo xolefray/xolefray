@@ -1,0 +1,15 @@
+{
+  "id": "vending",
+  "file": "vending.webp",
+  "w": 538,
+  "h": 1024,
+  "feet": [
+    268.1,
+    1000.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 1.16
+}

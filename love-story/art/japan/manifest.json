@@ -1,0 +1,411 @@
+{
+  "version": 1,
+  "items": {
+    "boarding-pass": {
+      "id": "boarding-pass",
+      "file": "boarding-pass.webp",
+      "w": 1024,
+      "h": 425,
+      "feet": [
+        511.5,
+        402
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.6
+    },
+    "city-night": {
+      "id": "city-night",
+      "file": "city-night.webp",
+      "w": 1400,
+      "h": 672,
+      "feet": [
+        703,
+        647
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 2.2
+    },
+    "food-dango": {
+      "id": "food-dango",
+      "file": "food-dango.webp",
+      "w": 302,
+      "h": 640,
+      "feet": [
+        81,
+        616
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.38
+    },
+    "food-matcha": {
+      "id": "food-matcha",
+      "file": "food-matcha.webp",
+      "w": 290,
+      "h": 640,
+      "feet": [
+        145.5,
+        618
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.38
+    },
+    "food-ramen": {
+      "id": "food-ramen",
+      "file": "food-ramen.webp",
+      "w": 602,
+      "h": 536,
+      "feet": [
+        305.5,
+        511
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.38
+    },
+    "food-sushi": {
+      "id": "food-sushi",
+      "file": "food-sushi.webp",
+      "w": 640,
+      "h": 391,
+      "feet": [
+        333,
+        368
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.38
+    },
+    "food-taiyaki": {
+      "id": "food-taiyaki",
+      "file": "food-taiyaki.webp",
+      "w": 429,
+      "h": 313,
+      "feet": [
+        256,
+        288
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.38
+    },
+    "fuji": {
+      "id": "fuji",
+      "file": "fuji.webp",
+      "w": 1024,
+      "h": 346,
+      "feet": [
+        566.5,
+        323
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 1.15
+    },
+    "heart-big": {
+      "id": "heart-big",
+      "file": "heart-big.webp",
+      "w": 714,
+      "h": 708,
+      "feet": [
+        370.5,
+        683
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 1.4
+    },
+    "kaminarimon": {
+      "id": "kaminarimon",
+      "file": "kaminarimon.webp",
+      "w": 998,
+      "h": 748,
+      "feet": [
+        500.5,
+        723
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 2.4
+    },
+    "lantern": {
+      "id": "lantern",
+      "file": "lantern.webp",
+      "w": 574,
+      "h": 639,
+      "feet": [
+        288.5,
+        614
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.42
+    },
+    "neon-sign-a": {
+      "id": "neon-sign-a",
+      "file": "neon-sign-a.webp",
+      "w": 354,
+      "h": 900,
+      "feet": [
+        177.5,
+        875
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.9
+    },
+    "neon-sign-b": {
+      "id": "neon-sign-b",
+      "file": "neon-sign-b.webp",
+      "w": 366,
+      "h": 422,
+      "feet": [
+        185.5,
+        397
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.9
+    },
+    "neon-sign-c": {
+      "id": "neon-sign-c",
+      "file": "neon-sign-c.webp",
+      "w": 722,
+      "h": 376,
+      "feet": [
+        509,
+        351
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.9
+    },
+    "page-left": {
+      "id": "page-left",
+      "file": "page-left.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 3
+    },
+    "page-right": {
+      "id": "page-right",
+      "file": "page-right.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 3
+    },
+    "pagoda": {
+      "id": "pagoda",
+      "file": "pagoda.webp",
+      "w": 500,
+      "h": 1024,
+      "feet": [
+        249.5,
+        999
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 2.6
+    },
+    "paper-plane": {
+      "id": "paper-plane",
+      "file": "paper-plane.webp",
+      "w": 620,
+      "h": 408,
+      "feet": [
+        526,
+        383
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.28
+    },
+    "plum-branch": {
+      "id": "plum-branch",
+      "file": "plum-branch.webp",
+      "w": 610,
+      "h": 586,
+      "feet": [
+        50.5,
+        561
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 1
+    },
+    "ramen-stall": {
+      "id": "ramen-stall",
+      "file": "ramen-stall.webp",
+      "w": 625,
+      "h": 611,
+      "feet": [
+        283.5,
+        586
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 1.5
+    },
+    "signpost": {
+      "id": "signpost",
+      "file": "signpost.webp",
+      "w": 548,
+      "h": 1024,
+      "feet": [
+        280,
+        999
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 1.4
+    },
+    "sky-day": {
+      "id": "sky-day",
+      "file": "sky-day.webp",
+      "w": 1400,
+      "h": 700,
+      "feet": [
+        700,
+        699
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 1.7
+    },
+    "sky-night": {
+      "id": "sky-night",
+      "file": "sky-night.webp",
+      "w": 1400,
+      "h": 700,
+      "feet": [
+        700,
+        699
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 1.7
+    },
+    "suitcase-stickers": {
+      "id": "suitcase-stickers",
+      "file": "suitcase-stickers.webp",
+      "w": 435,
+      "h": 729,
+      "feet": [
+        315,
+        704
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 0.62
+    },
+    "temple-gate": {
+      "id": "temple-gate",
+      "file": "temple-gate.webp",
+      "w": 810,
+      "h": 739,
+      "feet": [
+        405,
+        714
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 1.58
+    },
+    "torii": {
+      "id": "torii",
+      "file": "torii.webp",
+      "w": 621,
+      "h": 662,
+      "feet": [
+        470,
+        637
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 1.55
+    },
+    "vending-machine": {
+      "id": "vending-machine",
+      "file": "vending-machine.webp",
+      "w": 493,
+      "h": 906,
+      "feet": [
+        246,
+        869
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "japan",
+      "units": 1.3
+    }
+  },
+  "cycles": {}
+}

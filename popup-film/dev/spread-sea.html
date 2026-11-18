@@ -1,0 +1,218 @@
+<!doctype html>
+<!--
+  dev/spread-sea.html (T-sea) — harness for src/spreads/sea.js ("The Folded Sea", spread 2).
+  The real environment (src/environment.js, lit for film time t) and a stand-in book: the spread
+  frame sits at the book's page height (y = 0.115, as camera.js assumes for the sea), the right
+  page is fixed, the left page (with its board) is posed at the opening angle; both carry the
+  spread's leftArt/rightArt. The spread group is updated with (α, t, t − 28).
+  Query: alpha=<α/π> (default 1; 'film' = the film's α at t) · t=<film s> (default 40) · view=front|low|light|boat|wide|top|side
+  (front/low/light/boat match the camera rig's sea keys) · free=1 orbit controls · hud=1 stats ·
+  check=1 fold self-test: at the film's own (α, t) every 0.1 s through both page turns (28–31,
+  49–52), at α/π ∈ {0, .05, .1, .2, .3, .5, .7, .85, .95, 1} for t = 29.5 and 50.5, and open at the
+  beats 33–48, every visible mesh vertex must lie inside the book wedge (above the right page, on the
+  printed side of the left page, |z| ≤ 2) and, closed, flat inside the page rectangle;
+  failures go to console.error. Light effects (beam, glow) and the slot wave are exempt; flying
+  gulls only have to stay above the pages.
+  Sets window.__ready once two frames have been rendered.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Folded Sea harness</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root { --bg: #0b0908; --fg: #efe6d2; --ok: #8fdca0; --bad: #ff7b6b; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+      font: 12px/1.4 system-ui, sans-serif; }
+    #hud { position: fixed; left: 10px; top: 8px; white-space: pre; pointer-events: none; text-shadow: 0 1px 2px #000; }
+    .ok { color: var(--ok); } .bad { color: var(--bad); }
+  </style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <div id="hud"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import * as paper from '../src/paper.js';
+    import * as popup from '../src/popup.js';
+    import { makeRng } from '../src/util/rng.js';
+    import { createEnvironment } from '../src/environment.js';
+    import { SPREADS, leafAngles, spreadAlpha } from '../src/timeline.js';
+    import sea from '../src/spreads/sea.js';
+
+    const PI = Math.PI;
+    const BOOK = { PAGE_W: 3, PAGE_D: 4, BOARD_T: 0.035, LEAVES: 5 };
+    const PAGE_Y = 0.115;
+    const START = SPREADS.find((s) => s.id === 'sea').start;
+    const params = new URLSearchParams(location.search);
+    const num = (k, d) => (Number.isFinite(parseFloat(params.get(k))) ? parseFloat(params.get(k)) : d);
+    const T = num('t', 40);
+    const ALPHA = params.get('alpha') === 'film' ? spreadAlpha(2, leafAngles(T)) : PI * Math.min(1, Math.max(0, num('alpha', 1)));
+    const hud = document.getElementById('hud');
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 100);
+    const env = createEnvironment({ scene, renderer });
+
+    // ------------------------------------------------------------ stand-in book
+    const built = performance.now();
+    const spread = sea.build({ THREE, paper, popup, rng: makeRng(1002), BOOK });
+    const buildMs = performance.now() - built;
+    const frame = new THREE.Group();
+    frame.position.y = PAGE_Y;
+    scene.add(frame);
+    const boardMat = new THREE.MeshStandardMaterial({ color: '#efe6d2', roughness: 0.95 });
+    const clothMat = new THREE.MeshStandardMaterial({ color: '#7a2e2a', roughness: 0.85 });
+    function pageMesh(canvas, sign) {
+      const g = new THREE.Group();
+      const geo = new THREE.PlaneGeometry(3, 4).rotateX(-PI / 2).translate(sign * 1.5, 0, 0);
+      const sheet = new THREE.Mesh(geo, paper.paperMaterial({ map: paper.texture(canvas) }));
+      sheet.receiveShadow = true;
+      const board = new THREE.Mesh(new THREE.BoxGeometry(3, BOOK.BOARD_T, 4), boardMat);
+      board.position.set(sign * 1.5, -BOOK.BOARD_T / 2 - 0.0005, 0);
+      board.castShadow = board.receiveShadow = true;
+      g.add(sheet, board);
+      return g;
+    }
+    frame.add(pageMesh(spread.rightArt, 1));
+    const leftPage = pageMesh(spread.leftArt, -1);
+    leftPage.rotation.z = ALPHA - PI;
+    frame.add(leftPage);
+    for (const sign of [-1, 1]) {
+      const pile = new THREE.Mesh(new THREE.BoxGeometry(3.06, PAGE_Y - BOOK.BOARD_T, 4.12), clothMat);
+      pile.position.set(sign * 1.53, (PAGE_Y - BOOK.BOARD_T) / 2, 0);
+      pile.castShadow = pile.receiveShadow = true;
+      scene.add(pile);
+    }
+    frame.add(spread.group);
+
+    // ------------------------------------------------------------ cameras (world coordinates)
+    const VIEWS = {
+      front: [[-0.7, 1.4, 4.8], [0.2, 0.7, -0.2], 33],
+      low: [[-2.3, 1.35, 4.9], [-1.1, 0.55, 0], 33],
+      light: [[0.5, 1.6, 4.6], [1.2, 1.0, -0.4], 33],
+      wide: [[0, 6.2, 7.8], [0.2, 0.8, -0.4], 35],
+      top: [[0, 9.5, 1.2], [0, 0, 0], 35],
+      side: [[7.5, 1.6, 0.4], [0.4, 0.7, 0], 35],
+    };
+    const viewName = params.get('view') ?? 'front';
+    function pose() {
+      spread.group.visible = ALPHA > 0.002;
+      spread.update(ALPHA, T, T - START);
+      env.update(T);
+      if (viewName === 'boat') {
+        frame.updateMatrixWorld(true);
+        const b = spread.group.getObjectByName('sea-boat').getWorldPosition(new THREE.Vector3());
+        camera.position.set(b.x - 0.6, b.y + 1.0, b.z + 3.3);
+        camera.lookAt(b.x, b.y + 0.25, b.z);
+        camera.fov = 32;
+      } else {
+        const [p, q, fov] = VIEWS[viewName] ?? VIEWS.front;
+        camera.position.set(...p);
+        camera.lookAt(...q);
+        camera.fov = fov;
+      }
+      camera.updateProjectionMatrix();
+    }
+    pose();
+
+    // ------------------------------------------------------------ fold self-test (?check=1)
+    function selfTest() {
+      const fails = [];
+      const inv = new THREE.Matrix4();
+      const v = new THREE.Vector3();
+      const flag = (o, key) => {
+        for (let p = o; p && p !== spread.group; p = p.parent) if (p.userData[key]) return true;
+        return false;
+      };
+      const shown = (o) => {
+        for (let p = o; p && p !== spread.group; p = p.parent) if (!p.visible) return false;
+        return true;
+      };
+      const exempt = (o) => !shown(o) || flag(o, 'light') || flag(o, 'slot');
+      // The film's own (α, t) pairs through both page turns, the whole α range at the turn times,
+      // and the open beats at α = π.
+      const samples = [];
+      for (let t = 28; t <= 52.001; t += t < 31.2 || t > 48.8 ? 0.1 : 1) samples.push([spreadAlpha(2, leafAngles(t)) / PI, t]);
+      for (const a of [0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.85, 0.95, 1]) samples.push([a, 29.5], [a, 50.5]);
+      for (const t of [33, 36, 40, 42, 43, 44, 45, 46, 48]) samples.push([1, t]);
+      for (const [a, t] of samples) {
+        {
+          const alpha = a * PI;
+          spread.update(alpha, t, t - START);
+          spread.group.updateMatrixWorld(true);
+          inv.copy(spread.group.matrixWorld).invert();
+          const n = { x: Math.sin(alpha), y: -Math.cos(alpha) };
+          let worst = null;
+          spread.group.traverse((o) => {
+            if (!o.isMesh || exempt(o)) return;
+            const flier = flag(o, 'flier');
+            const pos = o.geometry.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+              v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).applyMatrix4(inv);
+              const below = Math.max(-v.y, -(v.x * n.x + v.y * n.y));
+              // Open or turning: never below either page, never past the near/far edges. Closed: flat
+              // on the page and inside its rectangle (x ∈ [0, 3]).
+              const out = Math.max(below - 0.008, flier ? -1 : Math.abs(v.z) - 2.01,
+                a === 0 ? Math.max(Math.abs(v.y) - 0.012, -v.x - 0.01, v.x - 3.01) : -1);
+              if (out > 0 && (!worst || out > worst.out)) worst = { out, name: o.parent?.parent?.name || o.parent?.name || o.name, p: v.toArray().map((c) => c.toFixed(3)) };
+            }
+          });
+          if (worst) fails.push(`α=${a.toFixed(3)}π t=${t.toFixed(1)}: ${worst.name} off by ${worst.out.toFixed(3)} at (${worst.p})`);
+        }
+      }
+      spread.update(ALPHA, T, T - START);
+      return fails;
+    }
+
+    let meshes = 0;
+    let lights = 0;
+    spread.group.traverse((o) => {
+      if (o.isMesh || o.isSprite) meshes++;
+      if (o.isLight) lights++;
+    });
+    const lines = [`sea · α=${(ALPHA / PI).toFixed(2)}π t=${T} view=${viewName} · ${meshes} meshes · ${lights} lights · build ${buildMs.toFixed(0)} ms`];
+    if (params.get('check') === '1') {
+      const fails = selfTest();
+      pose();
+      if (fails.length) {
+        for (const f of fails) console.error(`[sea check] ${f}`);
+        lines.push(`<span class="bad">fold check: ${fails.length} failure(s)</span>`, ...fails.slice(0, 12));
+      } else {
+        lines.push('<span class="ok">fold check: every piece inside the book at all sampled α, flat when closed</span>');
+      }
+    }
+    if (params.get('hud') === '1' || params.get('check') === '1') hud.innerHTML = lines.join('\n');
+    console.log(lines[0]);
+
+    if (params.get('free') === '1') {
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(...(VIEWS[viewName] ?? VIEWS.front)[1]);
+      controls.update();
+    }
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    let frames = 0;
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+      if (++frames >= 2) window.__ready = true;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "id": "bush-row",
+  "file": "bush-row.webp",
+  "w": 1024,
+  "h": 176,
+  "feet": [
+    518.5,
+    157
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "dates",
+  "units": 0.42
+}

@@ -1,0 +1,15 @@
+{
+  "id": "torii",
+  "file": "torii.webp",
+  "w": 621,
+  "h": 662,
+  "feet": [
+    470.0,
+    637
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "life",
+  "units": 1.55
+}

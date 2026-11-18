@@ -1,0 +1,15 @@
+{
+  "id": "heart-stick",
+  "file": "heart-stick.webp",
+  "w": 561,
+  "h": 959,
+  "feet": [
+    284.0,
+    934
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 1.5
+}

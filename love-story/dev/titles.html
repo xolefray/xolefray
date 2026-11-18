@@ -1,0 +1,76 @@
+<!doctype html>
+<!--
+  dev/titles.html — harness for src/titles.js.
+  The overlay sits on a plain warm gradient (light at the bottom, so cream captions have to
+  earn their legibility). ?t=<sec> seeks and pauses · ?play=1 plays · ?captions=0 hides the
+  narration lines only · ui≠0 shows a scrubber. Sets window.__ready after the faces load and
+  two frames have been drawn.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Titles harness</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #2a1812; }
+    body {
+      background: linear-gradient(180deg, #2a1812 0%, #8a5340 24%, #e4b48a 58%, #f7ecdc 100%);
+    }
+    #overlay { position: fixed; inset: 0; }
+    #scrub {
+      position: fixed; z-index: 2; left: 16px; right: 16px; bottom: 12px;
+      display: flex; gap: 12px; align-items: center; color: #f3ead8; font: 14px system-ui, sans-serif;
+    }
+    #scrub[hidden] { display: none; }
+    #scrub input { flex: 1; }
+  </style>
+</head>
+<body>
+  <div id="overlay"></div>
+  <div id="scrub" hidden><button id="pp" type="button">Play</button><input id="range" type="range" min="0" step="0.01"><span id="time"></span></div>
+  <script type="module">
+    import { loadFonts } from '../src/fonts.js';
+    import { createTitles } from '../src/titles.js';
+    import { DURATION, Player } from '../src/timeline.js';
+
+    const params = new URLSearchParams(location.search);
+    const showCaptions = params.get('captions') !== '0';
+    document.documentElement.dataset.captions = showCaptions ? '1' : '0';
+    const overlay = document.getElementById('overlay');
+    if (params.get('ui') !== '0') overlay.style.setProperty('--tt-caption-bottom', '72px');
+
+    await loadFonts();
+    const titles = createTitles(overlay, { captions: showCaptions });
+    const player = new Player(DURATION);
+    const t0 = Number.parseFloat(params.get('t'));
+    player.seek(Number.isFinite(t0) ? t0 : 0);
+    if (params.get('play') === '1') player.play();
+
+    const scrub = document.getElementById('scrub');
+    const range = document.getElementById('range');
+    const pp = document.getElementById('pp');
+    const label = document.getElementById('time');
+    range.max = String(DURATION);
+    if (params.get('ui') !== '0') {
+      scrub.hidden = false;
+      range.addEventListener('input', () => player.seek(parseFloat(range.value)));
+      pp.addEventListener('click', () => player.toggle());
+    }
+
+    let frames = 0;
+    function frame() {
+      const t = player.time;
+      titles.update(t);
+      if (!scrub.hidden) {
+        range.value = String(t);
+        label.textContent = t.toFixed(2);
+        pp.textContent = player.playing ? 'Pause' : 'Play';
+      }
+      if (++frames >= 2) window.__ready = true;
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

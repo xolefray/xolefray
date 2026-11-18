@@ -1,0 +1,15 @@
+{
+  "id": "cake-table",
+  "file": "cake-table.webp",
+  "w": 813,
+  "h": 787,
+  "feet": [
+    403.9,
+    762
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "proposal",
+  "units": 1.14
+}

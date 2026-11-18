@@ -1,0 +1,15 @@
+{
+  "id": "food-ramen",
+  "file": "food-ramen.webp",
+  "w": 602,
+  "h": 536,
+  "feet": [
+    305.5,
+    511
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 0.38
+}

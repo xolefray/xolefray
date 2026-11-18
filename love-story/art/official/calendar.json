@@ -1,0 +1,15 @@
+{
+  "id": "calendar",
+  "file": "calendar.webp",
+  "w": 789,
+  "h": 817,
+  "feet": [
+    402.5,
+    788
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 2.0
+}

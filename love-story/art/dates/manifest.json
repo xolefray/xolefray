@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "items": {
+    "bush-row": {
+      "id": "bush-row",
+      "file": "bush-row.webp",
+      "w": 1024,
+      "h": 176,
+      "feet": [
+        518.5,
+        157
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 0.42
+    },
+    "fence": {
+      "id": "fence",
+      "file": "fence.webp",
+      "w": 1024,
+      "h": 259,
+      "feet": [
+        506.5,
+        236
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 0.52
+    },
+    "houses": {
+      "id": "houses",
+      "file": "houses.webp",
+      "w": 1013,
+      "h": 485,
+      "feet": [
+        557,
+        460
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 1.85
+    },
+    "moon-stars": {
+      "id": "moon-stars",
+      "file": "moon-stars.webp",
+      "w": 789,
+      "h": 820,
+      "feet": [
+        499.5,
+        795
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 1.3
+    },
+    "page-left": {
+      "id": "page-left",
+      "file": "page-left.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 3
+    },
+    "page-right": {
+      "id": "page-right",
+      "file": "page-right.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 3
+    },
+    "park-bench": {
+      "id": "park-bench",
+      "file": "park-bench.webp",
+      "w": 605,
+      "h": 994,
+      "feet": [
+        301.5,
+        969
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 1.3
+    },
+    "school": {
+      "id": "school",
+      "file": "school.webp",
+      "w": 851,
+      "h": 908,
+      "feet": [
+        450,
+        883
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 2.05
+    },
+    "street-lamp": {
+      "id": "street-lamp",
+      "file": "street-lamp.webp",
+      "w": 212,
+      "h": 1024,
+      "feet": [
+        108.5,
+        1000
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 1.4
+    },
+    "trees-a": {
+      "id": "trees-a",
+      "file": "trees-a.webp",
+      "w": 699,
+      "h": 624,
+      "feet": [
+        354.5,
+        599
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 1.35
+    },
+    "trees-b": {
+      "id": "trees-b",
+      "file": "trees-b.webp",
+      "w": 794,
+      "h": 894,
+      "feet": [
+        396.5,
+        869
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "dates",
+      "units": 1.65
+    }
+  },
+  "cycles": {}
+}

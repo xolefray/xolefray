@@ -1,0 +1,15 @@
+{
+  "id": "fuji",
+  "file": "fuji.webp",
+  "w": 1024,
+  "h": 346,
+  "feet": [
+    566.5,
+    323
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "life",
+  "units": 1.15
+}

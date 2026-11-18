@@ -1,0 +1,15 @@
+{
+  "id": "carts",
+  "file": "carts.webp",
+  "w": 1024,
+  "h": 356,
+  "feet": [
+    514.1,
+    332.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 0.4
+}

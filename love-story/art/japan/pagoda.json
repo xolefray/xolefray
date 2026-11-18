@@ -1,0 +1,15 @@
+{
+  "id": "pagoda",
+  "file": "pagoda.webp",
+  "w": 500,
+  "h": 1024,
+  "feet": [
+    249.5,
+    999
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 2.6
+}

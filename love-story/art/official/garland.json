@@ -1,0 +1,15 @@
+{
+  "id": "garland",
+  "file": "garland.webp",
+  "w": 1024,
+  "h": 195,
+  "feet": [
+    475.5,
+    174
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 0.56
+}

@@ -1,0 +1,15 @@
+{
+  "id": "notice-board",
+  "file": "notice-board.webp",
+  "w": 810,
+  "h": 722,
+  "feet": [
+    404,
+    697
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 1.15
+}

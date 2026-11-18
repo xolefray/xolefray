@@ -1,0 +1,15 @@
+{
+  "id": "banner-yes",
+  "file": "banner-yes.webp",
+  "w": 1024,
+  "h": 207,
+  "feet": [
+    508.0,
+    182
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "proposal",
+  "units": 0.247
+}

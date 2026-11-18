@@ -1,0 +1,15 @@
+{
+  "id": "counter",
+  "file": "counter.webp",
+  "w": 825,
+  "h": 534,
+  "feet": [
+    412,
+    509
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 0.98
+}

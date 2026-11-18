@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "items": {
+    "banner": {
+      "id": "banner",
+      "file": "banner.webp",
+      "w": 1024,
+      "h": 584,
+      "feet": [
+        511.5,
+        559
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 1.15
+    },
+    "bike-rack": {
+      "id": "bike-rack",
+      "file": "bike-rack.webp",
+      "w": 697,
+      "h": 428,
+      "feet": [
+        346.5,
+        403
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 0.82
+    },
+    "college": {
+      "id": "college",
+      "file": "college.webp",
+      "w": 886,
+      "h": 1005,
+      "feet": [
+        469,
+        980
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 2.15
+    },
+    "concession": {
+      "id": "concession",
+      "file": "concession.webp",
+      "w": 657,
+      "h": 763,
+      "feet": [
+        326.5,
+        738
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 1.2
+    },
+    "marquee": {
+      "id": "marquee",
+      "file": "marquee.webp",
+      "w": 1024,
+      "h": 268,
+      "feet": [
+        511.5,
+        243
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 0.72
+    },
+    "page-left": {
+      "id": "page-left",
+      "file": "page-left.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 3
+    },
+    "page-right": {
+      "id": "page-right",
+      "file": "page-right.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 3
+    },
+    "projector": {
+      "id": "projector",
+      "file": "projector.webp",
+      "w": 501,
+      "h": 780,
+      "feet": [
+        208,
+        755
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 0.9
+    },
+    "screen": {
+      "id": "screen",
+      "file": "screen.webp",
+      "w": 1024,
+      "h": 578,
+      "feet": [
+        511,
+        553
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 2.15
+    },
+    "seats-front": {
+      "id": "seats-front",
+      "file": "seats-front.webp",
+      "w": 1024,
+      "h": 410,
+      "feet": [
+        511.5,
+        385
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 0.78
+    },
+    "seats-mid": {
+      "id": "seats-mid",
+      "file": "seats-mid.webp",
+      "w": 1024,
+      "h": 282,
+      "feet": [
+        512,
+        257
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 0.82
+    },
+    "signpost": {
+      "id": "signpost",
+      "file": "signpost.webp",
+      "w": 720,
+      "h": 886,
+      "feet": [
+        348.5,
+        861
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 1.2
+    },
+    "trees": {
+      "id": "trees",
+      "file": "trees.webp",
+      "w": 666,
+      "h": 708,
+      "feet": [
+        334.5,
+        683
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 1.45
+    }
+  },
+  "cycles": {}
+}

@@ -1,0 +1,15 @@
+{
+  "id": "chairs-right",
+  "file": "chairs-right.webp",
+  "w": 1024,
+  "h": 357,
+  "feet": [
+    641.7,
+    334
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "wedding",
+  "units": 0.9
+}

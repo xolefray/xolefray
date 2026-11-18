@@ -1,0 +1,15 @@
+{
+  "id": "boarding-pass",
+  "file": "boarding-pass.webp",
+  "w": 1024,
+  "h": 425,
+  "feet": [
+    511.5,
+    402
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 0.6
+}

@@ -1,0 +1,150 @@
+<!doctype html>
+<!--
+  dev/spread-sky.html (T-sky) — harness for src/spreads/sky.js: spread 4 alone in its spread frame
+  (lifted 0.15 like the open book), under the real environment at the requested film time.
+  The right page is fixed on y = 0; the left page and every mechanism are posed at alpha.
+  Query: t=<film seconds> (default 81) · alpha=<0..1, units of π> (default: the timeline's α at t,
+  i.e. 1 from 73 on) · view=front|wide|low|top|side|boat|crane|fold|gutter (default front;
+  fold and gutter are for checking the opening) · play=1 (runs the
+  film clock from t for humans) · free=1 (orbit controls).
+  Sets window.__ready once two frames have been rendered.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spread 4 · The Morning Sky</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root { --bg: #0b0908; --fg: #f3ead8; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); }
+    #hud { position: fixed; left: 10px; bottom: 8px; font: 12px/1.4 ui-monospace, monospace; opacity: 0.75; }
+  </style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <div id="hud"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import * as paper from '../src/paper.js';
+    import * as popup from '../src/popup.js';
+    import { BOOK } from '../src/book.js';
+    import { createEnvironment } from '../src/environment.js';
+    import { SPREADS, leafAngles, spreadAlpha } from '../src/timeline.js';
+    import { makeRng } from '../src/util/rng.js';
+    import sky from '../src/spreads/sky.js';
+
+    const K = 4;
+    const PAGE_Y = 0.15;
+    const q = new URLSearchParams(location.search);
+    const t0 = Number.parseFloat(q.get('t') ?? '81');
+    const alphaParam = q.has('alpha') ? Math.PI * Math.min(1, Math.max(0, Number(q.get('alpha')))) : null;
+    const play = q.get('play') === '1';
+    const info = SPREADS[K - 1];
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 100);
+    const env = createEnvironment({ scene, renderer });
+
+    // Spread frame, lifted like the open book; a board under each page.
+    const frame = new THREE.Group();
+    frame.position.y = PAGE_Y;
+    scene.add(frame);
+    const board = new THREE.MeshStandardMaterial({ color: '#7a2e2a', roughness: 0.8 });
+    const edge = new THREE.MeshStandardMaterial({ color: '#efe4cc', roughness: 0.95 });
+    function pageMesh(canvas, sign) {
+      const g = new THREE.Group();
+      const sheet = new THREE.Mesh(
+        new THREE.PlaneGeometry(BOOK.PAGE_W, BOOK.PAGE_D).rotateX(-Math.PI / 2).translate((sign * BOOK.PAGE_W) / 2, 0, 0),
+        paper.paperMaterial({ map: paper.texture(canvas) }),
+      );
+      sheet.receiveShadow = true;
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(BOOK.PAGE_W, PAGE_Y, BOOK.PAGE_D), [edge, edge, edge, board, edge, edge]);
+      slab.position.set((sign * BOOK.PAGE_W) / 2, -PAGE_Y / 2 - 0.001, 0);
+      slab.castShadow = slab.receiveShadow = true;
+      g.add(sheet, slab);
+      return g;
+    }
+
+    const api = sky.build({ THREE, paper, popup, rng: makeRng(1000 + K), BOOK });
+    const rightPage = pageMesh(api.rightArt, 1);
+    const leftPage = pageMesh(api.leftArt, -1);
+    frame.add(rightPage, leftPage, api.group);
+    const counts = { meshes: 0, lines: 0, points: 0, lights: 0 };
+    api.group.traverse((o) => {
+      if (o.isMesh || o.isSprite) counts.meshes++;
+      else if (o.isLine) counts.lines++;
+      else if (o.isPoints) counts.points++;
+      else if (o.isLight) counts.lights++;
+    });
+    const countText = `meshes ${counts.meshes} · lines ${counts.lines} · points ${counts.points} · lights ${counts.lights}`;
+
+    const VIEWS = {
+      front: [[0, 3.6, 8.8], [0, 1.25, -0.4]],
+      wide: [[6, 7.2, 11.5], [0, 1.0, 0]],
+      low: [[0.3, 1.05, 6.9], [0, 1.45, -0.6]],
+      top: [[0, 12.5, 2.6], [0, 0, 0]],
+      side: [[8.5, 2.2, 0.5], [0, 1.2, -0.3]],
+      boat: [[-0.95, 1.55, 3.0], [-1.6, 0.85, 0.55]],
+      fold: [[3.6, 3.4, 6.2], [0.4, 0.9, -0.2]],
+      gutter: [[0.15, 1.6, 7.2], [0, 1.0, 0]],
+      crane: null,
+    };
+    const view = VIEWS[q.get('view')] !== undefined ? q.get('view') : 'front';
+    const _w = new THREE.Vector3();
+
+    const free = q.get('free') === '1';
+    const controls = free ? new OrbitControls(camera, renderer.domElement) : null;
+
+    function pose(t) {
+      const alpha = alphaParam ?? spreadAlpha(K, leafAngles(t));
+      leftPage.rotation.z = alpha - Math.PI;
+      api.group.visible = alpha > 0.002;
+      if (api.group.visible) api.update(alpha, t, t - info.start);
+      env.update(t);
+      document.getElementById('hud').textContent = `t=${t.toFixed(2)}  α=${(alpha / Math.PI).toFixed(3)}π  view=${view}  ${countText}`;
+      if (controls) return;
+      if (view === 'crane') {
+        api.focus.getWorldPosition(_w);
+        camera.position.set(_w.x + 1.0, _w.y + 0.45, _w.z + 2.3);
+        camera.lookAt(_w);
+      } else {
+        const [p, target] = VIEWS[view];
+        camera.position.set(...p);
+        camera.lookAt(...target);
+      }
+    }
+    if (controls) {
+      const [p, target] = VIEWS[view] ?? VIEWS.front;
+      camera.position.set(...p);
+      controls.target.set(...target);
+      controls.update();
+    }
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    const startWall = performance.now();
+    let frames = 0;
+    renderer.setAnimationLoop(() => {
+      pose(play ? Math.min(96, t0 + (performance.now() - startWall) / 1000) : t0);
+      renderer.render(scene, camera);
+      if (++frames >= 2) window.__ready = true;
+      if (!play && !controls && frames >= 3) renderer.setAnimationLoop(null);
+    });
+  </script>
+</body>
+</html>

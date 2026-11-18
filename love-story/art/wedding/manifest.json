@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "items": {
+    "arch": {
+      "id": "arch",
+      "file": "arch.webp",
+      "w": 1024,
+      "h": 512,
+      "feet": [
+        510.2,
+        494
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 2.15
+    },
+    "cake": {
+      "id": "cake",
+      "file": "cake.webp",
+      "w": 369,
+      "h": 469,
+      "feet": [
+        180.3,
+        468
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 0.8
+    },
+    "chairs-left": {
+      "id": "chairs-left",
+      "file": "chairs-left.webp",
+      "w": 1024,
+      "h": 380,
+      "feet": [
+        591.9,
+        358
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 0.9
+    },
+    "chairs-right": {
+      "id": "chairs-right",
+      "file": "chairs-right.webp",
+      "w": 1024,
+      "h": 357,
+      "feet": [
+        641.7,
+        334
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 0.9
+    },
+    "desk-calendar": {
+      "id": "desk-calendar",
+      "file": "desk-calendar.webp",
+      "w": 639,
+      "h": 630,
+      "feet": [
+        554.8,
+        605
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 1
+    },
+    "easel": {
+      "id": "easel",
+      "file": "easel.webp",
+      "w": 451,
+      "h": 921,
+      "feet": [
+        399,
+        896
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 1.15
+    },
+    "flower-pots": {
+      "id": "flower-pots",
+      "file": "flower-pots.webp",
+      "w": 774,
+      "h": 899,
+      "feet": [
+        409,
+        874
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 1.15
+    },
+    "lantern-string": {
+      "id": "lantern-string",
+      "file": "lantern-string.webp",
+      "w": 1024,
+      "h": 260,
+      "feet": [
+        512,
+        240
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 0.5
+    },
+    "page-left": {
+      "id": "page-left",
+      "file": "page-left.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 3
+    },
+    "page-right": {
+      "id": "page-right",
+      "file": "page-right.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 3
+    },
+    "trees-backdrop": {
+      "id": "trees-backdrop",
+      "file": "trees-backdrop.webp",
+      "w": 1024,
+      "h": 528,
+      "feet": [
+        533.8,
+        508
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "wedding",
+      "units": 2.1
+    }
+  },
+  "cycles": {}
+}

@@ -1,0 +1,15 @@
+{
+  "id": "party-hat",
+  "file": "party-hat.webp",
+  "w": 421,
+  "h": 644,
+  "feet": [
+    209.9,
+    619
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "proposal",
+  "units": 0.36
+}

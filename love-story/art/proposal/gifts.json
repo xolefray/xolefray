@@ -1,0 +1,15 @@
+{
+  "id": "gifts",
+  "file": "gifts.webp",
+  "w": 543,
+  "h": 492,
+  "feet": [
+    329.2,
+    467
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "proposal",
+  "units": 0.46
+}

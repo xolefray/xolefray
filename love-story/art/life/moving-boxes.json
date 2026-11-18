@@ -1,0 +1,15 @@
+{
+  "id": "moving-boxes",
+  "file": "moving-boxes.webp",
+  "w": 578,
+  "h": 877,
+  "feet": [
+    372.0,
+    852.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "life",
+  "units": 1.35
+}

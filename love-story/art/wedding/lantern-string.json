@@ -1,0 +1,15 @@
+{
+  "id": "lantern-string",
+  "file": "lantern-string.webp",
+  "w": 1024,
+  "h": 260,
+  "feet": [
+    512.0,
+    240
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "wedding",
+  "units": 0.5
+}

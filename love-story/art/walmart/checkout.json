@@ -1,0 +1,15 @@
+{
+  "id": "checkout",
+  "file": "checkout.webp",
+  "w": 674,
+  "h": 670,
+  "feet": [
+    336.2,
+    645.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 0.88
+}

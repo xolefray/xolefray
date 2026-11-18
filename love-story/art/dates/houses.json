@@ -1,0 +1,15 @@
+{
+  "id": "houses",
+  "file": "houses.webp",
+  "w": 1013,
+  "h": 485,
+  "feet": [
+    557.0,
+    460
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "dates",
+  "units": 1.85
+}

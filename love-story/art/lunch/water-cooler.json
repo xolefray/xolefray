@@ -1,0 +1,15 @@
+{
+  "id": "water-cooler",
+  "file": "water-cooler.webp",
+  "w": 324,
+  "h": 1009,
+  "feet": [
+    161,
+    984
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 1.08
+}

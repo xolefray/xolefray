@@ -1,0 +1,5 @@
+# Belt and braces: ignore everything in this folder except the two tracked text files.
+# The couple's photos are private and must never be committed.
+*
+!README.md
+!.gitignore

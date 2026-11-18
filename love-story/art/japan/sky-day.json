@@ -1,0 +1,15 @@
+{
+  "id": "sky-day",
+  "file": "sky-day.webp",
+  "w": 1400,
+  "h": 700,
+  "feet": [
+    700.0,
+    699
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 1.7
+}

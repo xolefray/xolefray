@@ -1,0 +1,15 @@
+{
+  "id": "heart-big",
+  "file": "heart-big.webp",
+  "w": 714,
+  "h": 708,
+  "feet": [
+    370.5,
+    683
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 1.4
+}

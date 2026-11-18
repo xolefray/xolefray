@@ -1,0 +1,15 @@
+{
+  "id": "streamers",
+  "file": "streamers.webp",
+  "w": 1024,
+  "h": 536,
+  "feet": [
+    543.8,
+    511
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "proposal",
+  "units": 0.42
+}

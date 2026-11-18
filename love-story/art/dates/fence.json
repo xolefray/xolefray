@@ -1,0 +1,15 @@
+{
+  "id": "fence",
+  "file": "fence.webp",
+  "w": 1024,
+  "h": 259,
+  "feet": [
+    506.5,
+    236
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "dates",
+  "units": 0.52
+}

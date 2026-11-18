@@ -1,0 +1,15 @@
+{
+  "id": "sky-band",
+  "file": "sky-band.webp",
+  "w": 1280,
+  "h": 360,
+  "feet": [
+    640,
+    359
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "life",
+  "units": 1.6
+}

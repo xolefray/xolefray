@@ -1,0 +1,342 @@
+<!doctype html>
+<!--
+  dev/book.html (T-book) — standalone harness for src/book.js (the scrapbook).
+  The book on a dark desk under a stand-in for the film's lamp (warm spot light from the upper left,
+  hemisphere fill, soft front fill), posed from ?t= through timeline.leafAngles, with labelled test
+  page art on every spread, AxesHelpers on the spread anchors and small upright red-fronted test
+  cards at (1, 0, 0) on each right page and at L(α)·1 on each left page.
+  Params:
+    t=<sec>        film time (default 20)
+    cam=front|top|gutter|low|lowleft|lowright|spine|cover|hero|bow|medallion|three   camera preset
+    check=1        sweeps the whole film numerically (ground contact of leaves and of the cover's
+                   relief, leaf overlap, gutter / anchor fit, float of the thinner pile per spread)
+                   and prints the worst errors on screen and to window.__check
+    art=0          no test art / probes (shows the default endpapers and blank cards)
+    lamp=<0..1.5>  scales the lights (the brass follows through book.update's light measurement)
+    tex=1          shows the cover painting flat, as a 2D image
+    photos=0       (handled by photos.js) no photographs → the cover's heart emblem
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book harness</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0c0908; }
+    #info { position: fixed; left: 10px; top: 8px; color: #f3ead8; font: 12px/1.4 monospace; white-space: pre; text-shadow: 0 1px 2px #000; }
+    #flat { position: fixed; inset: 0; margin: auto; max-width: 100%; max-height: 100%; }
+  </style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <div id="info"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { BOOK, createBook } from '../src/book.js';
+    import * as timeline from '../src/timeline.js';
+
+    const params = new URLSearchParams(location.search);
+    const t = parseFloat(params.get('t') ?? '20') || 0;
+    const camName = params.get('cam') ?? 'front';
+    const lamp = parseFloat(params.get('lamp') ?? '1');
+    const showArt = params.get('art') !== '0';
+    const info = document.getElementById('info');
+    const SPREADS = BOOK.LEAVES - 1;
+
+    // Schedule: the film's timeline when it has one turn per spread, else one turn per spread.
+    const LOCAL_TURNS = Array.from({ length: SPREADS }, (_, i) => [10 + i * 30, 13 + i * 30]);
+    const useTimeline = Array.isArray(timeline.LEAF_TURNS) && timeline.LEAF_TURNS.length === SPREADS && typeof timeline.leafAngles === 'function';
+    const DURATION = useTimeline && timeline.DURATION ? timeline.DURATION : 153;
+    const inOutCubic = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+    const leafAngles = useTimeline
+      ? (time) => timeline.leafAngles(time)
+      : (time) => {
+        const out = new Array(BOOK.LEAVES).fill(0);
+        LOCAL_TURNS.forEach(([a, b], i) => { out[i] = Math.PI * inOutCubic(Math.min(1, Math.max(0, (time - a) / (b - a)))); });
+        return out;
+      };
+    const spreadAlpha = (k, phis) => phis[k - 1] - phis[k];
+    const openTimes = useTimeline && timeline.SPREADS ? timeline.SPREADS.map((s) => s.open + 1) : LOCAL_TURNS.map(([, b]) => b + 1);
+
+    // Fonts and photos, when their modules are there.
+    let FONT = null;
+    let photos = null;
+    try {
+      const fonts = await import('../src/fonts.js');
+      await fonts.loadFonts();
+      FONT = fonts.FONT;
+    } catch (err) { console.warn('[book harness] fonts.js not available:', err.message); }
+    try {
+      photos = await (await import('../src/photos.js')).loadPhotos();
+    } catch (err) { console.warn('[book harness] photos.js not available:', err.message); }
+
+    const book = createBook({ photos, fonts: FONT });
+
+    if (params.get('tex') === '1') {
+      book.coverCanvas.id = 'flat';
+      document.body.appendChild(book.coverCanvas);
+      info.textContent = `cover painting ${book.coverCanvas.width}×${book.coverCanvas.height}`;
+      window.__ready = true;
+    } else {
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#0c0908');
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: '#4a3324', roughness: 0.7 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    // Stand-in for environment.js by day: the desk lamp, the room fill and the front fill.
+    const key = new THREE.SpotLight('#ffd3a3', 400 * lamp, 0, 0.82, 0.75, 2);
+    key.name = 'desk-lamp';
+    key.position.set(-5, 9, 1.5);
+    key.target.position.set(0.3, 0.4, -0.3);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.near = 4;
+    key.shadow.camera.far = 22;
+    key.shadow.bias = -0.0002;
+    key.shadow.normalBias = 0.012;
+    key.shadow.focus = 0.51 / 0.82;
+    scene.add(key, key.target);
+    scene.add(new THREE.HemisphereLight('#ffe3c2', '#3a2417', 0.45 * lamp));
+    const fill = new THREE.DirectionalLight('#ffd8b0', 0.35 * lamp);
+    fill.position.set(6, 7, 7);
+    scene.add(fill);
+
+    const CAMERAS = {
+      front: [[0, 6.4, 7.6], [0, 0.1, 0.15]],
+      top: [[0, 11, 0.01], [0, 0, 0]],
+      gutter: [[0.45, 0.55, 2.75], [0, 0.14, 1.2], 30],
+      low: [[0.2, 0.42, 8.6], [0, 0.32, 0]],
+      lowleft: [[-6.2, 0.3, 4.6], [-1.8, 0.1, 0.4], 26],
+      lowright: [[6.2, 0.3, 4.6], [1.8, 0.1, 0.4], 26],
+      spine: [[-5.5, 2.2, 3.2], [1.2, 0.1, 0]],
+      cover: [[1.84, 4.75, 2.55], [1.84, 0.2, 0.06], 33],
+      hero: [[4.5, 4.7, 6.9], [1.75, 0.15, 0.1], 32],
+      bow: [[0.95, 1.5, 1.35], [0.3, 0.26, -0.02], 30],
+      medallion: [[2.75, 1.9, 1.5], [2.8, 0.26, -0.1], 34],
+      three: [[5.6, 3.6, 6.4], [0, 0.3, 0]],
+    };
+    const [camPos, camTarget, fov = 35] = CAMERAS[camName] ?? CAMERAS.front;
+    const camera = new THREE.PerspectiveCamera(fov, innerWidth / innerHeight, 0.1, 100);
+    camera.position.set(...camPos);
+    camera.lookAt(...camTarget);
+
+    scene.add(book.group);
+
+    // ---- labelled test art: FAR at the top, NEAR at the bottom, GUTTER on the gutter side
+    const TINTS = [['#dcebcf', '#cfe4c0'], ['#d3e2f0', '#c4d8ec'], ['#e6dcf0', '#dacdec'], ['#f6e1cf', '#f1d4bc'], ['#f3ecc4', '#ece2ae'], ['#f6d9de', '#f0c8d0']];
+    const AW = 1024;
+    const AH = 853;
+    function testArt(k, side) {
+      const c = document.createElement('canvas');
+      c.width = AW;
+      c.height = AH;
+      const g = c.getContext('2d');
+      g.fillStyle = TINTS[k - 1][side === 'LEFT' ? 0 : 1];
+      g.fillRect(0, 0, AW, AH);
+      g.strokeStyle = 'rgba(40,40,60,0.18)';
+      g.lineWidth = 2;
+      for (let x = 128; x < AW; x += 128) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, AH); g.stroke(); }
+      for (let y = 128; y < AH; y += 128) { g.beginPath(); g.moveTo(0, y); g.lineTo(AW, y); g.stroke(); }
+      g.strokeStyle = '#2b2622';
+      g.lineWidth = 8;
+      g.strokeRect(4, 4, AW - 8, AH - 8);
+      g.fillStyle = '#2b2622';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = 'bold 50px sans-serif';
+      g.fillText('FAR edge', AW / 2, 54);
+      g.fillText('NEAR edge', AW / 2, AH - 54);
+      g.font = 'bold 120px sans-serif';
+      g.fillText(`S${k} ${side}`, AW / 2, 330);
+      const gutterX = side === 'RIGHT' ? 44 : AW - 44;
+      g.save();
+      g.translate(gutterX, AH / 2);
+      g.rotate(side === 'RIGHT' ? -Math.PI / 2 : Math.PI / 2);
+      g.font = 'bold 50px sans-serif';
+      g.fillStyle = '#a0281e';
+      g.fillText('GUTTER', 0, 0);
+      g.restore();
+      // arrow toward the outer edge
+      const dir = side === 'RIGHT' ? 1 : -1;
+      const cx = AW / 2;
+      g.fillStyle = '#a0281e';
+      g.beginPath();
+      g.moveTo(cx - dir * 240, 510);
+      g.lineTo(cx + dir * 150, 510);
+      g.lineTo(cx + dir * 150, 460);
+      g.lineTo(cx + dir * 270, 540);
+      g.lineTo(cx + dir * 150, 620);
+      g.lineTo(cx + dir * 150, 570);
+      g.lineTo(cx - dir * 240, 570);
+      g.closePath();
+      g.fill();
+      g.font = 'bold 40px sans-serif';
+      g.fillText('to OUTER edge', cx, 670);
+      return c;
+    }
+    if (showArt) for (let k = 1; k <= SPREADS; k++) book.setPageArt(k, { left: testArt(k, 'LEFT'), right: testArt(k, 'RIGHT') });
+
+    // ---- anchors: axes + upright test cards on both pages
+    const cardGeo = new THREE.PlaneGeometry(0.36, 0.26);
+    cardGeo.translate(0, 0.13, 0);
+    const cardFront = new THREE.MeshStandardMaterial({ color: '#d0201a', roughness: 0.7 });
+    const cardBack = new THREE.MeshStandardMaterial({ color: '#f4f0e6', roughness: 0.7, side: THREE.BackSide });
+    function testCard() {
+      const g = new THREE.Group();
+      for (const m of [cardFront, cardBack]) {
+        const mesh = new THREE.Mesh(cardGeo, m);
+        mesh.castShadow = mesh.receiveShadow = true;
+        g.add(mesh);
+      }
+      return g;
+    }
+    const probes = [];
+    for (let k = 1; k <= SPREADS; k++) {
+      const anchor = book.getSpreadAnchor(k);
+      const content = new THREE.Group();
+      content.add(new THREE.AxesHelper(0.8));
+      const right = testCard();
+      right.position.set(1, 0, 0);
+      const left = testCard();
+      content.add(right, left);
+      if (showArt) anchor.add(content);
+      probes.push({ k, content, left });
+    }
+
+    function pose(time) {
+      const phis = leafAngles(time);
+      book.setLeafAngles(phis);
+      for (const p of probes) {
+        const a = spreadAlpha(p.k, phis);
+        p.content.visible = a > 0.002;
+        p.left.position.set(Math.cos(a), Math.sin(a), 0);
+        p.left.rotation.z = a - Math.PI;
+      }
+      return phis;
+    }
+
+    // ---- optional numeric sweep over the whole film
+    function sweep() {
+      const boxes = [];
+      for (let i = 0; i < BOOK.LEAVES; i++) {
+        const pivot = book.group.getObjectByName(`leaf-${i}`);
+        const box = new THREE.Box3();
+        for (const child of pivot.children) {
+          if (!child.userData.leafPart) continue;
+          child.geometry.computeBoundingBox();
+          box.union(child.geometry.boundingBox);
+        }
+        boxes.push({ pivot, box });
+      }
+      const relief = book.group.getObjectByName('cover-relief');
+      const reliefBox = new THREE.Box3();
+      const worst = { groundPen: 0, reliefPen: 0, reliefPenAt: null, overlap: 0, overlapAt: null, gutterGap: 0, leftDir: 0, rightFit: 0, float: {} };
+      const v = new THREE.Vector3();
+      const inv = new THREE.Matrix4();
+      const corners = (b) => {
+        const { box, pivot } = b;
+        return [[box.min.x, box.min.y], [box.max.x, box.min.y], [box.max.x, box.max.y], [box.min.x, box.max.y]].map(([x, y]) => {
+          v.set(x, y, 0).applyMatrix4(pivot.matrixWorld);
+          return [v.x, v.y];
+        });
+      };
+      const project = (pts, ax, ay) => {
+        let lo = Infinity, hi = -Infinity;
+        for (const [x, y] of pts) { const d = x * ax + y * ay; lo = Math.min(lo, d); hi = Math.max(hi, d); }
+        return [lo, hi];
+      };
+      const penetration = (A, B) => {
+        let best = Infinity;
+        for (const P of [A, B]) {
+          for (let i = 0; i < 4; i++) {
+            const [x0, y0] = P[i], [x1, y1] = P[(i + 1) % 4];
+            const len = Math.hypot(x1 - x0, y1 - y0);
+            const ax = -(y1 - y0) / len, ay = (x1 - x0) / len;
+            const [a0, a1] = project(A, ax, ay), [b0, b1] = project(B, ax, ay);
+            best = Math.min(best, Math.min(a1, b1) - Math.max(a0, b0));
+          }
+        }
+        return Math.max(0, best);
+      };
+      const lowest = (poly) => Math.min(...poly.map((p) => p[1]));
+      for (let time = 0; time <= DURATION + 1e-4; time += 0.02) {
+        const phis = pose(time);
+        book.group.updateMatrixWorld(true);
+        const polys = boxes.map(corners);
+        for (const poly of polys) for (const [, y] of poly) worst.groundPen = Math.max(worst.groundPen, -y);
+        if (relief.visible) {
+          reliefBox.setFromObject(relief, true);
+          if (-reliefBox.min.y > worst.reliefPen) { worst.reliefPen = -reliefBox.min.y; worst.reliefPenAt = `t=${time.toFixed(2)}`; }
+        }
+        for (let i = 0; i < polys.length; i++) {
+          for (let j = i + 1; j < polys.length; j++) {
+            const p = penetration(polys[i], polys[j]);
+            if (p > worst.overlap) { worst.overlap = p; worst.overlapAt = `t=${time.toFixed(2)} leaves ${i}/${j}`; }
+          }
+        }
+        for (let k = 1; k <= SPREADS; k++) {
+          const a = spreadAlpha(k, phis);
+          if (a <= 0.002) continue;
+          const anchor = book.getSpreadAnchor(k);
+          inv.copy(anchor.matrixWorld).invert();
+          const L = boxes[k - 1], R = boxes[k];
+          // left page = back face (local y = min) of leaf k-1, right page = front face (y = max) of leaf k
+          v.set(0, L.box.min.y, 0).applyMatrix4(L.pivot.matrixWorld).applyMatrix4(inv);
+          worst.gutterGap = Math.max(worst.gutterGap, Math.hypot(v.x, v.y));
+          const gx = v.x, gy = v.y;
+          v.set(BOOK.PAGE_W, L.box.min.y, 0).applyMatrix4(L.pivot.matrixWorld).applyMatrix4(inv);
+          const dx = (v.x - gx) / BOOK.PAGE_W, dy = (v.y - gy) / BOOK.PAGE_W;
+          worst.leftDir = Math.max(worst.leftDir, Math.hypot(dx - Math.cos(a), dy - Math.sin(a)));
+          v.set(BOOK.PAGE_W, R.box.max.y, BOOK.PAGE_D / 2).applyMatrix4(R.pivot.matrixWorld).applyMatrix4(inv);
+          worst.rightFit = Math.max(worst.rightFit, Math.hypot(v.x - BOOK.PAGE_W, v.y, v.z - BOOK.PAGE_D / 2));
+        }
+      }
+      // Float of each pile (its outer cover above the desk) with every spread fully open.
+      openTimes.forEach((time, i) => {
+        pose(time);
+        book.group.updateMatrixWorld(true);
+        const polys = boxes.map(corners);
+        worst.float[`s${i + 1}`] = { left: +lowest(polys[0]).toFixed(4), right: +lowest(polys[BOOK.LEAVES - 1]).toFixed(4) };
+      });
+      return worst;
+    }
+
+    let check = null;
+    if (params.get('check') === '1') {
+      check = sweep();
+      window.__check = check;
+      console.log('book sweep', JSON.stringify(check));
+    }
+    const phis = pose(t);
+    const alphas = Array.from({ length: SPREADS }, (_, i) => spreadAlpha(i + 1, phis).toFixed(3)).join(' ');
+    info.textContent = `t=${t}  cam=${camName}  ${useTimeline ? 'timeline.js' : 'LOCAL schedule'}  photo=${photos && photos.cover ? 'yes' : 'no'}\nφ=${phis.map((p) => p.toFixed(3)).join(' ')}\nα=${alphas}` +
+      (check ? `\nsweep: ${JSON.stringify(check, (k, x) => (typeof x === 'number' && Math.abs(x) < 1e-3 && x !== 0 ? Number(x.toExponential(2)) : x)).replace(/,"/g, ', "')}` : '');
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+    let frames = 0;
+    renderer.setAnimationLoop(() => {
+      book.update(t); // no lamp level given: the book measures the scene's lights itself
+      renderer.render(scene, camera);
+      if (++frames >= 3) window.__ready = true;
+    });
+
+    } // end of the 3D view
+  </script>
+</body>
+</html>

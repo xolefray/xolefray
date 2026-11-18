@@ -1,0 +1,15 @@
+{
+  "id": "heart-arch",
+  "file": "heart-arch.webp",
+  "w": 808,
+  "h": 808,
+  "feet": [
+    403.5,
+    782
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 1.78
+}

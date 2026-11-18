@@ -1,0 +1,279 @@
+<!doctype html>
+<!--
+  dev/figures.html (T-figures) — harness for src/figures.js.
+
+  ?view=sheet (default)  2D contact sheet on kraft paper: every who × outfit × pose, the dogs with
+                         every accessory, and a strip of extras (props, expressions, joined hands).
+        &who=him|her|sister|dogs|extras   only that section (bigger cells)
+        &outfit=<name>  &pose=<name>      filter rows / columns
+        &facing=left                      mirror every figure
+        &px=<n>                           paint resolution (default 512; dogs 384)
+  ?view=3d               a page under a warm shadow-casting light with a line-up of figure cards:
+                         the two in vests, the walk with the family dog and the sister, the proposal,
+                         the wedding pair holding hands with the chihuahua in a bow tie.
+        &cam=wide|1|2|3|4|side            camera preset (default wide)     &free=1  orbit controls
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>figures.js harness</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #c9a87e; }
+    canvas { display: block; }
+  </style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import * as paper from '../src/paper.js';
+    import { paintFigure, paintDog, figureCard, joinHands, FIGURE, FIGURE_OPTIONS } from '../src/figures.js';
+
+    const q = new URLSearchParams(location.search);
+    const view = q.get('view') ?? 'sheet';
+    const facing = q.get('facing') === 'left' ? 'left' : 'right';
+
+    // ------------------------------------------------------------------------------ contact sheet
+    function sheet() {
+      const W = innerWidth;
+      const H = innerHeight;
+      const { canvas, ctx } = paper.makeCanvas(W, H);
+      document.body.appendChild(canvas);
+      ctx.fillStyle = '#c9a87e';
+      ctx.fillRect(0, 0, W, H);
+      paper.addGrain(ctx, W, H, { amount: 0.07, seed: 5, mottle: 1.4 });
+
+      const only = q.get('who');
+      const fOutfit = q.get('outfit');
+      const fPose = q.get('pose');
+      const px = Number(q.get('px') ?? 512);
+      const outfits = FIGURE_OPTIONS.outfit.filter((n) => !fOutfit || n === fOutfit);
+      const posesFor = (who) => FIGURE_OPTIONS.pose
+        .filter((p) => (p !== 'kneel' || who === 'him') && (p !== 'surprised' || who === 'her'))
+        .filter((p) => !fPose || p === fPose);
+
+      const t0 = performance.now();
+      const person = (who) => ({
+        title: who, unit: FIGURE.himHeight * 1.2,
+        rows: outfits.map((outfit) => ({
+          label: outfit,
+          cells: posesFor(who).map((pose) => ({ label: pose, canvas: paintFigure(who, { outfit, pose, facing, px }) })),
+        })),
+      });
+      const dogs = {
+        title: 'dogs', unit: 0.62,
+        rows: FIGURE_OPTIONS.dog.map((kind) => ({
+          label: kind,
+          cells: FIGURE_OPTIONS.dogPose.flatMap((pose) => [null, 'bowtie', 'leash'].map((accessory) => ({
+            label: `${pose}${accessory ? ' + ' + accessory : ''}`,
+            canvas: paintDog(kind, { pose, accessory, facing, px: Number(q.get('px') ?? 384) }),
+          }))),
+        })),
+      };
+      const extras = {
+        title: 'extras', unit: FIGURE.himHeight * 1.2,
+        rows: [
+          { label: 'props', cells: [
+            { label: 'sister + iceCream', canvas: paintFigure('sister', { pose: 'stand', hold: 'iceCream', facing, px }) },
+            { label: 'walk + iceCream', canvas: paintFigure('sister', { pose: 'walk', hold: 'iceCream', facing, px }) },
+            { label: 'her + phone', canvas: paintFigure('her', { pose: 'stand', hold: 'phone', facing, px }) },
+            { label: 'him run + phone', canvas: paintFigure('him', { pose: 'run', hold: 'phone', facing, px }) },
+            { label: 'her walk + leash', canvas: paintFigure('her', { pose: 'walk', hold: 'leash', facing, px }) },
+            { label: 'him + bouquet', canvas: paintFigure('him', { outfit: 'party', pose: 'stand', hold: 'bouquet', facing, px }) },
+            { label: 'kneel, no box', canvas: paintFigure('him', { outfit: 'party', pose: 'kneel', hold: null, facing, px }) },
+            { label: 'her sit + iceCream', canvas: paintFigure('her', { pose: 'sit', hold: 'iceCream', facing, px }) },
+          ] },
+          { label: 'faces', cells: [
+            { label: 'him laugh', canvas: paintFigure('him', { outfit: 'vest', pose: 'sit', expression: 'laugh', facing, px }) },
+            { label: 'her laugh', canvas: paintFigure('her', { outfit: 'vest', pose: 'sit', expression: 'laugh', facing: facing === 'left' ? 'right' : 'left', px }) },
+            { label: 'him wow', canvas: paintFigure('him', { pose: 'stand', expression: 'wow', facing, px }) },
+            { label: 'her wow', canvas: paintFigure('her', { pose: 'point', expression: 'wow', facing, px }) },
+            { label: 'sister laugh', canvas: paintFigure('sister', { pose: 'wave', expression: 'laugh', facing, px }) },
+            { label: 'sister backpack off', canvas: paintFigure('sister', { outfit: 'school', pose: 'run', backpack: false, facing, px }) },
+            { label: 'her party + pack', canvas: paintFigure('her', { outfit: 'party', pose: 'walk', backpack: true, facing, px }) },
+            { label: 'sister wedding wave', canvas: paintFigure('sister', { outfit: 'wedding', pose: 'wave', hold: 'bouquet', facing, px }) },
+          ] },
+        ],
+      };
+      const all = { him: () => person('him'), her: () => person('her'), sister: () => person('sister'), dogs: () => dogs, extras: () => extras };
+      const columns = only && all[only] ? [[all[only]()]] : [[person('him'), person('sister')], [person('her'), dogs]];
+      const paintMs = performance.now() - t0;
+
+      const colW = W / columns.length;
+      let overflow = 0;
+      columns.forEach((sections, ci) => {
+        const rowsTotal = sections.reduce((n, s) => n + s.rows.length, 0);
+        const titleH = Math.max(14, Math.min(22, H * 0.02));
+        const rowH = (H - 8 - sections.length * titleH) / rowsTotal;
+        let y = 4;
+        for (const s of sections) {
+          const labelW = Math.min(70, colW * 0.09);
+          const nCols = Math.max(...s.rows.map((r) => r.cells.length));
+          const cellW = (colW - labelW - 8) / nCols;
+          const fs = Math.max(9, Math.min(14, cellW * 0.13));
+          ctx.fillStyle = '#4a3323';
+          ctx.font = `700 ${titleH * 0.8}px ui-sans-serif, system-ui, sans-serif`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(s.title, ci * colW + 8, y + titleH / 2);
+          y += titleH;
+          for (const row of s.rows) {
+            ctx.save();
+            ctx.translate(ci * colW + 12, y + rowH / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.font = `600 ${fs}px ui-sans-serif, system-ui, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#5b402d';
+            ctx.fillText(row.label, 0, 0);
+            ctx.restore();
+            row.cells.forEach((cell, i) => {
+              const c = cell.canvas;
+              const m = c.meta;
+              const x0 = ci * colW + labelW + i * cellW;
+              const lh = fs * 1.25;
+              // screen px per world unit: one scale for the whole section
+              const k = Math.min((rowH - lh - 6) / s.unit, ...s.rows.flatMap((r) => r.cells.map((q2) => (cellW - 4) / q2.canvas.meta.width)));
+              const w = m.width * k;
+              const h = m.height * k;
+              const by = y + rowH - lh - 3;
+              // ground line
+              ctx.strokeStyle = 'rgba(74, 51, 35, 0.35)';
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(x0 + 3, by - m.baseline * k + 0.5);
+              ctx.lineTo(x0 + cellW - 3, by - m.baseline * k + 0.5);
+              ctx.stroke();
+              ctx.save();
+              ctx.shadowColor = 'rgba(50, 28, 10, 0.4)';
+              ctx.shadowBlur = Math.max(2, k * 0.012);
+              ctx.shadowOffsetY = Math.max(1, k * 0.008);
+              ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(c, x0 + cellW / 2 - w / 2, by - h, w, h);
+              ctx.restore();
+              // head-room check: art touching the top edge means the frame is too small
+              const top = c.getContext('2d').getImageData(0, 0, c.width, 1).data;
+              for (let p = 3; p < top.length; p += 4) if (top[p] > 0) { overflow++; console.warn(`[figures] ${s.title}/${row.label}/${cell.label} touches the top of its canvas`); break; }
+              ctx.fillStyle = '#3d2a1c';
+              ctx.font = `${fs}px ui-sans-serif, system-ui, sans-serif`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'alphabetic';
+              ctx.fillText(cell.label, x0 + cellW / 2, y + rowH - 4);
+            });
+            y += rowH;
+          }
+        }
+      });
+      console.info(`[figures] sheet painted in ${paintMs.toFixed(0)} ms, ${overflow} head-room overflows`);
+    }
+
+    // ------------------------------------------------------------------------------ 3D line-up
+    function scene3d() {
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.body.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color('#1b130e');
+      const desk = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), paper.paperMaterial({ color: '#4a3121', roughness: 0.7 }));
+      desk.rotation.x = -Math.PI / 2;
+      desk.position.y = -0.012;
+      desk.receiveShadow = true;
+      scene.add(desk);
+
+      const art = paper.page((ctx, w, h) => {
+        ctx.strokeStyle = 'rgba(120, 90, 60, 0.25)';
+        ctx.setLineDash([10, 12]);
+        ctx.lineWidth = 3;
+        ctx.strokeRect(24, 24, w - 48, h - 48);
+      }, { seed: 12, tint: '#f0e3c8' });
+      const tex = paper.texture(art);
+      tex.rotation = Math.PI / 2;
+      tex.center.set(0.5, 0.5);
+      const pageMesh = new THREE.Mesh(new THREE.PlaneGeometry(8.6, 3.2), paper.paperMaterial({ map: tex }));
+      pageMesh.rotation.x = -Math.PI / 2;
+      pageMesh.receiveShadow = true;
+      scene.add(pageMesh);
+
+      const spot = new THREE.SpotLight('#ffd6a3', 300, 0, 0.7, 0.6, 2);
+      spot.position.set(-3.4, 7.5, 5.6);
+      spot.target.position.set(0, 0, 0);
+      spot.castShadow = true;
+      spot.shadow.mapSize.set(4096, 4096);
+      spot.shadow.bias = -0.0004;
+      spot.shadow.normalBias = 0.01;
+      spot.shadow.camera.near = 3;
+      spot.shadow.camera.far = 18;
+      scene.add(spot, spot.target);
+      scene.add(new THREE.HemisphereLight('#ffe9cf', '#5a4030', 0.85));
+
+      const px = Number(q.get('px') ?? 640);
+      const put = (who, opts, x, z = 0) => {
+        const c = figureCard(paper, who, { px: who in { chihuahua: 1, familyDog: 1 } ? 384 : px, ...opts });
+        c.position.set(x, 0, z);
+        scene.add(c);
+        return c;
+      };
+
+      // 1 — coworkers in their vests, facing each other
+      put('him', { outfit: 'vest', pose: 'wave' }, -3.55);
+      put('her', { outfit: 'vest', pose: 'stand', facing: 'left' }, -2.95);
+
+      // 2 — the "date": a walk with the family dog and the little sister
+      put('him', { outfit: 'casual', pose: 'walk' }, -1.95);
+      const walker = put('her', { outfit: 'casual', pose: 'walk', hold: 'leash' }, -1.45, 0.12);
+      put('sister', { outfit: 'school', pose: 'walk', hold: 'iceCream' }, -2.45, 0.3);
+      const hand = walker.userData.anchors.hand;
+      const dog = put('familyDog', { pose: 'walk', accessory: 'leash', leashTo: [-0.42, hand[1]] }, 0, 0.13);
+      dog.position.x = walker.position.x + hand[0] - dog.userData.anchors.leashEnd[0];
+
+      // 3 — the question
+      put('him', { outfit: 'party', pose: 'kneel' }, 0.75);
+      put('her', { outfit: 'party', pose: 'surprised', facing: 'left' }, 1.42);
+
+      // 4 — the wedding, hand in hand, with the chihuahua in a bow tie
+      const groom = put('him', { outfit: 'wedding', pose: 'holdHandsR' }, 2.75);
+      const bride = put('her', { outfit: 'wedding', pose: 'holdHandsL', facing: 'left' }, 0);
+      joinHands(groom, bride);
+      put('chihuahua', { pose: 'sit', accessory: 'bowtie', facing: 'left' }, 3.72, 0.3);
+      put('sister', { outfit: 'wedding', pose: 'wave', facing: 'right' }, 2.25, 0.25);
+
+      const cams = {
+        wide: [[0, 2.5, 10.8], [0, 0.42, 0]],
+        1: [[-3.25, 1.0, 3.2], [-3.25, 0.52, 0]],
+        2: [[-1.6, 1.0, 3.9], [-1.6, 0.48, 0]],
+        3: [[1.08, 1.0, 3.0], [1.08, 0.48, 0]],
+        4: [[3.0, 1.0, 3.6], [3.0, 0.48, 0]],
+        side: [[6.5, 1.6, 5.5], [1.5, 0.4, 0]],
+      };
+      const [eye, target] = cams[q.get('cam') ?? 'wide'] ?? cams.wide;
+      const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 100);
+      camera.position.fromArray(eye);
+      camera.lookAt(new THREE.Vector3().fromArray(target));
+      if (q.get('free') === '1') {
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.fromArray(target);
+        controls.update();
+      }
+      addEventListener('resize', () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+      renderer.setAnimationLoop(() => renderer.render(scene, camera));
+      renderer.render(scene, camera);
+    }
+
+    if (view === '3d') scene3d();
+    else sheet();
+    requestAnimationFrame(() => requestAnimationFrame(() => { window.__ready = true; }));
+  </script>
+</body>
+</html>

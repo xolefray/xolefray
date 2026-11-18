@@ -1,0 +1,15 @@
+{
+  "id": "backdrop",
+  "file": "backdrop.webp",
+  "w": 1024,
+  "h": 487,
+  "feet": [
+    531.5,
+    462
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "proposal",
+  "units": 2.02
+}

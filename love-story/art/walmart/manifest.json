@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "items": {
+    "boxes": {
+      "id": "boxes",
+      "file": "boxes.webp",
+      "w": 645,
+      "h": 735,
+      "feet": [
+        469.6,
+        710
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 0.74
+    },
+    "carts": {
+      "id": "carts",
+      "file": "carts.webp",
+      "w": 1024,
+      "h": 356,
+      "feet": [
+        514.1,
+        332
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 0.4
+    },
+    "checkout": {
+      "id": "checkout",
+      "file": "checkout.webp",
+      "w": 674,
+      "h": 670,
+      "feet": [
+        336.2,
+        645
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 0.88
+    },
+    "clock": {
+      "id": "clock",
+      "file": "clock.webp",
+      "w": 730,
+      "h": 740,
+      "feet": [
+        364.9,
+        715
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 0.55
+    },
+    "end-cap": {
+      "id": "end-cap",
+      "file": "end-cap.webp",
+      "w": 688,
+      "h": 910,
+      "feet": [
+        343,
+        885
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 1.28
+    },
+    "page-left": {
+      "id": "page-left",
+      "file": "page-left.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 3
+    },
+    "page-right": {
+      "id": "page-right",
+      "file": "page-right.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 3
+    },
+    "shelves-left": {
+      "id": "shelves-left",
+      "file": "shelves-left.webp",
+      "w": 1024,
+      "h": 507,
+      "feet": [
+        511.7,
+        486
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 1.18
+    },
+    "shelves-right": {
+      "id": "shelves-right",
+      "file": "shelves-right.webp",
+      "w": 1024,
+      "h": 563,
+      "feet": [
+        430.1,
+        541
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 1.18
+    },
+    "shirt-rack": {
+      "id": "shirt-rack",
+      "file": "shirt-rack.webp",
+      "w": 859,
+      "h": 477,
+      "feet": [
+        429,
+        452
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 1.05
+    },
+    "store-front": {
+      "id": "store-front",
+      "file": "store-front.webp",
+      "w": 1024,
+      "h": 389,
+      "feet": [
+        511.5,
+        364
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 2.16
+    },
+    "vending": {
+      "id": "vending",
+      "file": "vending.webp",
+      "w": 538,
+      "h": 1024,
+      "feet": [
+        268.1,
+        1000
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 1.16
+    },
+    "wet-floor": {
+      "id": "wet-floor",
+      "file": "wet-floor.webp",
+      "w": 644,
+      "h": 693,
+      "feet": [
+        321.5,
+        668
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "walmart",
+      "units": 0.62
+    }
+  },
+  "cycles": {}
+}

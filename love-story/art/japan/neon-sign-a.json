@@ -1,0 +1,15 @@
+{
+  "id": "neon-sign-a",
+  "file": "neon-sign-a.webp",
+  "w": 354,
+  "h": 900,
+  "feet": [
+    177.5,
+    875
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 0.9
+}

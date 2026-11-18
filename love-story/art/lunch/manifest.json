@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "items": {
+    "back-wall": {
+      "id": "back-wall",
+      "file": "back-wall.webp",
+      "w": 1024,
+      "h": 489,
+      "feet": [
+        512,
+        471
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 2.12
+    },
+    "clock": {
+      "id": "clock",
+      "file": "clock.webp",
+      "w": 730,
+      "h": 740,
+      "feet": [
+        364.9,
+        715
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 0.55
+    },
+    "counter": {
+      "id": "counter",
+      "file": "counter.webp",
+      "w": 825,
+      "h": 534,
+      "feet": [
+        412,
+        509
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 0.98
+    },
+    "fridge": {
+      "id": "fridge",
+      "file": "fridge.webp",
+      "w": 501,
+      "h": 1024,
+      "feet": [
+        315,
+        1000
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 1.38
+    },
+    "lockers": {
+      "id": "lockers",
+      "file": "lockers.webp",
+      "w": 771,
+      "h": 887,
+      "feet": [
+        534,
+        862
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 1.42
+    },
+    "notice-board": {
+      "id": "notice-board",
+      "file": "notice-board.webp",
+      "w": 810,
+      "h": 722,
+      "feet": [
+        404,
+        697
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 1.15
+    },
+    "page-left": {
+      "id": "page-left",
+      "file": "page-left.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 3
+    },
+    "page-right": {
+      "id": "page-right",
+      "file": "page-right.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 3
+    },
+    "plant": {
+      "id": "plant",
+      "file": "plant.webp",
+      "w": 607,
+      "h": 1024,
+      "feet": [
+        303,
+        1000
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 0.78
+    },
+    "table-small": {
+      "id": "table-small",
+      "file": "table-small.webp",
+      "w": 808,
+      "h": 437,
+      "feet": [
+        404,
+        412
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 0.88
+    },
+    "vending": {
+      "id": "vending",
+      "file": "vending.webp",
+      "w": 538,
+      "h": 1024,
+      "feet": [
+        268.1,
+        1000
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 1.16
+    },
+    "water-cooler": {
+      "id": "water-cooler",
+      "file": "water-cooler.webp",
+      "w": 324,
+      "h": 1009,
+      "feet": [
+        161,
+        984
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "any",
+      "units": 1.08
+    }
+  },
+  "cycles": {}
+}

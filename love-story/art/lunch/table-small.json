@@ -1,0 +1,15 @@
+{
+  "id": "table-small",
+  "file": "table-small.webp",
+  "w": 808,
+  "h": 437,
+  "feet": [
+    404,
+    412
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 0.88
+}

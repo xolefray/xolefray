@@ -1,0 +1,15 @@
+{
+  "id": "seats-mid",
+  "file": "seats-mid.webp",
+  "w": 1024,
+  "h": 282,
+  "feet": [
+    512.0,
+    257.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "any",
+  "units": 0.82
+}

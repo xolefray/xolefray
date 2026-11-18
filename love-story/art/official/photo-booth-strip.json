@@ -1,0 +1,15 @@
+{
+  "id": "photo-booth-strip",
+  "file": "photo-booth-strip.webp",
+  "w": 367,
+  "h": 1024,
+  "feet": [
+    183.5,
+    999
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "official",
+  "units": 1.18
+}

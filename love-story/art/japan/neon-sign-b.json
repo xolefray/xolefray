@@ -1,0 +1,15 @@
+{
+  "id": "neon-sign-b",
+  "file": "neon-sign-b.webp",
+  "w": 366,
+  "h": 422,
+  "feet": [
+    185.5,
+    397
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 0.9
+}

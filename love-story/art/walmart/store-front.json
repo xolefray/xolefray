@@ -1,0 +1,15 @@
+{
+  "id": "store-front",
+  "file": "store-front.webp",
+  "w": 1024,
+  "h": 389,
+  "feet": [
+    511.5,
+    364.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 2.16
+}

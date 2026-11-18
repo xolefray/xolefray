@@ -1,0 +1,108 @@
+<!doctype html>
+<!--
+  dev/environment.html — harness for src/environment.js.
+  The real room, desk, lamp and dust, plus a stand-in open album: a 7.2 × 0.1 × 3 cream box
+  with a few upright cards 0.003 thick (large faces toward the reader) and one card lying flat,
+  to judge exposure, +Z lighting and thin-paper shadows.
+  ?t=<sec> film time (default 20) · view=low|wide|close|top · free=1 orbit controls ·
+  lamp=x,y,z moves the key light. Sets window.__ready once two frames have been rendered.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Environment harness</title>
+  <link rel="icon" href="data:,">
+  <style>html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0908; }</style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { createEnvironment } from '../src/environment.js';
+
+    const params = new URLSearchParams(location.search);
+    const tParam = Number.parseFloat(params.get('t'));
+    const t = Number.isFinite(tParam) ? tParam : 20;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 100);
+    const VIEWS = {
+      default: [[0.15, 3.6, 7.6], [0, 0.85, 0]],
+      low: [[0.2, 1.55, 6.2], [0, 0.9, 0]],
+      wide: [[0.3, 6.8, 12], [0, 0.25, 0]],
+      close: [[0.4, 1.65, 3.3], [0.1, 0.9, 0.1]],
+      top: [[0.2, 14, 0.4], [0, 0, 0]],
+    };
+    const [pos, target] = VIEWS[params.get('view')] ?? VIEWS.default;
+    camera.position.set(...pos);
+    camera.lookAt(...target);
+
+    const env = createEnvironment({ scene, renderer });
+    if (params.has('lamp')) env.keyLight.position.set(...params.get('lamp').split(',').map(Number));
+
+    const bookMat = new THREE.MeshStandardMaterial({ color: '#f3ead8', roughness: 0.92 });
+    const book = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.1, 3), bookMat);
+    book.position.y = 0.05;
+    book.castShadow = true;
+    book.receiveShadow = true;
+    scene.add(book);
+
+    function stand(w, h, x, z, color) {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, 0.003),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.88 }),
+      );
+      mesh.position.set(x, 0.1 + h / 2, z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      return mesh;
+    }
+    const cards = [
+      stand(0.85, 1.7, -2.15, 0.15, '#f7f1e4'),
+      stand(0.7, 2.25, 1.85, -0.25, '#f3ead8'),
+      stand(1.05, 1.35, 0.15, 0.85, '#fffaf2'),
+      stand(0.62, 1.55, -0.55, -0.85, '#f6efe2'),
+    ];
+    const yawed = stand(0.78, 1.6, 2.4, 0.55, '#fbf6ee');
+    yawed.rotation.y = 0.35;
+    const flat = new THREE.Mesh(
+      new THREE.BoxGeometry(1.15, 0.003, 0.8),
+      new THREE.MeshStandardMaterial({ color: '#e7d2b0', roughness: 0.9 }),
+    );
+    flat.position.set(-1.2, 0.102, -0.15);
+    flat.castShadow = true;
+    flat.receiveShadow = true;
+    scene.add(...cards, yawed, flat);
+
+    if (params.get('free') === '1') {
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(...target);
+    }
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    let frames = 0;
+    renderer.setAnimationLoop(() => {
+      env.update(t);
+      renderer.render(scene, camera);
+      if (++frames >= 2) window.__ready = true;
+    });
+  </script>
+</body>
+</html>

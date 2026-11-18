@@ -1,0 +1,15 @@
+{
+  "id": "food-taiyaki",
+  "file": "food-taiyaki.webp",
+  "w": 429,
+  "h": 313,
+  "feet": [
+    256.0,
+    288
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 0.38
+}

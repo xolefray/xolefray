@@ -1,0 +1,15 @@
+{
+  "id": "paper-plane",
+  "file": "paper-plane.webp",
+  "w": 620,
+  "h": 408,
+  "feet": [
+    526.0,
+    383
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "life",
+  "units": 0.28
+}

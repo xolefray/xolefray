@@ -1,0 +1,15 @@
+{
+  "id": "boxes",
+  "file": "boxes.webp",
+  "w": 645,
+  "h": 735,
+  "feet": [
+    469.6,
+    710.0
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 0.74
+}

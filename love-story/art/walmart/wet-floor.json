@@ -1,0 +1,15 @@
+{
+  "id": "wet-floor",
+  "file": "wet-floor.webp",
+  "w": 644,
+  "h": 693,
+  "feet": [
+    321.5,
+    668
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "walmart",
+  "units": 0.62
+}

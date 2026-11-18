@@ -1,0 +1,232 @@
+<!doctype html>
+<!--
+  dev/spread-city.html (T-city) — harness for src/spreads/city.js ("The Lantern City", spread 3).
+  The real environment (src/environment.js, lit for film time t) and the spread alone: a stand-in
+  book block, the two pages textured with the spread's leftArt/rightArt (right page fixed on y = 0
+  of the spread frame, left page posed at α), the spread group updated with (α, t, t − 49).
+  Query: t=<film seconds> (default 61) · alpha=<α/π> (default 1; "auto" = the film's α at t) ·
+  view=front|wide|low|top|boat|window|bridge|side|wedge · free=1 orbit controls ·
+  check=1 sweep α from π to 0 and test every card for piercing a page or another card (HUD + console).
+  Sets window.__ready once two frames have been rendered.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lantern City harness</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root { --bg: #06070a; --fg: #d9d5ea; --ok: #7fdc9a; --bad: #ff7b7b; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+      font: 12px/1.4 system-ui, sans-serif; }
+    #hud { position: fixed; left: 10px; top: 8px; max-width: 70ch; pointer-events: none; text-shadow: 0 1px 2px #000; }
+    .ok { color: var(--ok); } .bad { color: var(--bad); }
+  </style>
+  <script type="importmap">{"imports":{"three":"../vendor/three.module.js","three/addons/":"../vendor/addons/"}}</script>
+</head>
+<body>
+  <div id="hud"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import * as paper from '../src/paper.js';
+    import * as popup from '../src/popup.js';
+    import { createEnvironment } from '../src/environment.js';
+    import { makeRng } from '../src/util/rng.js';
+    import { SPREADS, leafAngles, spreadAlpha } from '../src/timeline.js';
+    import city from '../src/spreads/city.js';
+
+    const PI = Math.PI;
+    const BOOK = { PAGE_W: 3, PAGE_D: 4, BOARD_T: 0.035, LEAVES: 5 };
+    const STACK = 0.12; // height of the spread frame above the desk (stand-in for the book's pages)
+    const params = new URLSearchParams(location.search);
+    const t = Number.isFinite(parseFloat(params.get('t'))) ? parseFloat(params.get('t')) : 61;
+    const info = SPREADS.find((s) => s.id === 'city');
+    const alphaParam = params.get('alpha');
+    const alpha = alphaParam === 'auto'
+      ? spreadAlpha(info.k, leafAngles(t))
+      : PI * Math.min(1, Math.max(0, Number.isFinite(parseFloat(alphaParam)) ? parseFloat(alphaParam) : 1));
+    const hud = document.getElementById('hud');
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 100);
+    const env = createEnvironment({ scene, renderer });
+
+    // ── stand-in book: page block + two printed pages; `frame` IS the spread frame ──
+    const frame = new THREE.Group();
+    frame.position.y = STACK;
+    scene.add(frame);
+    const blockMat = new THREE.MeshStandardMaterial({ color: '#e7dcc4', roughness: 0.9 });
+    const coverMat = new THREE.MeshStandardMaterial({ color: '#6e2a27', roughness: 0.8 });
+    const right = new THREE.Group();
+    const leftPivot = new THREE.Group();
+    frame.add(right, leftPivot);
+    for (const [g, s] of [[right, 1], [leftPivot, -1]]) {
+      const block = new THREE.Mesh(new THREE.BoxGeometry(BOOK.PAGE_W, STACK - 0.02, BOOK.PAGE_D), blockMat);
+      block.position.set(s * BOOK.PAGE_W / 2, -STACK / 2 - 0.006, 0);
+      const cover = new THREE.Mesh(new THREE.BoxGeometry(BOOK.PAGE_W + 0.06, 0.03, BOOK.PAGE_D + 0.12), coverMat);
+      cover.position.set(s * (BOOK.PAGE_W + 0.06) / 2, -STACK + 0.015, 0);
+      for (const m of [block, cover]) {
+        m.castShadow = m.receiveShadow = true;
+        g.add(m);
+      }
+    }
+
+    const api = city.build({ THREE, paper, popup, rng: makeRng(1000 + info.k), BOOK });
+    const pageMat = (canvas) => new THREE.MeshStandardMaterial({ map: paper.texture(canvas), roughness: 0.86 });
+    const rightPage = new THREE.Mesh(new THREE.PlaneGeometry(3, 4).rotateX(-PI / 2).translate(1.5, 0, 0), pageMat(api.rightArt));
+    const leftPage = new THREE.Mesh(new THREE.PlaneGeometry(3, 4).rotateX(-PI / 2).translate(-1.5, 0, 0), pageMat(api.leftArt));
+    rightPage.receiveShadow = leftPage.receiveShadow = true;
+    right.add(rightPage);
+    leftPivot.add(leftPage);
+    frame.add(api.group);
+
+    function pose(a, time) {
+      leftPivot.rotation.z = a - PI;
+      api.group.visible = a > 0.002;
+      if (api.group.visible) api.update(a, time, time - info.start);
+    }
+    pose(alpha, t);
+
+    // ── cameras (world = spread frame + STACK) ──
+    const dbg = api.group.userData.debug;
+    const at = (x, y, z) => new THREE.Vector3(x, y + STACK, z);
+    const VIEWS = {
+      front: [at(0, 6.1, 7.5), at(0, 0.6, -0.2)],
+      wide: [at(6, 7.5, 11), at(0, 0.4, 0)],
+      low: [at(0.3, 1.45, 6.4), at(0, 0.95, -0.4)],
+      top: [at(0, 12, 1.2), at(0, 0, 0)],
+      window: [at(-0.25, 1.75, 2.7), at(-0.9, 1.0, -0.4)],
+      bridge: [at(0.15, 0.75, 1.75), at(1.35, 0.28, 0.1)],
+      side: [at(-4.2, 2.4, 3.6), at(0, 0.9, -0.4)],
+      wedge: [at(4.3, 1.5, 4.6), at(0.9, 0.35, -0.1)],
+    };
+    const view = params.get('view') ?? 'front';
+    if (view === 'boat') {
+      const b = dbg.boatRig.position;
+      VIEWS.boat = [at(b.x - 1.0, b.y + 0.6, b.z + 1.45), at(b.x + 0.35, b.y + 0.15, b.z - 0.25)];
+    }
+    const [pos, target] = VIEWS[view] ?? VIEWS.front;
+    camera.position.copy(pos);
+    camera.lookAt(target);
+    if (params.get('free') === '1') new OrbitControls(camera, renderer.domElement).target.copy(target);
+
+    // ── stats ──
+    let meshes = 0;
+    let lights = 0;
+    api.group.traverse((o) => {
+      if (o.isMesh || o.isLine || o.isPoints) meshes++;
+      if (o.isLight) lights++;
+    });
+    const lines = [`<b>Lantern City</b> — t ${t.toFixed(2)} · α ${(alpha / PI).toFixed(3)}π · view ${view}`,
+      `meshes ${meshes} · lights ${lights}`];
+
+    // ── fold check: sample every card's opaque texels, sweep α, look for sign flips ──
+    if (params.get('check') === '1') {
+      const pieces = [];
+      api.group.updateMatrixWorld(true);
+      api.group.traverse((o) => {
+        if (!o.isMesh || !o.geometry.parameters || o.geometry.type !== 'PlaneGeometry') return;
+        const tex = o.material.map;
+        if (!tex || !tex.image || !tex.image.data || o.material.side === THREE.BackSide) return;
+        if (o.material.blending === THREE.AdditiveBlending) return;
+        const img = tex.image;
+        const box = new THREE.Box3().setFromBufferAttribute(o.geometry.attributes.position);
+        const uvs = o.geometry.attributes.uv;
+        let u0 = Infinity, u1 = -Infinity;
+        for (let i = 0; i < uvs.count; i++) { u0 = Math.min(u0, uvs.getX(i)); u1 = Math.max(u1, uvs.getX(i)); }
+        const alphaAt = (u, v) => {
+          const ix = Math.round(u * (img.width - 1));
+          const iy = Math.round((1 - v) * (img.height - 1));
+          if (ix < 0 || iy < 0 || ix >= img.width || iy >= img.height) return 0;
+          return img.data[(iy * img.width + ix) * 4 + 3];
+        };
+        const N = 40;
+        const pts = [];
+        for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
+          const fu = i / N, fv = j / N;
+          if (alphaAt(u0 + (u1 - u0) * fu, fv) > 128) pts.push(new THREE.Vector3(box.min.x + (box.max.x - box.min.x) * fu, box.min.y + (box.max.y - box.min.y) * fv, 0));
+        }
+        let name = o.parent?.parent?.name || o.parent?.name || 'card';
+        pieces.push({ mesh: o, pts, box, u0, u1, alphaAt, name: `${name}#${pieces.length}` });
+      });
+      const inv = new THREE.Matrix4();
+      const world = pieces.map((p) => p.pts.map(() => new THREE.Vector3()));
+      const prevSide = new Map();
+      let pageHits = 0;
+      const hits = new Map();
+      const groupInv = new THREE.Matrix4();
+      const local = new THREE.Vector3();
+      const STEPS = 120;
+      const EPS = 0.006;
+      for (let s = 0; s <= STEPS; s++) {
+        const a = PI * (1 - s / STEPS) + 0.01 * (s / STEPS);
+        pose(a, t);
+        api.group.updateMatrixWorld(true);
+        groupInv.copy(api.group.matrixWorld).invert();
+        const N = new THREE.Vector3(Math.sin(a), -Math.cos(a), 0);
+        pieces.forEach((p, i) => {
+          const m = new THREE.Matrix4().multiplyMatrices(groupInv, p.mesh.matrixWorld);
+          p.pts.forEach((v, k) => {
+            const w = world[i][k].copy(v).applyMatrix4(m);
+            if (w.y < -0.004 || N.dot(w) < -0.004) pageHits++;
+          });
+        });
+        for (let i = 0; i < pieces.length; i++) {
+          const Q = pieces[i];
+          inv.copy(Q.mesh.matrixWorld).invert().multiply(api.group.matrixWorld);
+          for (let j = 0; j < pieces.length; j++) {
+            if (i === j || pieces[j].mesh.parent === Q.mesh.parent) continue;
+            const P = pieces[j];
+            world[j].forEach((w, k) => {
+              local.copy(w).applyMatrix4(inv);
+              const fu = (local.x - Q.box.min.x) / (Q.box.max.x - Q.box.min.x);
+              const fv = (local.y - Q.box.min.y) / (Q.box.max.y - Q.box.min.y);
+              const key = `${i}:${j}:${k}`;
+              const inside = fu >= 0 && fu <= 1 && fv >= 0 && fv <= 1 && Q.alphaAt(Q.u0 + (Q.u1 - Q.u0) * fu, fv) > 128;
+              if (!inside) { prevSide.delete(key); return; }
+              if (Math.abs(local.z) < EPS) return; // touching (glue lines, stacked paper): not a crossing
+              const side = Math.sign(local.z);
+              const prev = prevSide.get(key);
+              if (prev !== undefined && prev !== side) {
+                const hk = `${P.name} ⟷ ${Q.name}`;
+                hits.set(hk, Math.max(hits.get(hk) ?? 0, a / PI));
+              }
+              prevSide.set(key, side);
+            });
+          }
+        }
+      }
+      pose(alpha, t);
+      const report = [...hits].map(([k, a]) => `${k} @ α≈${a.toFixed(2)}π`);
+      lines.push(`fold check over ${pieces.length} cards: page hits <span class="${pageHits ? 'bad' : 'ok'}">${pageHits}</span>, ` +
+        `card crossings <span class="${report.length ? 'bad' : 'ok'}">${report.length}</span>`);
+      lines.push(...report.slice(0, 12));
+      console.log('[city check]', { pieces: pieces.map((p) => `${p.name} (${p.pts.length})`), pageHits, crossings: report });
+    }
+    hud.innerHTML = lines.join('<br>');
+
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    let frames = 0;
+    renderer.setAnimationLoop(() => {
+      env.update(t);
+      renderer.render(scene, camera);
+      if (++frames >= 2) window.__ready = true;
+    });
+  </script>
+</body>
+</html>

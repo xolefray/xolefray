@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "items": {
+    "backdrop": {
+      "id": "backdrop",
+      "file": "backdrop.webp",
+      "w": 1024,
+      "h": 487,
+      "feet": [
+        531.5,
+        462
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 2.02
+    },
+    "balloon-bunch": {
+      "id": "balloon-bunch",
+      "file": "balloon-bunch.webp",
+      "w": 246,
+      "h": 548,
+      "feet": [
+        116.8,
+        523
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 0.55
+    },
+    "balloons-left": {
+      "id": "balloons-left",
+      "file": "balloons-left.webp",
+      "w": 313,
+      "h": 977,
+      "feet": [
+        133.7,
+        952
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 1.72
+    },
+    "balloons-right": {
+      "id": "balloons-right",
+      "file": "balloons-right.webp",
+      "w": 437,
+      "h": 1024,
+      "feet": [
+        218,
+        999
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 1.72
+    },
+    "banner-yes": {
+      "id": "banner-yes",
+      "file": "banner-yes.webp",
+      "w": 1024,
+      "h": 207,
+      "feet": [
+        508,
+        182
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 0.247
+    },
+    "cake-table": {
+      "id": "cake-table",
+      "file": "cake-table.webp",
+      "w": 813,
+      "h": 787,
+      "feet": [
+        403.9,
+        762
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 1.14
+    },
+    "gifts": {
+      "id": "gifts",
+      "file": "gifts.webp",
+      "w": 543,
+      "h": 492,
+      "feet": [
+        329.2,
+        467
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 0.46
+    },
+    "page-left": {
+      "id": "page-left",
+      "file": "page-left.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 3
+    },
+    "page-right": {
+      "id": "page-right",
+      "file": "page-right.webp",
+      "w": 1024,
+      "h": 853,
+      "feet": [
+        512,
+        852
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 3
+    },
+    "party-hat": {
+      "id": "party-hat",
+      "file": "party-hat.webp",
+      "w": 421,
+      "h": 644,
+      "feet": [
+        209.9,
+        619
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 0.36
+    },
+    "streamers": {
+      "id": "streamers",
+      "file": "streamers.webp",
+      "w": 1024,
+      "h": 536,
+      "feet": [
+        543.8,
+        511
+      ],
+      "who": [
+        "prop"
+      ],
+      "scene": "proposal",
+      "units": 0.42
+    }
+  },
+  "cycles": {}
+}
