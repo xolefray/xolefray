@@ -1,0 +1,15 @@
+{
+  "id": "city-night",
+  "file": "city-night.webp",
+  "w": 1400,
+  "h": 672,
+  "feet": [
+    703.0,
+    647
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 2.2
+}

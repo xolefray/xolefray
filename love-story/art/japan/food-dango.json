@@ -1,0 +1,15 @@
+{
+  "id": "food-dango",
+  "file": "food-dango.webp",
+  "w": 302,
+  "h": 640,
+  "feet": [
+    81.0,
+    616
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 0.38
+}

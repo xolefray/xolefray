@@ -1,0 +1,15 @@
+{
+  "id": "vending-machine",
+  "file": "vending-machine.webp",
+  "w": 493,
+  "h": 906,
+  "feet": [
+    246.0,
+    869
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 1.3
+}

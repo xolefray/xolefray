@@ -1,0 +1,15 @@
+{
+  "id": "signpost",
+  "file": "signpost.webp",
+  "w": 548,
+  "h": 1024,
+  "feet": [
+    280.0,
+    999
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 1.4
+}

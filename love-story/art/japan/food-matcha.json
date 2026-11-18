@@ -1,0 +1,15 @@
+{
+  "id": "food-matcha",
+  "file": "food-matcha.webp",
+  "w": 290,
+  "h": 640,
+  "feet": [
+    145.5,
+    618
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 0.38
+}

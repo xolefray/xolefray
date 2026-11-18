@@ -1,0 +1,15 @@
+{
+  "id": "ramen-stall",
+  "file": "ramen-stall.webp",
+  "w": 625,
+  "h": 611,
+  "feet": [
+    283.5,
+    586
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 1.5
+}

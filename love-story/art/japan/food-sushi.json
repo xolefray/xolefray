@@ -1,0 +1,15 @@
+{
+  "id": "food-sushi",
+  "file": "food-sushi.webp",
+  "w": 640,
+  "h": 391,
+  "feet": [
+    333.0,
+    368
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 0.38
+}

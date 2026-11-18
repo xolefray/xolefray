@@ -1,0 +1,15 @@
+{
+  "id": "kaminarimon",
+  "file": "kaminarimon.webp",
+  "w": 998,
+  "h": 748,
+  "feet": [
+    500.5,
+    723
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 2.4
+}

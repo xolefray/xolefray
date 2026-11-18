@@ -1,0 +1,15 @@
+{
+  "id": "lantern",
+  "file": "lantern.webp",
+  "w": 574,
+  "h": 639,
+  "feet": [
+    288.5,
+    614
+  ],
+  "who": [
+    "prop"
+  ],
+  "scene": "japan",
+  "units": 0.42
+}
