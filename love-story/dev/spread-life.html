@@ -3,7 +3,7 @@
   dev/spread-life.html — the life spread (looked up by id), alone in its spread frame.
   ?alpha=  units of π, default 1. "film" = the timeline's α at t.
   ?t=      film seconds (default: the spread's open time).
-  ?view=   front | wide | low | top | building | first | cherry | dog | home | japan | next
+  ?view=   front | wide | low | top | building | first | cherry | dog | home | takeoff
   ?play=1  advance t.  ?free=1 orbit.  ?ui=0 hide the HUD.
   ?check=1 fold self-test (α from π to 0, and every 0.1 s of the open window).
            Prints "life fold check: PASS" or FAIL. Sets window.__ready.
@@ -100,13 +100,12 @@
       wide: [[0.3, 4.8, 8.6], [0, 0.85, 0]],
       low: [[0.15, 0.9, 5.3], [0, 1.0, 0.1]],
       top: [[0, 8.5, 0.4], [0, 0, 0]],
-      building: [[-2.2, 1.9, 4.6], [-2.28, 1.22, 0.32]],
-      first: [[-1.8, 1.55, 3.5], [-2.0, 0.95, 0.15]],
-      cherry: [[-1.15, 1.45, 3.15], [-1.4, 0.95, 0.4]],
-      dog: [[-1.15, 1.45, 3.15], [-1.4, 0.95, 0.4]],
-      home: [[1.4, 1.5, 3.5], [1.45, 0.9, 0.28]],
-      japan: [[1.85, 1.5, 3.3], [2.05, 1.05, 0.4]],
-      next: [[0.2, 4.4, 7.4], [0.15, 0.75, 0.02]],
+      building: [[-2.4, 1.9, 4.6], [-2.5, 1.15, 0.28]],
+      first: [[-2.05, 1.6, 3.6], [-2.2, 1.0, 0.1]],
+      cherry: [[-1.25, 1.45, 3.2], [-1.4, 0.95, 0.38]],
+      dog: [[-1.25, 1.45, 3.2], [-1.4, 0.95, 0.38]],
+      home: [[1.7, 1.55, 3.7], [1.85, 1.0, 0.32]],
+      takeoff: [[1.45, 1.65, 4.9], [1.7, 1.15, 0.22]],
     };
     const target = new THREE.Vector3();
     let controls = null;
@@ -177,7 +176,7 @@
         });
       };
       const mid = (spread.open + spread.close) / 2;
-      const after = timeline.BEATS.japan + 1.4;
+      const after = timeline.BEATS.takeoff + 0.85;
       const angles = [PI, 0.6 * PI, 0.3 * PI, 0.1 * PI, 0];
       for (let i = 0; i <= 18; i++) angles.push(PI * (1 - i / 18));
       for (const al of angles) {
@@ -190,6 +189,7 @@
         return `FAIL ${problems.length}`;
       }
       console.log(`life fold check: PASS (${meshes} meshes)`);
+      console.warn(`life fold check: PASS (${meshes} meshes)`);
       return 'PASS';
     }
     const selfTest = params.get('check') === '1' ? foldCheck() : 'check off';

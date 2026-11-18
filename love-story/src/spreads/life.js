@@ -1,7 +1,7 @@
-// Spread 6 — "Building our life". Moving in, Cherry, then the home.
-// The Japan stop stays keyed to BEATS.japan / nextChapter. In version 3 those beats
-// are after this spread closes, so that stop does not show while the page is open.
-// Times come from timeline.BEATS / SPREADS. update() allocates nothing.
+// Spread 6 — "Building our life". Three stops: first place, Cherry, the home.
+// The home stays up as the finale. takeoff, just before the page turns, sends a
+// suitcase and a paper plane toward the next spread. Times come from timeline.BEATS
+// / SPREADS. update() allocates nothing.
 import { L } from '../i18n.js';
 import { photoPrint, PHOTO_ASPECT } from '../photos.js';
 
@@ -14,52 +14,49 @@ const CLEAR = 0.02;
 const SMALL = 0.34;
 const POP_DUR = 0.32; // pop-in / pop-out, under 0.35 s
 const FLIP_HALF = 0.15; // squash to a sliver, then open: 0.3 s for the swap
+const TRAIL_N = 5;
 
 // Page distance from the gutter. Spread x is −x on the left page and +x on the right.
+// Three stops across the open book: first place on the outer left, Cherry toward
+// the gutter, the home large on the right.
 const BOX_X = 3.12;
-const BOX_Z = 0.02;
-const BOX_H = 1.18;
-const APT_X = 1.15;
-const APT_Z = -0.02;
-const APT_H = 1.02;
-const BOXER_X = 2.02;
-const BOXER_Z = 0.86;
-const BOXER_H = 1.32;
-const CUDDLE_X = 1.68;
-const CUDDLE_Z = 0.58;
-const CUDDLE_H = 1.5;
-const JUMP_X = 2.35;
+const BOX_Z = -0.05;
+const BOX_H = 1.2;
+const APT_X = 2.25;
+const APT_Z = -0.12;
+const APT_H = 1.28;
+const BOXER_X = 2.65;
+const BOXER_Z = 0.82;
+const BOXER_H = 1.5;
+const CUDDLE_X = 1.72;
+const CUDDLE_Z = 0.66;
+const CUDDLE_H = 1.52;
+const JUMP_X = 1.45;
 const JUMP_Z = 0.88;
-const JUMP_H = 0.7;
-const BED_X = 1.75;
-const BED_Z = 0.22;
-const BED_H = 0.5;
+const JUMP_H = 0.58;
+const BED_X = 1.78;
+const BED_Z = 0.42;
+const BED_H = 0.48;
 // Banner sits above the couple's heads (local y), hinged further back than they stand.
-const RIBBON_X = 2.2;
-const RIBBON_Z = 0.48;
-const RIBBON_W = 2.05;
-const RIBBON_H = 0.5;
-const RIBBON_LIFT = 1.4;
-const HOUSE_X = 2.3;
-const HOUSE_Z = 0.2;
-const HOUSE_H = 1.22;
-// Couple stands centre-front of the right page, in front of the house.
-const HOME_X = 1.58;
-const HOME_Z = 0.9;
-const DEED_H = 1.5;
-const KEYS_H = 1.5;
-const TRAVEL_X = 1.7;
-const TRAVEL_Z = 0.55;
-const TRAVEL_H = 1.4;
-const GATE_X = 2.15;
-const GATE_Z = 0.06;
-const GATE_H = 1.42;
-const TORII_X = 3.02;
-const TORII_Z = -0.4;
-const TORII_H = 0.88;
-const SELFIE_X = 1.95;
-const SELFIE_Z = 0.76;
-const SELFIE_H = 1.6;
+const RIBBON_X = 2.45;
+const RIBBON_Z = 0.46;
+const RIBBON_W = 1.9;
+const RIBBON_H = 0.46;
+const RIBBON_LIFT = 1.36;
+// The house is the tallest piece and stays standing until the page turns.
+const HOUSE_X = 2.22;
+const HOUSE_Z = 0.48;
+const HOUSE_H = 1.72;
+// Couple stands at the door (left of the yard sign) so SOLD stays readable.
+const HOME_X = 1.92;
+const HOME_Z = 1.0;
+const DEED_H = 1.36;
+const KEYS_H = 1.52;
+// Suitcase waits left of the couple, beside the steps. The tag sits on it.
+const SUIT_X = 1.08;
+const SUIT_Z = 0.9;
+const SUIT_H = 0.74;
+const PLANE_H = 0.36;
 
 // Bands of moving-boxes.webp, bottom box first (pixel rows).
 const BOX_BANDS = [[515, 852], [355, 515], [190, 355], [24, 190]];
@@ -88,12 +85,10 @@ export default {
     const first = BEATS.firstPlace;
     const cherry = BEATS.cherry;
     const home = BEATS.home;
-    const japan = BEATS.japan;
-    const next = BEATS.nextChapter;
-    // h4 is gone. The trip begins on the Japan spread, at BEATS.japan.
-    const travelAt = japan;
+    const takeoff = BEATS.takeoff;
     const cuddleAt = cherry + 1.15;
-    const keysAt = home + (travelAt - home) * 0.5;
+    // Deed pose, then the keys, still during the home line. Keys stay to the turn.
+    const keysAt = home + 1.45;
 
     const pages = paintPages(paper, art, has, C);
     const leftArt = pages.left;
@@ -121,7 +116,7 @@ export default {
     const tagHolds = [];
     const tagAt = [];
     const tagLeave = [];
-    const mats = [[], [], [], [], []];
+    const mats = [[], [], [], []];
 
     const addShow = (rig, at) => {
       showRigs.push(rig);
@@ -169,7 +164,6 @@ export default {
     }
 
     // ---------------------------------------------------------------- sky
-    let fujiCard = null;
     const sky = track(popup.vFold({ z0: SKY_Z0, gamma: GAMMA, width: SKY_W, height: SKY_H }));
     if (has('sky-band')) {
       const cut = paper.dieCut(art.canvas('sky-band'), { margin: 4 });
@@ -178,14 +172,6 @@ export default {
       halves.right.name = 'sky-right';
       sky.left.add(halves.left);
       sky.right.add(halves.right);
-      if (has('fuji')) {
-        const fujiH = 0.72;
-        fujiCard = characterArt.characterCard(paper, art, 'fuji', { height: fujiH });
-        fujiCard.position.set(1.55, 0.06, 0.02);
-        fujiCard.name = 'fuji';
-        fujiCard.scale.set(0.001, 0.001, 1);
-        sky.right.add(fujiCard);
-      }
     } else {
       const flat = paper.paint(1200, 340, (g, w, h) => {
         const grd = g.createLinearGradient(0, 0, 0, h);
@@ -208,8 +194,8 @@ export default {
     const pageR = track(popup.onPage({ side: 'right', x: 0, z: 0, lift: 0.012 }));
     pageL.mount.add(dotsL);
     pageR.mount.add(dotsR);
-    const sparkL = makeSparks(THREE, paper, pageL.mount, 3);
-    const sparkR = makeSparks(THREE, paper, pageR.mount, 3);
+    const sparkL = makeSparks(THREE, paper, pageL.mount, 2);
+    const sparkR = makeSparks(THREE, paper, pageR.mount, 2);
 
     // ---------------------------------------------------------------- opening: boxes stack, couple walks in, ribbon unfurls
     const boxStand = stand('left', BOX_X, BOX_Z, 0.9, BOX_H);
@@ -299,18 +285,18 @@ export default {
       aspect: PHOTO_ASPECT.dog,
       seed: 4,
       side: 'left',
-      x: 1.02,
-      z: 0.36,
-      long: 1.02,
+      x: 0.98,
+      z: 0.42,
+      long: 0.98,
       tilt: -0.05,
       at: cuddleAt,
       shrink: home,
     });
 
     // ---------------------------------------------------------------- home
-    const houseW = Math.max(propW(meta('house'), HOUSE_H, 1.2), 1.7);
-    // Banner top is the tallest point. Hinge z leaves that top on the page when the flap lies flat.
-    const house = stand('right', HOUSE_X, HOUSE_Z, houseW, 1.6);
+    const houseW = Math.max(propW(meta('house'), HOUSE_H, 1.5), 1.55);
+    // Roof tag is the tallest point. Hinge z leaves that top on the page when the flap lies flat.
+    const house = stand('right', HOUSE_X, HOUSE_Z, houseW, HOUSE_H + 0.16);
     const houseRig = rigOn(house, 'house');
     let sold = null;
     const smokes = [];
@@ -326,11 +312,16 @@ export default {
       sold = new THREE.Group();
       sold.name = 'sold';
       // Sit on the blank yard sign, pulled in so it clears the couple in front.
-      sold.position.set((590 - hm.feet[0]) * s, (hm.feet[1] - 600) * s, 0.04);
+      // Blank board is about px (530–670, 530–610). Bottom-centre anchor, so
+      // the card's centre lands on that board and stays right of the couple.
+      const soldW = 300 * s;
+      const soldH = 132 * s;
+      const boardY = (hm.feet[1] - 572) * s;
+      sold.position.set((608 - hm.feet[0]) * s, boardY - soldH * 0.5, 0.02);
       const soldCard = paper.card({
         canvas: paintSold(paper, FONT, C, rng, L('SOLD', 'VENDIDA')),
-        width: 340 * s,
-        height: 150 * s,
+        width: soldW,
+        height: soldH,
         anchor: 'bottom-center',
       });
       soldCard.name = 'sold';
@@ -343,7 +334,7 @@ export default {
         anchor: 'bottom-center',
       });
       homeBanner.name = 'home-tag';
-      homeBanner.position.y = 1.26;
+      homeBanner.position.y = HOUSE_H * 0.9;
       houseRig.add(homeBanner);
       watch(3, homeBanner);
 
@@ -371,107 +362,62 @@ export default {
     mountDrawing(deedRig, 'char', 'life-deed', DEED_H, {
       who: 'him', outfit: 'casual', pose: 'sit', facing: 'right',
     });
-    const keysRig = addCast(rigOn(homeStand, 'life-keys'), keysAt + FLIP_HALF, travelAt, 1.1, { in: 'flip', out: 'flip' });
+    const keysRig = addCast(rigOn(homeStand, 'life-keys'), keysAt + FLIP_HALF, null, 1.1, { in: 'flip', out: 'pop' });
     mountDrawing(keysRig, 'char', 'life-keys', KEYS_H, {
       who: 'her', outfit: 'casual', pose: 'stand', facing: 'left',
     });
 
-    // Right of the couple and the SOLD sign, same depth, so the close cue holds all three.
+    // Beside the house, in the open right of the page, above the caption band.
     layPhoto(paper, THREE, popup, track, photoRigs, photos ? photos.deed : null, {
       caption: L('signing the deed', 'firmando las escrituras'),
       aspect: PHOTO_ASPECT.deed,
       seed: 6,
       side: 'right',
-      x: 3.22,
-      z: 0.4,
-      long: 0.74,
-      tilt: -0.04,
+      x: 3.02,
+      z: 0.36,
+      long: 0.84,
+      tilt: 0.05,
       at: home,
-      shrink: japan,
+      shrink: 0,
     });
 
-    // ---------------------------------------------------------------- Japan
-    const travelW = propW(charInfo('life-japan'), TRAVEL_H, 1.0);
-    const travel = stand('right', TRAVEL_X, TRAVEL_Z, travelW, TRAVEL_H);
-    const travelRig = addCast(rigOn(travel, 'life-japan'), travelAt + FLIP_HALF, japan, 0.3, { in: 'flip', out: 'flip' });
-    mountDrawing(travelRig, 'char', 'life-japan', TRAVEL_H, {
-      who: 'him', outfit: 'casual', pose: 'wave', facing: 'left',
-    });
+    // ---------------------------------------------------------------- takeoff
+    const suitW = propW(meta('suitcase-stickers'), SUIT_H, 0.5);
+    const suit = stand('right', SUIT_X, SUIT_Z, Math.max(suitW, 0.55), SUIT_H + 0.2);
+    const suitRig = addShow(rigOn(suit, 'suitcase-stickers'), takeoff);
+    watch(3, mountDrawing(suitRig, 'art', 'suitcase-stickers', SUIT_H));
 
-    const toriiW = propW(meta('torii'), TORII_H, 0.9);
-    const torii = stand('right', TORII_X, TORII_Z, toriiW, TORII_H);
-    const toriiRig = addShow(rigOn(torii, 'torii'), japan);
-    watch(4, mountDrawing(toriiRig, 'art', 'torii', TORII_H));
-
-    const gateW = propW(meta('temple-gate'), GATE_H, 1.55);
-    const gate = stand('right', GATE_X, GATE_Z, gateW, GATE_H);
-    const gateRig = addShow(rigOn(gate, 'temple-gate'), japan);
-    watch(4, mountDrawing(gateRig, 'art', 'temple-gate', GATE_H));
-
-    const selfieW = propW(charInfo('japan-selfie'), SELFIE_H, 1.0);
-    const selfieStand = stand('right', SELFIE_X, SELFIE_Z, Math.max(selfieW, 1.82), 2.02);
-    const selfieRig = addCast(rigOn(selfieStand, 'japan-selfie'), japan + FLIP_HALF, null, 1.6, { in: 'flip', out: 'pop' });
-    mountDrawing(selfieRig, 'char', 'japan-selfie', SELFIE_H, {
-      who: 'him', outfit: 'casual', pose: 'wave', facing: 'right',
-    });
-    const japanTag = paper.card({
-      canvas: paintTag(paper, FONT, L('our two-year anniversary', 'nuestro segundo aniversario'), C, 9, true),
-      width: 1.78,
-      height: 0.36,
+    const stopW = 0.98;
+    const stopH = 0.36;
+    // Narrow, and low on its own hinge, so the tag clears the couple and the fold.
+    const stop = stand('right', 0.96, SUIT_Z, stopW, 0.86);
+    const stopRig = addShow(rigOn(stop, 'next-stop'), takeoff + 0.16);
+    const stopCard = paper.card({
+      canvas: paintNextStop(paper, FONT, L('next stop: Japan ✈', 'próxima parada: Japón ✈'), C),
+      width: stopW,
+      height: stopH,
       anchor: 'bottom-center',
     });
-    japanTag.name = 'japan-tag';
-    japanTag.position.y = 1.64;
-    selfieRig.add(japanTag);
-    watch(4, japanTag);
-    layPhoto(paper, THREE, popup, track, photoRigs, photos ? photos.tokyo : null, {
-      caption: L('Tokyo · 2 years', 'Tokio · 2 años'),
-      aspect: PHOTO_ASPECT.tokyo,
-      seed: 8,
-      side: 'right',
-      x: 2.78,
-      z: 0.46,
-      long: 1.12,
-      tilt: -0.04,
-      at: japan,
-      shrink: next,
-      pop: 0.3,
-    });
+    stopCard.name = 'next-stop';
+    stopCard.position.set(0, 0.46, 0.02);
+    stopRig.add(stopCard);
 
-    const nextTag = layTag(paper, THREE, popup, track, FONT, 'right', 1.45, 1.12, 2.05, 0.48,
-      L('next chapter →', 'próximo capítulo →'), C, 11);
-    tagHolds.push(nextTag);
-    tagAt.push(next);
-    tagLeave.push(0);
-
-    // Paper plane + a few petals. Scaled in Y by rise so the arc lies flat while the page turns.
+    // Paper plane. Scaled in Y by rise so the arc lies flat while the page turns.
     const flight = new THREE.Group();
     flight.name = 'flight';
     group.add(flight);
     let plane = null;
     if (has('paper-plane')) {
-      plane = characterArt.characterCard(paper, art, 'paper-plane', { height: 0.42, flip: true });
+      plane = characterArt.characterCard(paper, art, 'paper-plane', { height: PLANE_H, flip: true });
       if (plane) {
-        const pm = meta('paper-plane');
-        plane.position.y = (pm.h - pm.feet[1]) * (0.42 / pm.h);
         plane.name = 'paper-plane';
+        plane.scale.set(0.001, 0.001, 1);
         flight.add(plane);
       }
     }
-    const petals = [];
-    const petal = petalMesh(paper, THREE);
-    for (let i = 0; i < 2; i++) {
-      const mesh = new THREE.Mesh(petal.geo, petal.mat.clone());
-      mesh.name = 'petal';
-      mesh.castShadow = false;
-      mesh.userData.x0 = 1.7 + rng.next() * 1.15;
-      mesh.userData.z0 = -0.05 + rng.next() * 0.55;
-      mesh.userData.phase = rng.next();
-      mesh.userData.speed = 0.22 + rng.next() * 0.16;
-      mesh.userData.spin = (rng.next() - 0.5) * 2.2;
-      flight.add(mesh);
-      petals.push(mesh);
-    }
+    const trail = makeTrail(THREE, paper, flight, TRAIL_N);
+    const trailA = new THREE.Vector3();
+    const trailB = new THREE.Vector3();
 
     const glow = new THREE.PointLight('#ffe0b8', 0, 6.5, 2);
     glow.name = 'life-glow';
@@ -486,24 +432,21 @@ export default {
 
     // Above and in front of the cards. A light parked on the paper bleaches it.
     const lightAt = [
-      [-1.9, 2.35, 1.7],
-      [-1.85, 2.35, 1.7],
-      [-1.35, 2.4, 1.75],
-      [1.55, 2.45, 1.85],
-      [1.15, 2.55, 1.95],
+      [-2.45, 2.3, 1.65],
+      [-2.2, 2.3, 1.65],
+      [-1.35, 2.25, 1.7],
+      [1.9, 2.4, 1.75],
     ];
 
+    const closeCue = spread.close == null ? takeoff + 2 : spread.close - 0.4;
     const cues = [
-      { t: spread.open, hold: 0.7, at: [0, 0.9, 0.05], size: 7.5, from: 'front' },
-      // Left-front on the couple, the boxes and the ribbon (a front size this wide is the whole book).
-      { t: round2(building + 0.3), hold: 4.3, at: [-2.35, 1.18, 0.42], size: 3.2, from: 'left' },
-      { t: round2(first + 0.4), hold: 2.0, at: [-1.85, 1.15, 0.2], size: 3.6, from: 'left' },
-      { t: round2(cherry + 1.15), hold: 2.3, at: [-1.4, 0.98, 0.42], size: 2.6, from: 'front' },
-      // Couple, house with the SOLD sign, and the deed print, as one close group.
-      { t: round2(home + 0.35), hold: 3.1, at: [2.2, 0.9, 0.46], size: 2.8, from: 'right' },
-      { t: round2(travelAt + 0.4), hold: 1.2, at: [1.55, 1.0, 0.35], size: 3.6, from: 'front' },
-      { t: round2(japan + 0.55), hold: 2.0, at: [2.05, 1.1, 0.4], size: 2.8, from: 'front' },
-      { t: round2(next + 0.4), hold: 2.85, at: [0.15, 0.82, 0.02], size: 7.6, from: 'high' },
+      { t: spread.open, hold: 0.7, at: [0, 0.95, 0.02], size: 7.5, from: 'front' },
+      { t: round2(building + 0.35), hold: 4.1, at: [-2.55, 1.15, 0.32], size: 3.3, from: 'left' },
+      { t: round2(first + 0.35), hold: 2.1, at: [-2.2, 1.12, 0.12], size: 3.5, from: 'left' },
+      { t: round2(cherry + 1.15), hold: 2.15, at: [-1.35, 1.0, 0.4], size: 2.7, from: 'front' },
+      { t: round2(home + 0.4), hold: 2.5, at: [1.85, 1.05, 0.42], size: 3.4, from: 'right' },
+      // House, keys, suitcase and the plane leaving. Ends before the page-turn window.
+      { t: round2(takeoff + 0.28), hold: round2(Math.max(0.4, closeCue - (takeoff + 0.28) - 0.08)), at: [1.65, 1.15, 0.28], size: 4.5, from: 'front' },
     ];
 
     return {
@@ -519,12 +462,11 @@ export default {
         const outBack = ease.outBack;
 
         let zone = 0;
-        if (t >= japan) zone = 4;
-        else if (t >= home) zone = 3;
+        if (t >= home) zone = 3;
         else if (t >= cherry) zone = 2;
         else if (t >= first) zone = 1;
 
-        const finale = t >= next ? 1 : 0;
+        const finale = t >= takeoff ? 1 : 0;
 
         for (let i = 0; i < boxSlices.length; i++) {
           const at = building + i * 0.72;
@@ -552,10 +494,12 @@ export default {
           showRigs[i].scale.set(sx > 0.001 ? sx : 0.001, sy > 0.001 ? sy : 0.001, 1);
           showRigs[i].position.y = pop > 0.2 ? Math.sin(t * 1.4 + i) * 0.008 : 0;
         }
-        if (fujiCard) {
-          const pop = appear(t, japan, outBack);
-          const b = bump(t, japan);
-          fujiCard.scale.set(pop * (1 - 0.04 * b) || 0.001, pop * (1 + 0.05 * b) || 0.001, 1);
+        {
+          const age = t - takeoff;
+          const hop = age > 0 && age < 0.7
+            ? Math.abs(Math.sin(age * 9)) * 0.055 * Math.exp(-age * 3.2)
+            : 0;
+          suitRig.position.y += hop;
         }
 
         for (let i = 0; i < castRigs.length; i++) {
@@ -573,15 +517,10 @@ export default {
             : 0;
           jumpRig.position.y += hopY;
         }
-        if (t > next) {
-          const k = 1 - 0.34 * smoothstep(next, next + 0.45, t);
-          selfieRig.scale.x *= k;
-          selfieRig.scale.y *= k;
-        }
         if (keyPivot) keyPivot.rotation.z = Math.sin(t * 2.2) * (0.22 + 0.4 * bump(t, first));
 
         {
-          const amount = houseAmount(t, home, japan, next, outBack, smoothstep);
+          const amount = houseAmount(t, home, outBack);
           const breathe = amount > 0.2 ? 1 + Math.sin(t * 1.5) * 0.008 : 1;
           const b = bump(t, home);
           const s = amount * breathe;
@@ -598,7 +537,7 @@ export default {
           else if (swing > 1.06) swing = 1.06;
           sold.rotation.x = open ? (1 - swing) * (Math.PI / 2) : 0;
         }
-        const houseUp = houseAmount(t, home, japan, next, outBack, smoothstep);
+        const houseUp = houseAmount(t, home, outBack);
         for (let i = 0; i < smokes.length; i++) {
           const mesh = smokes[i];
           const loop = (t * 0.28 + mesh.userData.phase) % 1;
@@ -633,40 +572,42 @@ export default {
         }
 
         const progress = pathProgress(t, [
-          building, building + 1.45, first, home, japan, next,
+          building, first, cherry, home, home + 0.7,
         ], path.markU, smoothstep);
         layDots(dotsL, path.left, progress, pos, quat, scl, mat);
         layDots(dotsR, path.right, progress, pos, quat, scl, mat);
-        const sparkling = t >= next ? 1 : 0;
-        placeSparks(sparkL, path.left, t, next, sparkling);
-        placeSparks(sparkR, path.right, t, next, sparkling);
+        const sparkling = t >= home ? 1 : 0;
+        placeSparks(sparkL, path.left, t, sparkling && open);
+        placeSparks(sparkR, path.right, t, sparkling && open);
 
         flight.scale.set(1, risen, 1);
-        const uFly = smoothstep(travelAt, japan + 0.4, t);
-        const showPlane = smoothstep(travelAt - 0.2, travelAt + 0.25, t)
-          * (1 - smoothstep(japan + 0.35, japan + 0.9, t));
+        const uFly = smoothstep(takeoff, takeoff + 1.65, t);
+        const showPlane = appear(t, takeoff, outBack, 0.28);
+        flightAt(uFly, trailA);
+        flightAt(Math.min(1, uFly + 0.045), trailB);
         if (plane) {
-          const x = 0.4 + (2.7 - 0.4) * uFly;
-          const z = 0.2 + (-0.1 - 0.2) * uFly;
-          const y = 1.15 + Math.sin(uFly * Math.PI) * 0.32;
-          plane.scale.setScalar(showPlane > 0.001 ? showPlane : 0.001);
-          plane.position.x = x;
-          plane.position.z = z;
-          plane.position.y = y + Math.sin(t * 2.4) * 0.02;
-          plane.rotation.z = -0.5 * Math.cos(uFly * Math.PI);
-          plane.rotation.x = -0.3;
+          const s = showPlane > 0.001 ? showPlane : 0.001;
+          plane.scale.setScalar(s);
+          plane.position.copy(trailA);
+          plane.position.y += Math.sin(t * 2.6) * 0.015 * showPlane;
+          plane.rotation.z = Math.atan2(trailB.y - trailA.y, trailB.x - trailA.x);
+          plane.rotation.x = -0.15;
         }
-        const petalShow = smoothstep(japan - 0.2, japan + 0.35, t) * (finale ? 0.45 : 1);
-        for (let i = 0; i < petals.length; i++) {
-          const p = petals[i];
-          const loop = (t * p.userData.speed + p.userData.phase) % 1;
-          p.position.set(
-            p.userData.x0 + Math.sin(loop * 6 + p.userData.phase) * 0.08,
-            0.12 + 1.15 * (1 - loop),
-            p.userData.z0,
-          );
-          p.rotation.z = p.userData.spin * t;
-          p.material.opacity = Math.sin(loop * Math.PI) * petalShow;
+        for (let i = 0; i < trail.length; i++) {
+          const dash = trail[i];
+          const uu = uFly - (i + 1) * 0.08;
+          if (uu <= 0.02 || showPlane < 0.2) {
+            dash.scale.setScalar(0.001);
+            dash.material.opacity = 0;
+            continue;
+          }
+          flightAt(uu, trailA);
+          flightAt(Math.min(1, uu + 0.04), trailB);
+          dash.position.copy(trailA);
+          dash.rotation.z = Math.atan2(trailB.y - trailA.y, trailB.x - trailA.x);
+          const fade = 1 - i / trail.length;
+          dash.scale.set(0.2 * fade + 0.09, 0.07, 1);
+          dash.material.opacity = fade * 0.95 * showPlane;
         }
 
         const at = lightAt[zone];
@@ -723,10 +664,8 @@ function appear(t, at, outBack, dur) {
   return s;
 }
 
-function houseAmount(t, home, japan, _next, outBack, smoothstep) {
-  const up = appear(t, home, outBack);
-  const down = smoothstep(japan, japan + 0.5, t);
-  return up * (1 - down);
+function houseAmount(t, home, outBack) {
+  return appear(t, home, outBack);
 }
 
 function smooth01(u) {
@@ -806,16 +745,17 @@ function photoK(t, arrive, shrink, outBack, dur) {
 }
 
 function pathProgress(t, marks, markU, smoothstep) {
-  if (t <= marks[0]) return 0;
-  if (t >= marks[5]) return 1;
-  for (let i = 0; i < 5; i++) {
+  const last = marks.length - 1;
+  if (t <= marks[0]) return markU[0];
+  if (t >= marks[last]) return markU[last];
+  for (let i = 0; i < last; i++) {
     if (t <= marks[i + 1]) {
       const span = marks[i + 1] - marks[i];
       const u = span > 0 ? (t - marks[i]) / span : 1;
       return markU[i] + (markU[i + 1] - markU[i]) * smoothstep(0, 1, u);
     }
   }
-  return 1;
+  return markU[last];
 }
 
 function layDots(mesh, pack, progress, pos, quat, scl, mat) {
@@ -841,11 +781,12 @@ function layDots(mesh, pack, progress, pos, quat, scl, mat) {
   mesh.instanceMatrix.needsUpdate = true;
 }
 
-function placeSparks(list, pack, t, next, on) {
+function placeSparks(list, pack, t, on) {
   const n = pack.n;
   for (let i = 0; i < list.length; i++) {
     const mesh = list[i];
     if (!on || n < 2) {
+      mesh.position.y = 0;
       mesh.scale.setScalar(0.001);
       mesh.material.opacity = 0;
       continue;
@@ -866,24 +807,18 @@ function placeSparks(list, pack, t, next, on) {
   }
 }
 
-// Spread-frame polyline. u is arc length, 0 at the boxes and 1 at the page-edge arrow.
+// Spread-frame polyline. u is arc length, 0 at the boxes and 1 at the house.
 function buildPath() {
   const pts = [
-    [-2.95, -0.22],
-    [-2.5, 0.12],
-    [-2.05, 0.4],
-    [-1.55, 0.46],
-    [-0.7, 0.16],
-    [0.5, 0.02],
-    [1.2, -0.02],
-    [1.9, 0.08],
-    [2.5, 0.06],
-    [3.15, 0.16],
-  ];
-  const chevron = [
-    [2.92, 0.4],
-    [3.34, 0.16],
-    [2.92, -0.06],
+    [-2.95, -0.08],
+    [-2.4, 0.16],
+    [-1.85, 0.32],
+    [-1.2, 0.22],
+    [-0.45, 0.06],
+    [0.35, 0.0],
+    [1.05, 0.06],
+    [1.7, 0.12],
+    [2.2, 0.14],
   ];
   const seg = [];
   let total = 0;
@@ -893,7 +828,7 @@ function buildPath() {
     total += len;
   }
   const raw = [];
-  const count = 36;
+  const count = 28;
   for (let i = 0; i <= count; i++) {
     const dist = (total * i) / count;
     let acc = 0;
@@ -918,12 +853,9 @@ function buildPath() {
     const b = raw[Math.min(pathN - 1, i + 1)];
     raw[i][3] = Math.atan2(-(b[1] - a[1]), (b[0] - a[0]) || 1);
   }
-  const tip = chevron[1];
-  raw.push([chevron[0][0], chevron[0][1], 0.995, Math.atan2(-(tip[1] - chevron[0][1]), tip[0] - chevron[0][0])]);
-  raw.push([tip[0], tip[1], 0.995, raw[pathN - 1][3]]);
-  raw.push([chevron[2][0], chevron[2][1], 0.995, Math.atan2(-(tip[1] - chevron[2][1]), tip[0] - chevron[2][0])]);
 
-  const stopIdx = [0, 10, 16, 22, 28, raw.length - 1];
+  // boxes, first place, Cherry, the house, and a held end so the dashes finish there.
+  const stopIdx = [0, 8, 14, 24, raw.length - 1];
   const markU = [];
   for (let i = 0; i < stopIdx.length; i++) markU.push(raw[Math.min(stopIdx[i], raw.length - 1)][2]);
   markU[0] = 0;
@@ -1418,17 +1350,92 @@ function puffTex(paper, THREE) {
   return { geo: new THREE.PlaneGeometry(0.16, 0.14), mat };
 }
 
-function petalMesh(paper, THREE) {
-  const { canvas, ctx } = paper.makeCanvas(32, 40);
-  ctx.fillStyle = '#f3a3b4';
-  ctx.beginPath();
-  ctx.ellipse(16, 20, 9, 15, 0.3, 0, Math.PI * 2);
-  ctx.fill();
-  const mat = new THREE.MeshBasicMaterial({
-    map: paper.texture(canvas),
+// Plane lifts off the roof and climbs toward the right edge. u is 0..1. Writes `out`.
+function flightAt(u, out) {
+  // Roof to the right edge of the page, with a short climb that stays on the spread.
+  const x = 2.28 + (3.42 - 2.28) * u;
+  const y = 1.46 + u * 0.22 + Math.sin(u * Math.PI) * 0.3;
+  const z = 0.2 + (-0.12 - 0.2) * u;
+  out.set(x, y, z);
+  return out;
+}
+
+function makeTrail(THREE, paper, parent, count) {
+  const geo = new THREE.PlaneGeometry(1, 1);
+  const base = new THREE.MeshBasicMaterial({
+    map: paper.texture(dashCanvas(paper)),
     transparent: true,
     depthWrite: false,
     opacity: 0,
+    side: THREE.DoubleSide,
   });
-  return { geo: new THREE.PlaneGeometry(0.09, 0.11), mat };
+  const list = [];
+  for (let i = 0; i < count; i++) {
+    const mesh = new THREE.Mesh(geo, base.clone());
+    mesh.name = 'plane-trail';
+    mesh.castShadow = false;
+    mesh.scale.setScalar(0.001);
+    parent.add(mesh);
+    list.push(mesh);
+  }
+  return list;
+}
+
+function paintNextStop(paper, FONT, text, C) {
+  const words = text.replace('✈', '').replace(/\s+/g, ' ').trim();
+  const colon = words.indexOf(':');
+  const lines = colon > 0
+    ? [words.slice(0, colon).trim(), words.slice(colon + 1).trim()]
+    : [words];
+  const W = 860;
+  const H = lines.length > 1 ? 360 : 240;
+  const { canvas, ctx } = paper.makeCanvas(W, H);
+  ctx.fillStyle = '#fff6ea';
+  ctx.strokeStyle = C.ink;
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.roundRect(14, 18, W - 28, H - 36, 28);
+  ctx.fill();
+  ctx.stroke();
+  const font = (size) => `700 ${size}px ${FONT.hand}`;
+  const maxW = W * 0.62;
+  let size = 78;
+  for (let i = 0; i < lines.length; i++) size = Math.min(size, fitSize(ctx, lines[i], font, 78, maxW));
+  ctx.font = font(size);
+  ctx.fillStyle = C.ink;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (lines.length > 1) {
+    ctx.fillText(lines[0], W * 0.40, H * 0.36);
+    ctx.fillText(lines[1], W * 0.40, H * 0.66);
+  } else {
+    ctx.fillText(lines[0], W * 0.40, H * 0.52);
+  }
+  drawMiniPlane(ctx, W * 0.84, H * 0.52, 64);
+  paper.addGrain(ctx, W, H, { amount: 0.035, seed: 14, mottle: 0.4 });
+  return paper.dieCut(canvas, { margin: 6 });
+}
+
+function drawMiniPlane(ctx, x, y, s) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = '#f7f1e4';
+  ctx.strokeStyle = '#2b2622';
+  ctx.lineWidth = Math.max(2, s * 0.06);
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.55, 0);
+  ctx.lineTo(-s * 0.45, s * 0.28);
+  ctx.lineTo(-s * 0.15, 0);
+  ctx.lineTo(-s * 0.45, -s * 0.28);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.05, 0);
+  ctx.lineTo(-s * 0.42, s * 0.42);
+  ctx.lineTo(-s * 0.12, 0.02);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }
