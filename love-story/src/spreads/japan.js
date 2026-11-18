@@ -811,11 +811,16 @@ export default {
       tintOf(byeCard);
     }
 
-    const arrowW = 2.35;
-    const arrowHold = stand('right', 2.15, 1.05, 'back', arrowW, 0.46, 'next-arrow');
-    const arrow = painted(THREE, paper, ribbonArt(paper, FONT, C, L('next chapter →', 'próximo capítulo →')), arrowW);
+    // Level strip, at most 2.0 × 0.34, hinge in front of the goodbye feet
+    // toward the front-right corner. The nextChapter cue looks from the front
+    // so the band stays horizontal, below shoes and suitcase.
+    const arrowW = 2;
+    const arrowCanvas = ribbonArt(paper, FONT, C, L('next chapter →', 'próximo capítulo →'), 238, 112);
+    const arrowH = arrowW * (arrowCanvas.height / arrowCanvas.width);
+    const arrowHold = stand('right', 2.3, 1.15, 'back', arrowW, arrowH, 'next-arrow');
+    const arrow = painted(THREE, paper, arrowCanvas, arrowW);
     arrow.name = 'next-chapter';
-    arrow.position.set(0, 0.62, 0.02);
+    arrow.position.set(0, 0, 0);
     arrowHold.add(arrow);
     const sparkGeo = new THREE.PlaneGeometry(0.11, 0.11);
     sparkGeo.translate(0, 0.055, 0);
@@ -877,7 +882,8 @@ export default {
       { t: lanternT, at: [-1.4, 0.95, 0.45], size: 3.2, from: 'front' },
       { t: annT, at: [-HUG_X, 0.82, 0.62], size: 2.4, from: 'front' },
       { t: moreT, at: [-1.85, 0.62, 0.55], size: 3.4, from: 'left' },
-      { t: nextT, at: [1.85, 1.05, 0.62], size: 3.0, from: 'right' },
+      // Front view, aim on the couple so the low ribbon stays under their feet.
+      { t: nextT, at: [1.8, 0.7, 0.5], size: 2.4, from: 'front' },
       { t: wideAt, at: [0, 1.05, 0], size: 7.5, from: 'front' },
     ];
     const cues = shots.map((c, i) => ({
@@ -1086,7 +1092,9 @@ export default {
         }
         motes.instanceMatrix.needsUpdate = true;
 
-        const hugF = face(t, anniversary + 0.04, next - 0.22);
+        // face() takes 0.2 s to hide and 0.24 s to show. Hug is fully down,
+        // then ≈0.15 s with neither card, then goodbye flips up.
+        const hugF = face(t, anniversary + 0.04, next - 1.9);
         applyFace(hugHold, hugF, hugF > 0.92 ? breathe : 1, bump(t, anniversary, 0.36));
         const heartS = popIn(ease, t, anniversary + 0.02, 0.38) * (1 - smoothstep(more - 0.4, more - 0.08, t));
         if (heartCard) setShow(heartCard, heartS);
@@ -1110,20 +1118,22 @@ export default {
           applyFace(memories[i], s, 1, bump(t, more - 0.1 + i * 0.1, 0.24));
         }
 
-        const byeS = smoothstep(next - 1.55, next - 1.05, t) * risen * erect;
+        const byeF = face(t, next - 1.55, 0) * risen * erect;
         const byeU = smoothstep(next - 1.35, wideAt - 0.2, t);
         byeSlider.update(alpha, byeU);
-        byeRoot.scale.set(byeS, byeS, byeS > 0.02 ? 1 : 0);
+        applyFace(byeRoot, byeF, byeF > 0.92 ? breathe : 1, 0);
         const bphase = t * 2.6;
         const bfrac = bphase - Math.floor(bphase);
-        byeRoot.position.y = byeS > 0.4 ? Math.sin(bfrac * Math.PI) * 0.05 : 0;
-        byeRoot.rotation.z = byeS > 0.4 ? Math.sin(bfrac * Math.PI * 2) * 0.045 : 0;
-        const arrowS = popIn(ease, t, next + 0.05, 0.32);
-        applyFace(arrowHold, arrowS, 1, bump(t, next + 0.1, 0.26));
+        byeRoot.position.y = byeF > 0.4 ? Math.sin(bfrac * Math.PI) * 0.05 : 0;
+        byeRoot.rotation.z = byeF > 0.4 ? Math.sin(bfrac * Math.PI * 2) * 0.045 : 0;
+        let arrowS = popIn(ease, t, next + 0.05, 0.32);
+        if (arrowS > 1) arrowS = 1;
+        applyFace(arrowHold, arrowS, 1, 0);
         const sparkOn = arrowS > 0.55 ? 1 : 0;
         for (let i = 0; i < 6; i++) {
-          const p = 0.55 + 0.45 * Math.abs(Math.sin(t * 3.2 + i));
-          scratchP.set(-0.95 + i * 0.36, 0.86 + Math.sin(t * 2 + i) * 0.05, 0.04);
+          const p = 0.42 + 0.2 * Math.abs(Math.sin(t * 3.2 + i));
+          const end = i < 3 ? -0.9 + i * 0.07 : 0.76 + (i - 3) * 0.07;
+          scratchP.set(end, 0.24, 0.012);
           scratchQ.identity();
           scratchS.set(p * sparkOn, p * sparkOn, sparkOn);
           scratchM.compose(scratchP, scratchQ, scratchS);
@@ -1388,7 +1398,7 @@ function haArt(paper, FONT, C, text) {
   return canvas;
 }
 
-function ribbonArt(paper, FONT, C, text, H = 280) {
+function ribbonArt(paper, FONT, C, text, H = 280, maxPx = 92) {
   const W = 1400;
   const { canvas, ctx } = paper.makeCanvas(W, H);
   ctx.fillStyle = C.tomato;
@@ -1398,7 +1408,7 @@ function ribbonArt(paper, FONT, C, text, H = 280) {
   ctx.fillStyle = '#fffaf3';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  let size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, Math.min(92, H * 0.62), W * 0.9);
+  let size = fitSize(ctx, text, (n) => `${n}px ${FONT.display}`, Math.min(maxPx, H * 0.62), W * 0.9);
   if (size > H * 0.62) size = H * 0.62;
   ctx.font = `${size}px ${FONT.display}`;
   ctx.fillText(text, W / 2, H * 0.52);
